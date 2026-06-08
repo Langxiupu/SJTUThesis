@@ -26,4 +26,369 @@
 \item 在 ImageNet-100、CIFAR-100 与 VeRi-776 数据集上的实验表明，CIS-HARQ 在中低信道带宽比下通过反馈引导精化显著提升下游任务精度，紧带宽下经三轮增量将分类精度由同带宽基线的 $35.7\%$ 提升至 $65.0\%$，以远低于生成式与 Transformer 基线的参数规模与推理时延部分弥合其性能差距，并在不同数据分布的数据集与多任务接收端上保持一致的精化增益。
 \end{itemize}
 
+\section{系统模型与问题建模}
+\label{sec:ch5_sysmodel}
+
+本节在第~\ref{sec:dist-arch}~节确立的星上分布式管控范式下，对受限条件下的语义可靠传输过程进行建模。考虑如图~\ref{fig:ch5_overview}~所示的非对称 LEO 图像交付系统：星上发送端获取源图像并经带宽受限的前向链路发送语义表征，地面接收端恢复表征后调用本地任务模型执行下游推理。图像交付被建模为协同增量语义 HARQ 过程——初始轮建立粗粒度语义状态，其后各精化轮借助紧凑的接收端反馈，请求并累积任务缺失的语义分块。下文依次建立非对称图像交付场景、多轮语义 HARQ 传输模型与前向/反馈链路模型，并在此基础上将受限条件下的任务相关语义恢复形式化为多轮约束优化问题。本章符号含义参见文前的主要符号对照表。
+
+\begin{figure}[!htp]
+    \centering
+    \includegraphics[width=\linewidth]{figures/chapter5/cis_harq_overview.png}
+    \caption{协同增量语义 HARQ（CIS-HARQ）框架总览：初始轮在接收端建立语义状态，其后各精化轮中任务感知接收端计算任务驱动的 top-$K$ 硬掩码并回传至任务无关发送端；发送端据此条件化语义精化并截断增量负载，接收端则执行门控融合与掩码引导的语义累积}
+    \label{fig:ch5_overview}
+\end{figure}
+
+\subsection{非对称 LEO 图像交付场景}
+\label{subsec:ch5_scenario}
+
+记源图像为 $\mathbf X\in\mathbb R^{H\times W\times C_{\mathrm{img}}}$，其中 $H$ 与 $W$ 为图像高与宽，RGB 图像通道数 $C_{\mathrm{img}}=3$。发送端经分块映射将其编码为语义分块特征
+\begin{equation}\label{eq:ch5_patch}
+\mathbf P=f_{\mathrm{pat}}(\mathbf X)=[\mathbf p_1,\dots,\mathbf p_N],\quad \mathbf p_n\in\mathbb R^{D},
+\end{equation}
+其中 $N$ 为分块数，$D$ 为单分块特征维度。区别于任务导向语义通信，发送端仅可观测源图像 $\mathbf X$、HARQ 轮次索引与接收端反馈掩码，而无法获知任务标签或下游任务模型；下游任务在接收端由本地任务模型 $\mathcal T_\phi(\cdot)$ 执行。该非对称设定刻画了星上发送端仅负责图像获取与转发、地面接收端承担异构任务推理的实际图像交付架构。
+
+在第 $r$ 轮结束时，接收端维护语义状态 $\mathbf Y^{(r)}=[\mathbf y_1^{(r)},\dots,\mathbf y_N^{(r)}]$。该状态经反分块重建为 $\hat{\mathbf X}^{(r)}=f_{\mathrm{unpat}}(\mathbf Y^{(r)})$，并据此得到任务判决依据
+\begin{equation}\label{eq:ch5_logits}
+\mathbf l^{(r)}=\mathcal T_\phi\!\left(\hat{\mathbf X}^{(r)}\right),
+\end{equation}
+其中 $\mathbf l^{(r)}$ 为任务模型输出的对数几率（logits）向量，作为接收端反馈生成与任务性能评估的共同依据。
+
+\subsection{多轮语义 HARQ 传输模型}
+\label{subsec:ch5_harq}
+
+CIS-HARQ 由一次初始基础传输（base 轮）与 $R$ 个反馈条件化精化轮构成。记 HARQ 轮次索引为 $r\in\{0,1,\dots,R\}$，其中 $r=0$ 为 base 轮。在 base 轮，发送端生成任务无关的 JSCC 基础表征
+\begin{equation}\label{eq:ch5_base}
+\mathbf Z^{(0)}=\mathrm{Norm}\!\left(f_{\mathrm{base}}(\mathbf P)\right),
+\end{equation}
+其中 $f_{\mathrm{base}}(\cdot)$ 为基础编码器，$\mathrm{Norm}(\cdot)$ 为平均功率归一化。接收端将其解码为 $\mathbf Y^{(0)}=g_{\mathrm{dec}}(\hat{\mathbf Z}^{(0)})$，$g_{\mathrm{dec}}(\cdot)$ 为 JSCC 解码器，$\hat{\mathbf Z}^{(0)}$ 为经前向信道后的接收表征。该轮建立的任务无关基础状态为后续精化提供统一起点。
+
+对每个精化轮 $r\ge1$，接收端依据上一轮状态 $\mathbf Y^{(r-1)}$ 生成 top-$K$ 硬掩码 $\mathbf M_{\mathrm{hard}}^{(r)}\in\{0,1\}^{N}$，且满足 $\lVert\mathbf M_{\mathrm{hard}}^{(r)}\rVert_0=K$，仅标记 $K$ 个待精化分块。以该掩码与轮次嵌入 $\mathbf e_r$ 为条件，发送端生成候选语义增量 $\tilde{\mathbf Z}^{(r)}=f_{\mathrm{ref}}(\mathbf P,\mathbf M_{\mathrm{hard}}^{(r)},\mathbf e_r)$，并按硬掩码截断为
+\begin{equation}\label{eq:ch5_maskinc}
+\mathbf Z^{(r)}=\mathbf M_{\mathrm{hard}}^{(r)}\odot\tilde{\mathbf Z}^{(r)},\quad r\ge1,
+\end{equation}
+其中 $f_{\mathrm{ref}}(\cdot)$ 为反馈条件化精化编码器，$\odot$ 为按分块的逐元素相乘，硬掩码沿特征维广播。由此，仅接收端所请求的分块进入精化传输负载，未请求分块不占用前向链路资源，从而将重传由对完整表征的重复发送收敛为对受请求分量的选择性增量。
+
+\subsection{前向信道与紧凑反馈链路}
+\label{subsec:ch5_channel}
+
+前向链路建模为实值加性高斯白噪声（Additive White Gaussian Noise，AWGN）信道，与所实现的 JSCC 信道模型一致。在第 $r$ 轮，接收表征为
+\begin{equation}\label{eq:ch5_channel}
+\hat{\mathbf Z}^{(r)}=\mathbf Z^{(r)}+\mathbf N^{(r)},\quad \mathbf N^{(r)}\sim\mathcal N\!\left(\mathbf 0,\sigma_{\mathrm{ch}}^2\mathbf I\right),
+\end{equation}
+其中 $\sigma_{\mathrm{ch}}^2$ 为信道噪声方差。$r=0$ 时 $\mathbf Z^{(0)}$ 为基础表征；$r\ge1$ 时 $\mathbf Z^{(r)}$ 为经硬掩码截断的增量。反向链路仅承载硬掩码 $\mathbf M_{\mathrm{hard}}^{(r)}$，用于条件化发送端精化与接收端选择性更新。由于硬掩码为 $K$ 个分块位置的 $0/1$ 指示，其反馈开销远低于高维语义特征或模型状态的回传，契合星上严格受限的反馈控制信令预算。
+
+\subsection{受限条件下的语义可靠传输问题}
+\label{subsec:ch5_problem}
+
+在上述非对称架构与多轮传输模型下，受限条件下语义可靠传输的目标可表述为：在前向链路带宽、反馈预算与收发机复杂度三重约束下，最大化经多轮传输后下游任务的期望执行性能。
+
+为刻画前向链路开销，记单分块传输符号维度为 $\epsilon$，则截至第 $r$ 轮的累积信道带宽比（CBR）为
+\begin{equation}\label{eq:ch5_cbr}
+\mathrm{CBR}^{(r)}=\frac{\epsilon\,(N+rK)}{2HWC_{\mathrm{img}}},
+\end{equation}
+其中分母因子 $2$ 表示两个实维计为一次复信道使用，$N$ 与 $rK$ 分别为 base 轮与 $r$ 个精化轮累积传输的分块数。记下游任务效用为 $\mathcal Q(\mathbf l^{(r)})$（如分类任务的判决正确性），其由接收端状态 $\mathbf Y^{(r)}$ 经任务模型 $\mathcal T_\phi$ 决定。据此，受限语义可靠传输问题形式化为
+\begin{equation}\label{eq:ch5_P1}
+\begin{aligned}
+\mathbf{P1:}\quad \max_{\mathcal F_{\mathrm{mask}},\,\mathcal F_{\mathrm{tx}},\,\mathcal F_{\mathrm{rx}}}\ &\mathbb E\!\left[\sum_{r=1}^{R}\lambda_r\,\mathcal Q\!\left(\mathbf l^{(r)}\right)\right]\\
+\text{s.t.}\quad
+\mathbf{C1:}\ &\big\lVert\mathbf M_{\mathrm{hard}}^{(r)}\big\rVert_0=K, &&\forall r\ge1,\\
+\mathbf{C2:}\ &\mathrm{CBR}^{(R)}\le\mathrm{CBR}^{\max}, &&\\
+\mathbf{C3:}\ &\text{反向链路仅承载 }\mathbf M_{\mathrm{hard}}^{(r)},\ \ \Omega_{\mathrm{tx/rx}}\le\Omega^{\max}, &&\\
+&\text{式~\eqref{eq:ch5_maskinc} 与式~\eqref{eq:ch5_channel}}, &&
+\end{aligned}
+\end{equation}
+其中 $\mathcal F_{\mathrm{mask}}$、$\mathcal F_{\mathrm{tx}}$、$\mathcal F_{\mathrm{rx}}$ 分别为接收端反馈生成、发送端增量编码与接收端语义累积的待设计映射，$\lambda_r$ 为各轮任务效用权重，$\Omega_{\mathrm{tx/rx}}$ 与 $\Omega^{\max}$ 分别为收发机复杂度及其在受限载荷下的可部署上限。约束 C1 限定每轮反馈仅请求 $K$ 个分块；C2 约束累积前向开销不超过带宽预算；C3 要求反向链路仅承载硬掩码、且收发机须为可部署于受限星上载荷的轻量结构。
+
+问题 $\mathbf{P1}$ 难以直接求解，原因有三。其一，发送端任务无关，无法获知任务模型 $\mathcal T_\phi$ 与标签，因而无法在发送端直接评估 $\mathcal Q(\cdot)$ 并据此优化增量编码。其二，目标为多轮序贯耦合：第 $r$ 轮的精化结果改变接收端状态 $\mathbf Y^{(r)}$，进而影响后续各轮的反馈与增量，使各轮决策无法独立求解。其三，约束 C1—C3 将选择性反馈、前向带宽与模型复杂度相互耦合，须在严格反馈预算下以紧凑信令传递任务相关的语义缺口。上述困难促使本章不直接求解 $\mathbf{P1}$，而是将其分解为接收端任务缺口定位、紧凑反馈、发送端反馈条件化增量编码与接收端状态累积四个相互衔接的环节，以闭环协同逼近其目标，相应的框架设计见下一节。
+
+\section{协同增量语义 HARQ 框架设计}
+\label{sec:ch5_framework}
+
+本节将受限语义传输问题 $\mathbf{P1}$ 的闭环求解实例化为四个操作：任务驱动的硬掩码反馈生成、反馈条件化语义精化、掩码引导的语义累积，以及支撑三者协同的两阶段训练。
+
+\subsection{协议总览}
+\label{subsec:ch5_protocol}
+
+给定第~\ref{sec:ch5_sysmodel}~节定义的基础状态，每个精化轮 $r\ge1$ 遵循
+\begin{equation}\label{eq:ch5_protocol}
+\begin{aligned}
+\mathbf M_{\mathrm{hard}}^{(r)}&=\mathcal F_{\mathrm{mask}}\!\left(\mathbf Y^{(r-1)},\mathcal T_\phi\right),\\
+\mathbf Z^{(r)}&=\mathbf M_{\mathrm{hard}}^{(r)}\odot\mathcal F_{\mathrm{tx}}\!\left(\mathbf P,\mathbf M_{\mathrm{hard}}^{(r)},\mathbf e_r\right),\\
+\hat{\mathbf Z}^{(r)}&=\mathbf Z^{(r)}+\mathbf N^{(r)},\\
+\mathbf Y^{(r)}&=\mathcal F_{\mathrm{rx}}\!\left(\mathbf Y^{(r-1)},\hat{\mathbf Z}^{(r)},\mathbf M_{\mathrm{hard}}^{(r)}\right),
+\end{aligned}
+\end{equation}
+其中 $\mathcal F_{\mathrm{mask}}(\cdot)$ 在接收端定位任务缺口，$\mathcal F_{\mathrm{tx}}(\cdot)$ 在发送端将反馈转化为语义增量，$\mathcal F_{\mathrm{rx}}(\cdot)$ 在接收端累积增量而不覆盖未请求分量。该闭环以硬掩码为唯一跨端信令，将接收端任务感知与发送端任务无关编码相耦合。下文依次展开三个映射的具体设计与训练方法。
+
+\subsection{任务驱动的硬掩码反馈生成}
+\label{subsec:ch5_feedback}
+
+接收端通过辨识对当前任务缺口贡献最大的分块来生成反馈。给定状态 $\mathbf Y^{(r-1)}$，接收端重建 $\hat{\mathbf X}^{(r-1)}=f_{\mathrm{unpat}}(\mathbf Y^{(r-1)})$ 并得到任务 logits $\mathbf l^{(r-1)}=\mathcal T_\phi(\hat{\mathbf X}^{(r-1)})$。对分类任务，反馈生成需一个反映当前判决边界不确定性的标量任务信号。由于分类判决直接受预测类与次强竞争类之间裕量的影响，本章以 logit 裕量作为任务相关的反馈评分。记 $l_{(1)}^{(r-1)}$ 与 $l_{(2)}^{(r-1)}$ 分别为最大与次大 logit，任务输出裕量定义为
+\begin{equation}\label{eq:ch5_margin}
+O^{(r-1)}=l_{(1)}^{(r-1)}-l_{(2)}^{(r-1)}.
+\end{equation}
+裕量越小，表明当前语义状态越接近判决边界；其梯度则提供定位最影响该边界的语义分量的分块级信号。
+
+仅用梯度只能度量局部敏感性，即扰动某分块特征时裕量的变化幅度，而无法反映该分块特征自身的当前幅值。为此，采用梯度—激活联合归因评分估计各分块对当前任务裕量的实际贡献：
+\begin{equation}\label{eq:ch5_attr}
+C_n^{(r)}=\sum_{d=1}^{D}\left|\frac{\partial O^{(r-1)}}{\partial Y_{n,d}^{(r-1)}}\,Y_{n,d}^{(r-1)}\right|.
+\end{equation}
+该评分使反馈优先选择当前特征值已对判决边界产生较大影响的分块，而非仅在假设特征扰动下才会影响裕量的分块。
+
+归因评分经最小—最大归一化为 $V_n^{(r)}$。若不加约束，相邻 HARQ 轮可能反复选择相同的高归因分块，使精化资源集中于已更新位置。对首个精化轮无上一轮掩码，取 $\bar V_n^{(1)}=V_n^{(1)}$；对 $r\ge2$，引入上一轮掩码惩罚
+\begin{equation}\label{eq:ch5_penalty}
+\bar V_n^{(r)}=
+\begin{cases}
+\eta\,V_n^{(r)}, & M_{\mathrm{hard},n}^{(r-1)}=1,\\[2pt]
+V_n^{(r)}, & M_{\mathrm{hard},n}^{(r-1)}=0,
+\end{cases}
+\quad r\ge2,
+\end{equation}
+其中 $\eta\in[0,1]$ 为惩罚因子。该惩罚降低近期已精化分块的优先级而非将其完全排除，使任务贡献持续占优的分块仍可被再次选择。接收端随后选取评分最大的 $K$ 个分块，即当 $n\in\operatorname{TopK}(\bar{\mathbf V}^{(r)},K)$ 时 $M_{\mathrm{hard},n}^{(r)}=1$，否则为 $0$。所得硬掩码是回传发送端的唯一反馈信号，紧凑地指示下一轮应精化的分块。
+
+\subsection{反馈条件化语义精化编码}
+\label{subsec:ch5_refine}
+
+反馈条件化精化编码器在精化轮 $r\ge1$ 工作。给定硬掩码 $\mathbf M_{\mathrm{hard}}^{(r)}$ 与轮次嵌入 $\mathbf e_r$，发送端在不观测任务模型与任务 logits 的条件下生成定向增量。为此须将低维反馈转化为分块级特征调制，同时保持条件化机制轻量。
+
+CIS-HARQ 采用空间特征变换（Spatial Feature Transform，SFT）：由紧凑条件向量预测分块级缩放与平移参数，而非使用高开销的交叉注意力或弱可控的特征拼接。轮次嵌入使调制可随累积语义状态在 HARQ 轮间自适应演化。对第 $n$ 个分块，发送端构造条件向量 $\mathbf c_n^{(r)}=[M_{\mathrm{hard},n}^{(r)},\mathbf e_r]$ 并生成 $[\boldsymbol\gamma_n^{(r)},\boldsymbol\beta_n^{(r)}]=f_{\mathrm{SFT}}(\mathbf c_n^{(r)})$，原始分块特征经调制为
+\begin{equation}\label{eq:ch5_sft}
+\mathbf p_{n,\mathrm{mod}}^{(r)}=\boldsymbol\gamma_n^{(r)}\odot\mathbf p_n+\boldsymbol\beta_n^{(r)},
+\end{equation}
+其中 $f_{\mathrm{SFT}}(\cdot)$ 为 SFT 参数生成网络，$\boldsymbol\gamma_n^{(r)}$ 与 $\boldsymbol\beta_n^{(r)}$ 为分块级缩放与平移参数。调制特征再经残差精化网络得到 $\tilde{\mathbf z}_n^{(r)}=f_{\mathrm{res}}(\mathbf p_{n,\mathrm{mod}}^{(r)})$。随后按式~\eqref{eq:ch5_maskinc} 以硬掩码抑制未选分块，使仅受请求分块进入精化负载。
+
+硬掩码虽控制了分块的空间选择，却未约束所选分块特征的信息密度。若无显式速率约束，精化编码器可能为所选分块生成高熵增量，使实际精化负载超出预期带宽预算。为此，CIS-HARQ 引入基于熵的速率估计器以正则化附加 HARQ 负载的信息密度。除 SFT 参数外，条件向量 $\mathbf c_n^{(r)}$ 还用于预测正的尺度参数 $\boldsymbol\sigma_n^{(r)}=f_\sigma(\mathbf c_n^{(r)})$；训练时以加性均匀噪声近似量化，推理时以取整量化。估计的增量码长为
+\begin{equation}\label{eq:ch5_bits}
+\mathcal B_{\mathrm{inc}}^{(r)}=-\sum_{n,d}M_{\mathrm{hard},n}^{(r)}\log_2 p\!\left(\tilde z_{n,d}^{(r)}\mid\sigma_{n,d}^{(r)}\right),\quad r\ge1,
+\end{equation}
+其中 $p(\tilde z_{n,d}^{(r)}\mid\sigma_{n,d}^{(r)})$ 为量化值的概率质量，由估计密度在对应量化区间上积分得到。掩码项计入空间选择，负对数似然估计所选特征值的编码代价，故 $\mathcal B_{\mathrm{inc}}^{(r)}$ 为速率感知的精化优化提供了可微替代目标。
+
+\subsection{掩码引导的语义累积}
+\label{subsec:ch5_accum}
+
+经前向信道后，接收端获得含噪精化负载 $\hat{\mathbf Z}^{(r)}$ 并解码为增量语义特征 $\mathbf U^{(r)}=g_{\mathrm{dec}}(\hat{\mathbf Z}^{(r)})$。直接以新解码增量替换历史状态会损害性能：一方面增量仍受信道噪声影响且可能不完整，另一方面未选分块未被请求精化、却可能已含有用语义。因此接收端需要一种选择性累积机制，在所选分块上平衡历史与增量特征，同时保持未选分块不变。
+
+对所选分块，CIS-HARQ 先以自适应融合门平衡历史状态与新增量，再由硬掩码将融合结果仅施加于受请求分块：
+\begin{equation}\label{eq:ch5_accum}
+\begin{aligned}
+\mathbf G^{(r)}&=\sigma\!\left(f_g\!\left([\mathbf Y^{(r-1)},\mathbf U^{(r)}]\right)\right),\\
+\tilde{\mathbf Y}^{(r)}&=\mathbf G^{(r)}\odot\mathbf Y^{(r-1)}+\left(1-\mathbf G^{(r)}\right)\odot\mathbf U^{(r)},\\
+\mathbf Y^{(r)}&=\mathbf M_{\mathrm{hard}}^{(r)}\odot\tilde{\mathbf Y}^{(r)}+\left(1-\mathbf M_{\mathrm{hard}}^{(r)}\right)\odot\mathbf Y^{(r-1)},
+\end{aligned}
+\end{equation}
+其中 $f_g(\cdot)$ 为融合网络，$\sigma(\cdot)$ 为 sigmoid 函数，硬掩码沿语义特征维广播。该规则仅更新受请求分块、其余分块保持历史特征，从而保护有用语义分量免受含噪重传干扰，并支撑 HARQ 轮间的互补累积。
+
+\subsection{两阶段训练与算法流程}
+\label{subsec:ch5_train}
+
+框架采用两阶段训练。第一阶段标定任务无关 JSCC 基础传输，第二阶段优化反馈条件化语义 HARQ 精化环。
+
+第一阶段联合优化分块、基础编码、JSCC 解码与反分块模块，最小化重建损失 $\mathcal L_{\mathrm{rec}}=\lVert f_{\mathrm{unpat}}(g_{\mathrm{dec}}(\hat{\mathbf Z}^{(0)}))-\mathbf X\rVert_2^2$，以建立稳定的任务无关基础表征。
+
+第二阶段冻结基础传输模块，仅优化精化模块。训练目标权衡任务性能、判决置信度与增量速率三项。对分类任务，接收端以 logits $\mathbf l^{(r)}$ 与真值标签 $y$ 计算交叉熵损失 $\mathcal L_{\mathrm{task}}^{(r)}=\mathrm{CE}(\mathbf l^{(r)},y)$。其次，仅优化任务损失可能得到正确但低置信的预测，削弱用于后续反馈生成的裕量梯度信号；为此引入预测熵正则 $\mathcal H^{(r)}=-\sum_c p_c^{(r)}\log(p_c^{(r)}+\varepsilon)$ 以鼓励高置信预测，其中 $p_c^{(r)}=\mathrm{softmax}(\mathbf l^{(r)})_c$，$\varepsilon$ 为保证数值稳定的小常数。再次，由于仅靠分块选择并不约束增量信息密度，以熵估计的精化比特对附加 HARQ 负载施加惩罚。对其他下游任务，可在保持相同反馈条件化精化协议的前提下，替换任务损失与反馈评分函数。语义 HARQ 总训练损失为
+\begin{equation}\label{eq:ch5_loss}
+\mathcal L_{\mathrm{CIS}}=\sum_{r=1}^{R}\lambda_r\left(\mathcal L_{\mathrm{task}}^{(r)}+\lambda_{\mathrm{ent}}\mathcal H^{(r)}\right)+\lambda_{\mathrm{rate}}\sum_{r=1}^{R}\lambda_r\,\mathcal B_{\mathrm{inc}}^{(r)},
+\end{equation}
+其中 $\lambda_r$ 平衡各精化轮贡献，$\lambda_{\mathrm{ent}}$ 控制预测熵正则，$\lambda_{\mathrm{rate}}$ 控制增量速率惩罚。两个求和均自 $r=1$ 起，因为第二阶段在冻结基础传输模块的同时优化精化环；实践中对后轮赋更大权重，使最终任务输出获得更强监督，中间轮则为稳定的多轮精化提供辅助引导。
+
+CIS-HARQ 的多轮收发流程概括于算法~\ref{algo:ch5_cis}。
+
+\begin{algorithm}[!htp]
+\caption{协同增量语义 HARQ（CIS-HARQ）多轮收发流程}
+\label{algo:ch5_cis}
+\KwIn{源图像 $\mathbf X$，最大精化轮数 $R$，反馈预算 $K$，惩罚因子 $\eta$}
+\KwOut{各轮接收端语义状态 $\{\mathbf Y^{(r)}\}_{r=0}^{R}$ 与最终任务判决 $\mathbf l^{(R)}$}
+发送端计算分块特征 $\mathbf P=f_{\mathrm{pat}}(\mathbf X)$\;
+发送端生成基础表征 $\mathbf Z^{(0)}=\mathrm{Norm}(f_{\mathrm{base}}(\mathbf P))$ 并经前向信道发送\;
+接收端解码基础状态 $\mathbf Y^{(0)}=g_{\mathrm{dec}}(\hat{\mathbf Z}^{(0)})$\;
+\For{$r\leftarrow 1$ \KwTo $R$}{
+  接收端重建 $\hat{\mathbf X}^{(r-1)}=f_{\mathrm{unpat}}(\mathbf Y^{(r-1)})$ 并求 logits $\mathbf l^{(r-1)}=\mathcal T_\phi(\hat{\mathbf X}^{(r-1)})$\;
+  由式~\eqref{eq:ch5_margin}--\eqref{eq:ch5_penalty} 计算裕量 $O^{(r-1)}$、归因 $C_n^{(r)}$ 与惩罚后评分 $\bar V_n^{(r)}$\;
+  选取 top-$K$ 生成硬掩码 $\mathbf M_{\mathrm{hard}}^{(r)}$ 并经反向链路回传发送端\;
+  发送端由式~\eqref{eq:ch5_sft} 经 SFT 调制与残差精化生成候选增量，按式~\eqref{eq:ch5_maskinc} 截断为 $\mathbf Z^{(r)}$\;
+  发送端经前向信道发送 $\mathbf Z^{(r)}$，接收端解码增量 $\mathbf U^{(r)}=g_{\mathrm{dec}}(\hat{\mathbf Z}^{(r)})$\;
+  接收端由式~\eqref{eq:ch5_accum} 执行门控融合与掩码引导累积，更新状态 $\mathbf Y^{(r)}$\;
+}
+接收端输出最终任务判决 $\mathbf l^{(R)}=\mathcal T_\phi(f_{\mathrm{unpat}}(\mathbf Y^{(R)}))$\;
+\end{algorithm}
+
+\section{仿真结果与分析}
+\label{sec:ch5_sim}
+
+本节从精度—CBR 折衷、计算复杂度与时延、模块消融、反馈可视化、敏感性与鲁棒性，以及跨数据集与多任务泛化等方面，对 CIS-HARQ 进行系统评估。
+
+\subsection{仿真设置}
+\label{subsec:ch5_setup}
+
+在三个公开数据集上评估 CIS-HARQ：ImageNet-100~\cite{deng-ImageNet-CVPR09} 与 CIFAR-100~\cite{krizhevsky-CIFAR-TR09} 用于单任务图像分类，VeRi-776~\cite{liu-VeRi776-ECCV16} 用于评估多任务接收端——重建图像送入车辆颜色与车型两个任务头。除特别说明外，输入图像在传输前统一缩放或裁剪为 $224\times224$。前向链路建模为实值 AWGN 信道，默认信噪比（Signal-to-Noise Ratio，SNR）为 $5$~dB，最大精化轮数为三轮，每个硬掩码反馈选取 $K=16$ 个分块。接收端任务模型采用视觉 Transformer（Vision Transformer，ViT）~\cite{dosovitskiy-ViT-ICLR21}。ImageNet-100 采用 ViT 特征维度与 JSCC 隐藏维度均为 $512$ 的配置，CIFAR-100 与 VeRi-776 则采用维度分别为 $256$ 与 $128$ 的轻量配置，以检验受限配置下的反馈有效性。在 ImageNet-100 上，冻结任务模型对干净图像的精度为 $87.84\%$，作为相应图中的参照上界。主要仿真场景与模型超参数分别列于表~\ref{tab:ch5_scenario} 与表~\ref{tab:ch5_model}。
+
+\begin{table}[!htp]
+\centering
+\caption{仿真场景与数据集配置}
+\label{tab:ch5_scenario}
+\small
+\renewcommand{\arraystretch}{1.2}
+\begin{tabular}{@{}l l@{}}
+\toprule
+参数 & 取值 \\
+\midrule
+数据集 & ImageNet-100、CIFAR-100、VeRi-776 \\
+下游任务 & 图像分类（ImageNet-100、CIFAR-100）；车辆颜色与车型分类（VeRi-776，多任务） \\
+输入图像尺寸 & $224\times224$ \\
+前向信道 & 实值 AWGN \\
+默认信噪比 SNR & $5$~dB \\
+最大精化轮数 $R$ & $3$ \\
+反馈预算 $K$ & $16$（分块） \\
+干净图像任务精度（ImageNet-100，参照上界） & $87.84\%$ \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\begin{table}[!htp]
+\centering
+\caption{模型结构与关键超参数}
+\label{tab:ch5_model}
+\small
+\renewcommand{\arraystretch}{1.2}
+\begin{tabular}{@{}l c c@{}}
+\toprule
+参数 & ImageNet-100 & CIFAR-100 / VeRi-776 \\
+\midrule
+任务模型骨干 & ViT & ViT \\
+ViT 特征维度 $D$ & $512$ & $256$ \\
+JSCC 隐藏维度 & $512$ & $128$ \\
+单分块符号维度 $\epsilon$ & $\{16,32,64\}$ & 轻量固定配置 \\
+反馈预算 $K$ & $16$ & $16$ \\
+量化（训练/推理） & 加性均匀噪声 / 取整 & 加性均匀噪声 / 取整 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+对比基线为 SwinJSCC~\cite{SwinJSCC} 与 DiffJSCC~\cite{DiffJSCC}。SwinJSCC 作为对齐 CBR 设置下的静态开环 JSCC 基线；DiffJSCC 所发布的模型在本设置下仅提供 $\mathrm{CBR}=1/96$ 的单一工作点，且依赖 BLIP 与 Stable Diffusion、模型规模显著更大，故主要作为精度—复杂度参照而非完整 CBR 轨迹基线。评估指标包括分类精度、CBR、估计精化比特、模型参数量与端到端时延。尽管所实现信道以实值张量表示，统计 CBR 时两个实维计为一次复信道使用：对静态基线，$\mathrm{CBR}=NC_{\mathrm s}/(2HWC_{\mathrm{img}})$，其中 $C_{\mathrm s}$ 为静态 JSCC 基线的传输符号维度；对 CIS-HARQ 第 $r$ 轮则由式~\eqref{eq:ch5_cbr} 给出。估计精化比特由基于熵的速率估计器得到，刻画学习到的增量负载而非名义信道维度。
+
+\subsection{精度—CBR 主对比}
+\label{subsec:ch5_acc_cbr}
+
+表~\ref{tab:ch5_acc_cbr} 在对齐 CBR 设置下比较 ImageNet-100、SNR $=5$~dB 时 SwinJSCC 与 CIS-HARQ 的精度。CIS-HARQ 在紧带宽下最为有效：随精化轮推进，较小的 CBR 增量即可带来较大的精度提升。随着基础表征增强，精化增益逐步减小但仍为正，表明 CIS-HARQ 主要在初始语义状态不充分时发挥作用。
+
+\begin{table}[!htp]
+\centering
+\caption{ImageNet-100 上信噪比 $5$~dB 时的分类精度与 CBR 对比}
+\label{tab:ch5_acc_cbr}
+\small
+\renewcommand{\arraystretch}{1.2}
+\setlength{\tabcolsep}{5pt}
+\begin{tabular}{@{}l c c c@{}}
+\toprule
+方法 & 配置 & CBR & 精度（\%） \\
+\midrule
+SwinJSCC & $C_{\mathrm s}=16$ & $0.0104$ & $10.36$ \\
+CIS-HARQ & $\epsilon=16$，R0$\to$R3 & $0.0104\to0.0129$ & $19.76\to38.40$ \\
+\midrule
+SwinJSCC & $C_{\mathrm s}=32$ & $0.0208$ & $35.66$ \\
+CIS-HARQ & $\epsilon=32$，R0$\to$R3 & $0.0208\to0.0259$ & $56.88\to65.02$ \\
+\midrule
+SwinJSCC & $C_{\mathrm s}=64$ & $0.0417$ & $77.54$ \\
+CIS-HARQ & $\epsilon=64$，R0$\to$R3 & $0.0417\to0.0519$ & $77.60\to78.44$ \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+图~\ref{fig:ch5_acc_cbr} 可视化了相同趋势：SwinJSCC 提供静态开环工作点，而 CIS-HARQ 形成逐轮精化轨迹，并在低、中 CBR 区间获得更大增益。在 $\epsilon=16$ 的紧带宽下，三轮精化将精度由 $19.76\%$ 提升至 $38.40\%$；在 $\epsilon=32$ 时由 $56.88\%$ 提升至 $65.02\%$，相对同带宽静态基线的 $35.66\%$ 有显著优势。
+
+\begin{figure}[!htp]
+    \centering
+    \includegraphics[width=0.8\linewidth]{figures/chapter5/accuracy_cbr_tradeoff.png}
+    \caption{ImageNet-100 上信噪比 $5$~dB 时的精度—CBR 折衷：CIS-HARQ 经反馈引导精化提升任务精度，SwinJSCC 则提供静态开环传输工作点}
+    \label{fig:ch5_acc_cbr}
+\end{figure}
+
+\subsection{计算复杂度与时延}
+\label{subsec:ch5_complexity}
+
+表~\ref{tab:ch5_complexity} 给出不同传输流程的模型规模与推理时延。此处时延为对应通信流程下处理单幅图像的模型推理时间，不含传播时延与下游任务头推理；对 CIS-HARQ，所报时延涵盖 HARQ 流程中完整的收发推理管线。DiffJSCC 在其发布的 CBR 设置下达到 $85.60\%$ 精度，但依赖 BLIP 与 Stable Diffusion，模型规模与时延显著偏高；SwinJSCC 较 DiffJSCC 更轻，但仍采用 Transformer 骨干。相比之下，CIS-HARQ 仅使用轻量基础编码器、基于多层感知机（Multilayer Perceptron，MLP）的精化模块与门控融合，参数量与时延分别低至 $2.22$~M 与 $2.17$~ms，更适于资源受限的星上部署。
+
+\begin{table}[!htp]
+\centering
+\caption{不同传输流程的模型规模与推理时延}
+\label{tab:ch5_complexity}
+\small
+\renewcommand{\arraystretch}{1.2}
+\begin{tabular}{@{}l c c c@{}}
+\toprule
+方法 & 骨干 & 参数量（M） & 时延（ms） \\
+\midrule
+DiffJSCC & JSCC+BLIP+SD2.1 & $5479.00$ & $\sim4000.00$ \\
+SwinJSCC & Swin Transformer & $33.03$ & $15.19$ \\
+CIS-HARQ & 基础编码器+MLP+融合 & $2.22$ & $2.17$ \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+综合表~\ref{tab:ch5_acc_cbr} 与表~\ref{tab:ch5_complexity}，CIS-HARQ 以约为 SwinJSCC $1/15$、DiffJSCC $1/2500$ 的参数规模，在紧带宽下取得与高复杂度模型相当或部分弥合的任务精度，体现了轻量收发机经多轮协同逼近高复杂度模型性能的设计目标。
+
+\subsection{消融实验}
+\label{subsec:ch5_ablation}
+
+在 ImageNet-100、$\epsilon=32$、$K=16$、SNR $=5$~dB 下开展消融实验。图~\ref{fig:ch5_ablation} 汇总融合策略、反馈策略与速率正则三组消融，分别报告最终第三轮（R3）精度与 R1—R3 的总估计精化比特，给出不同设计选择下精度—速率折衷的紧凑比较。
+
+\begin{figure}[!htp]
+    \centering
+    \includegraphics[width=0.7\linewidth]{figures/chapter5/round_wise_ablation.png}
+    \caption{ImageNet-100（$\epsilon=32$、$K=16$、SNR $=5$~dB）上的消融实验：(a) 最终 R3 分类精度；(b) R1—R3 总估计精化比特（对数刻度）。结果验证了自适应融合、任务驱动反馈与速率正则的作用}
+    \label{fig:ch5_ablation}
+\end{figure}
+
+消融结果验证了三个核心组件。对语义累积，自适应融合优于直接替换，说明新解码增量不应不加区分地覆盖历史状态。对反馈生成，基于裕量的硬掩码持续优于随机分块选择，证实增益源于任务相关的分块选择而非单纯的额外传输。对速率正则，移除比特惩罚虽提升精度，却使估计精化负载过度增长，表明显式速率控制的必要性。
+
+\subsection{反馈掩码可视化}
+\label{subsec:ch5_maskvis}
+
+图~\ref{fig:ch5_maskvis} 可视化了任务驱动的反馈掩码。接收端依据基于裕量的归因选取 top-$K$ 分块，由于归因在每次语义更新后重新计算，所选区域随轮次演化。
+
+\begin{figure}[!htp]
+    \centering
+    \includegraphics[width=\linewidth]{figures/chapter5/feedback_mask_vis_paper.png}
+    \caption{任务驱动反馈掩码的可视化：归因图由初始传输后的当前任务输出计算，指示分块对任务裕量的敏感度；其中 top-$K$ 分块被选为后续精化轮的硬掩码反馈。该示例中预测在 R0 后错误，而在 R3 后转为正确}
+    \label{fig:ch5_maskvis}
+\end{figure}
+
+该示例中所选分块与目标区域及判别性局部结构重叠，且其位置随轮次演化，印证了所设计机制的互补精化行为。
+
+\subsection{符号维度敏感性}
+\label{subsec:ch5_epsilon}
+
+进一步评估符号维度 $\epsilon$ 在 ImageNet-100、SNR $=5$~dB、$K=16$ 下的影响。图~\ref{fig:ch5_epsilon} 同时报告逐轮精度与估计精化负载。当 $\epsilon$ 较小时，基础表征较弱，精化带来较大增益；随着 $\epsilon$ 增大，初始状态已含更多任务相关信息，精化的边际收益随之减小。估计精化比特在 $\epsilon$ 较大时亦下降，因为所绘比特度量的是学习到的精化分支的熵估计负载而非名义信道维度，说明 CIS-HARQ 在当前任务状态已足够可靠时会抑制冗余增量。
+
+\begin{figure}[!htp]
+    \centering
+    \includegraphics[width=0.8\linewidth]{figures/chapter5/epsilon_sensitivity.png}
+    \caption{ImageNet-100、SNR $=5$~dB 下对符号维度 $\epsilon$ 的敏感性：$\epsilon$ 增大改善初始表征，而当前状态已含足够任务信息时估计精化负载随之下降}
+    \label{fig:ch5_epsilon}
+\end{figure}
+
+\subsection{信道信噪比鲁棒性}
+\label{subsec:ch5_snr}
+
+图~\ref{fig:ch5_snr} 评估 CIS-HARQ 在不同 SNR 下、ImageNet-100 上 $\epsilon=32$ 与 $\epsilon=64$（$K=16$）的表现。由于初始语义状态在低 SNR 下退化更严重，精化在低 SNR 时更为有效；随着 SNR 改善，前向信道保留更多语义信息，所需纠正减少，精化增益与估计精化负载随之同步下降。
+
+\begin{figure}[!htp]
+    \centering
+    \includegraphics[width=0.8\linewidth]{figures/chapter5/snr_robustness.png}
+    \caption{ImageNet-100 上对信道 SNR 的鲁棒性：左图为 $\epsilon=32$ 与 $\epsilon=64$ 时的 R0 与 R3 精度，右图为 R1—R3 的总估计精化负载。信道退化时精化更具收益，信道更可靠时估计负载随之下降}
+    \label{fig:ch5_snr}
+\end{figure}
+
+\subsection{跨数据集与多任务泛化}
+\label{subsec:ch5_generalization}
+
+最后，图~\ref{fig:ch5_generalization} 通过比较 R0 精度、随机反馈下的 R3 精度与任务驱动反馈下的 R3 精度，评估所提反馈机制能否泛化至 ImageNet-100 之外。在 CIFAR-100、ImageNet-100 以及 VeRi-776 的两个任务头上，任务驱动反馈均一致优于初始状态并超越随机反馈。结果表明 CIS-HARQ 并不局限于单一数据集或任务头，可同时支撑单任务与多任务接收端。
+
+\begin{figure}[!htp]
+    \centering
+    \includegraphics[width=0.8\linewidth]{figures/chapter5/generalization_multitask.png}
+    \caption{跨数据集与任务的泛化：各组分别报告初始 R0 精度、随机反馈的最终 R3 精度与所提任务驱动反馈的最终 R3 精度。CIFAR-100 与 ImageNet-100 为单任务分类数据集，VeRi-776 评估颜色与车型两类分类}
+    \label{fig:ch5_generalization}
+\end{figure}
+
 \section{本章小结}
