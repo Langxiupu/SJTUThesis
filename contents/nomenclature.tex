@@ -58,6 +58,39 @@
   $\beta$                              & 交替训练中选择 TO 网络的概率 \\
   $g,\ \hat{k}$                        & FEN 流言传播轮数与广播对象数 \\
   $E,\ \mathcal{D}$                    & 训练回合数与经验回放缓冲区集合 \\
+  \\[2pt]
+  \multicolumn{2}{l}{\textbf{第 4 章\quad 双时间尺度预测调度（DTPS）}} \\[2pt]
+  $\mathcal S,\ \mathcal U$            & 卫星集合与地面终端集合 \\
+  $\mathcal S_u,\ \mathcal C$          & 用户可见卫星集合与切片类别集合 \\
+  $\mathcal M,\ m_u,\ c_u$             & 业务类型集合、用户业务类型与切片类别 \\
+  $\mathcal G_s,\ N_s^{\mathrm{RBG}}$  & 卫星 RBG 集合与 RBG 数 \\
+  $k,\ t,\ H,\ H_p$                    & 切片间隔索引、MAC 时隙索引、调度区间长度与预测视野 \\
+  $T_s,\ T_{\mathrm{MAC}},\ \mathcal T_k$ & 切片间隔时长、MAC 时隙时长与间隔内时隙集合 \\
+  $a_{u,s}(k),\ \mathcal U_s(k),\ \mathcal U_{s,c}(k)$ & 关联指示、卫星服务终端集合与切片内终端集合 \\
+  $x_{u,s,g}(t),\ B_g,\ B_u(t)$        & RBG 分配指示、单 RBG 带宽与用户总带宽 \\
+  $W_s,\ P_s^{\max},\ p_{u,s}(t)$      & 卫星总带宽、最大发射功率与用户发射功率 \\
+  $W_{s,c}(k),\ P_{s,c}(k),\ N_{s,c}^{\mathrm{RBG}}(k)$ & 切片带宽预算、功率预算与 RBG 预算 \\
+  $\boldsymbol\theta_m,\ r_m^{\min},\ d_m^{\max}$ & 业务 QoS 需求元组、最小吞吐与最大时延 \\
+  $A_u(t),\ \lambda_{m_u},\ \ell$      & 分组到达、平均到达率与平均分组长度 \\
+  $\delta_{u,s}(t),\ h_{u,s}(t),\ \gamma_{u,s}(t)$ & 星地距离、大尺度信道增益与接收信噪比 \\
+  $G_s,\ G_u,\ N_0$                    & 卫星天线增益、终端天线增益与噪声功率谱密度 \\
+  $r_u(t),\ d_u(t),\ \mu_u(t)$         & 可达速率、端到端时延与服务速率 \\
+  $S_u^{\mathrm{rate}},\ S_u^{\mathrm{delay}},\ S_u(t)$ & 速率效用、时延效用与综合 QoS 效用 \\
+  $\xi_{c_u},\ b_r,\ b_d,\ S_u^{\min}$ & 速率/时延权重、sigmoid 陡度系数与 QoS 满足门限 \\
+  $\bar C,\ \bar S_u,\ \eta_W,\ \eta_P$ & 长期资源消耗、长期 QoS 满足与带宽/功率消耗权重 \\
+  $\mathbf{P1},\ \mathbf{P2},\ \mathbf{P3}$ & 原始多星问题、切片预算子问题与 MAC 调度子问题 \\
+  $o_{s,k},\ \boldsymbol z_{s,c}(k)$   & POMDP 观测与切片观测状态 \\
+  $\mathbf a_s(k),\ \mathbf m_s(k),\ \mathcal M_s(k)$ & 切片动作、本地关联调整与可行调整集 \\
+  $\boldsymbol h_k,\ \boldsymbol z_k$  & 确定性记忆状态与随机隐状态 \\
+  $p_\theta,\ q_\theta$                & 先验网络与后验网络 \\
+  $\hat C_s,\ \hat\rho_s,\ \hat S_{s,c}^{\mathrm{slice}}$ & 预测资源代价、预测 QoS 违背率与预测切片满足 \\
+  $\mathcal L_{\mathrm{pred}},\ \mathcal L_{\mathrm{dyn}},\ \mathcal L_{\mathrm{wm}},\ \beta$ & 预测损失、先验—后验对齐损失、世界模型总损失与权衡系数 \\
+  $R_s(k),\ \gamma_{\mathrm d},\ \epsilon_s^{\max}$ & 切片奖励、折扣因子与最大可容忍 QoS 违背率 \\
+  $\pi_\psi,\ V_\omega$                & 切片策略网络与评论家网络 \\
+  $\mathcal I_{s,c}(k),\ \mathcal I_{s,c}^{\mathrm{fea}}(t)$ & 切片应用流集合与可行流集合 \\
+  $i,\ y_i(t),\ \pi_i,\ q_i$           & 应用流索引、调度指示、QCI 优先级值与 QCI/5QI 标识 \\
+  $r_i^{\mathrm{req}}(t),\ n_i^{\min}(t),\ p_i^{\min}(t)$ & 满足 QoS 所需最小速率、最小 RBG 数与最小发射功率 \\
+  $\Delta P,\ \bar P_{s,c}(k),\ F_i(n,p)$ & 功率量化粒度、量化功率容量与背包动态规划值函数 \\
 \end{longtable}
 
 \end{nomenclature}
