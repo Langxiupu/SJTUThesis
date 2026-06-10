@@ -103,6 +103,7 @@
   $\mathbf M_{\mathrm{hard}}^{(r)},\ K$ & top-$K$ 硬掩码反馈与反馈预算 \\
   $f_{\mathrm{ref}},\ \tilde{\mathbf Z}^{(r)},\ \mathbf Z^{(r)}$ & 精化编码器、候选增量与掩码截断增量 \\
   $\hat{\mathbf Z}^{(r)},\ \mathbf N^{(r)},\ \sigma_{\mathrm{ch}}^2$ & 接收表征、信道噪声与噪声方差 \\
+  $\mathbf h^{(r)},\ \kappa,\ N_{\mathrm s}$ & Rician 衰落向量、莱斯因子与复信道使用次数 \\
   $\epsilon,\ \mathrm{CBR}^{(r)}$       & 单分块传输符号维度与累积信道带宽比 \\
   $\mathcal Q(\cdot),\ \lambda_r$       & 下游任务效用与各轮任务效用权重 \\
   $\mathcal F_{\mathrm{mask}},\ \mathcal F_{\mathrm{tx}},\ \mathcal F_{\mathrm{rx}}$ & 反馈生成、增量编码与语义累积映射 \\
@@ -112,8 +113,9 @@
   $\eta$                                & 上一轮掩码惩罚因子 \\
   $\mathbf c_n^{(r)},\ f_{\mathrm{SFT}},\ \boldsymbol\gamma_n^{(r)},\ \boldsymbol\beta_n^{(r)}$ & 条件向量、SFT 网络与分块级缩放/平移参数 \\
   $f_{\mathrm{res}},\ f_\sigma,\ \boldsymbol\sigma_n^{(r)},\ \mathcal B_{\mathrm{inc}}^{(r)}$ & 残差精化网络、尺度网络、速率尺度参数与估计增量码长 \\
-  $\mathbf U^{(r)},\ \mathbf G^{(r)},\ f_g$ & 解码增量特征、自适应融合门与融合网络 \\
+  $\mathbf U^{(r)},\ \mathbf G^{(r)},\ \tilde{\mathbf Y}^{(r)},\ f_g$ & 解码增量特征、自适应融合门、门控融合候选与融合网络 \\
   $\mathcal L_{\mathrm{rec}},\ \mathcal L_{\mathrm{task}}^{(r)},\ \mathcal H^{(r)},\ \mathcal L_{\mathrm{CIS}}$ & 重建损失、任务损失、预测熵正则与总训练损失 \\
+  $y,\ p_c^{(r)},\ \varepsilon$ & 真值标签、预测类别概率与数值稳定常数 \\
   $\lambda_r,\ \lambda_{\mathrm{ent}},\ \lambda_{\mathrm{rate}}$ & 各轮权重、熵正则权重与速率惩罚权重 \\
 \end{longtable}
 
