@@ -7,7 +7,7 @@
 
 在第六代移动通信（6G）空天地一体化网络中，大规模 LEO 星座承载的业务流量有相当一部分是面向下游视觉任务的高分辨率遥感图像~\cite{xiao-SAGINSurvey-JSAC2024}，在地面侧主要用于场景分类~\cite{neware-ClassificationSurvey-ICECA2018}、语义分割~\cite{meng-SwinTransformer-GRS2022}等智能解译，而非像素级精确重建。此类图像数据量大，又受星地/星间链路带宽受限与误码起伏的影响，可靠传输并不容易。既然图像交付的目的是支撑下游任务而非逐比特恢复，传统比特级传输便会把稀缺带宽耗费在对任务无贡献的视觉冗余上，传输效率低下~\cite{Shao-TaskOrientedCommunication-JSAC2022}。视觉语义通信~\cite{peng-RobustImageSemanticCommunication-JSAC2025,Park-TransmitWhatYouNeed-JSAC2025}不再恢复比特，而只传输对下游任务有用的语义特征，可在维持任务性能的前提下降低带宽消耗与端到端时延。其中，联合信源信道编码（JSCC）以端到端学习建立源数据与信道符号之间的鲁棒映射~\cite{Bourtsoulatze-DeepJSCC-ICASSP19}，是语义图像传输的基础。
 
-然而，现有语义通信框架多为任务导向~\cite{xie-TaskOrientedMultiUserSemanticCommunication-JSAC2022,zhang-MultiTaskSemanticCommunication-TCOM2024}，编解码器针对特定下游目标联合优化：编码端依任务先验保留相关特征、舍弃无关内容，得到与该任务高度绑定的语义表征。这种语义编码与任务目标的紧耦合，与真实的星上图像交付并不相容。在 LEO 卫星图像交付中，星上发送端仅负责图像获取与转发，下游任务在接收端执行，同一幅图像还可能服务于多种异构任务~\cite{xiao-SurveyFoundationModels-GRS2025}；若为每类任务单独训练并维护专用编解码器，复杂度与可扩展性均难以接受。此外，高性能语义传输往往依赖大参数量 Transformer 编码或生成式复原模型，其计算、存储与时延开销远超受限星上载荷所能承受。受此约束，本章不再以增大星上模型换取精度，而转向“以扩展通信替代扩展星上计算”的设计思路：复用无线系统已有的 HARQ 重传环，使轻量发送端以少数反馈条件化的精化轮次换取模型容量，逐步逼近重模型的任务性能。在发送端任务无关、接收端任务感知的非对称架构下，重传的角色也随之改变~\cite{zhang-TaskUnawareSemanticCommunication-JSAC2023}：发送端无法判断哪些语义分量对未知下游任务尚不充分，只能由接收端以紧凑形式回指其缺失的任务相关信息。HARQ 本身提供了确认/否认（ACK/NACK）反向控制通路~\cite{Sheng-SCCoopPerception-TCCN26,zhou-ABRControl-HARQ-SemanticCommunication-OJCOMS2022}，正适合承载这类语义反馈，并由此引出由接收端反馈驱动、跨轮逐步精化初始任务无关表征的增量传输框架。
+然而，现有语义通信框架多为任务导向~\cite{xie-TaskOrientedMultiUserSemanticCommunication-JSAC2022,zhang-MultiTaskSemanticCommunication-TCOM2024}，编解码器针对特定下游目标联合优化：编码端依任务先验保留相关特征、舍弃无关内容，得到与该任务高度绑定的语义表征。这种语义编码与任务目标的紧耦合，与真实的星上图像交付并不相容。在 LEO 卫星图像交付中，星上发送端仅负责图像获取与转发，下游任务在接收端执行，同一幅图像还可能服务于多种异构任务~\cite{xiao-SurveyFoundationModels-GRS2025}；若为每类任务单独训练并维护专用编解码器，复杂度与可扩展性均难以接受。此外，高性能语义传输往往依赖大参数量 Transformer 编码或生成式复原模型，其计算、存储与时延开销远超受限星上载荷所能承受。受此约束，本章不再以增大星上模型换取精度，而转向“以扩展通信替代扩展星上计算”的设计思路：复用无线系统已有的 HARQ 重传环，使轻量发送端以少数反馈条件化的精化轮次换取模型容量，逐步逼近重模型的任务性能。在发送端任务无关、接收端任务感知的非对称架构下，重传的角色也随之改变~\cite{zhang-TaskUnawareSemanticCommunication-JSAC2023}：发送端无法判断哪些语义分量对未知下游任务尚不充分，只能由接收端以紧凑形式回指其缺失的任务相关信息。HARQ 本身提供了确认与否定应答（ACK/NACK）反向控制通路~\cite{Sheng-SCCoopPerception-TCCN26,zhou-ABRControl-HARQ-SemanticCommunication-OJCOMS2022}，正适合承载这类语义反馈，并由此引出由接收端反馈驱动、跨轮逐步精化初始任务无关表征的增量传输框架。
 
 围绕语义 HARQ，已有研究在细粒度错误定位与反馈驱动自适应方面取得了进展。早期工作以句级语义相似度取代比特级校验，并随信道条件与信源复杂度自适应调整语义码率~\cite{jiang-DeepSourceChannelCoding-TCOM2022,zhou-ABRControl-HARQ-SemanticCommunication-OJCOMS2022}；其后，特征级失真评估~\cite{hu-SemHARQ-JSAC25}与基于语义码本的细粒度错误识别~\cite{liang-SemanticCodebookHARQ-TCOMM25}将重传触发由比特正确性推进至语义可靠性；近期工作则借助生成式隐空间模型实现多轮语义合并~\cite{han-GenerativeSemanticHARQ-arXiv2026}，或在联合信源信道编码框架内基于反馈进行重传决策与再编码~\cite{li-Boyuan-JS3C-GLOBECOM2025}。但在任务无关的星上图像交付场景下，这些方案仍有三点不足。其一，多数机制以重建或感知质量为导向，衡量的是整体输出质量，而非单个语义分量对任务结果的贡献，因而难以定位最能修复当前任务缺口的重传分量。其二，语义表征常以任务耦合方式学习，要求发送端预知下游任务；即便发送端任务无关，接收端也未显式量化任务执行缺失了哪些语义分量，发送端更未在严格反馈预算下逐轮精化表征。其三，反馈信令多为 ACK/NACK 或标量估计这类粗粒度指示，难以刻画具体的语义缺陷，而多轮接收端又多依赖特征平均或预设合并规则，未显式建模任务相关语义在多轮间的演化与互补。因此，现有语义 HARQ 仍缺乏一套将接收端任务缺口定位、紧凑反馈、反馈条件化增量生成与跨轮状态累积贯通起来的闭环精化机制。
 
@@ -29,14 +29,7 @@
 \section{系统模型与问题建模}
 \label{sec:ch5_sysmodel}
 
-本节在第~\ref{sec:dist-arch}~节确立的星上分布式管控范式下，对受限条件下的语义可靠传输过程进行建模。所考虑的非对称 LEO 图像交付系统如图~\ref{fig:ch5_overview}~所示：星上发送端获取源图像，经带宽受限的前向链路发送语义表征，地面接收端恢复表征后调用本地任务模型执行下游推理。整个交付是一个协同增量语义 HARQ 过程，初始轮先建立粗粒度的语义状态，其后各精化轮再借助紧凑的接收端反馈，请求并累积任务尚缺的语义分块。据此，本节先建立非对称图像交付场景、多轮语义 HARQ 传输模型与前向/反馈链路模型，再把受限条件下的任务相关语义恢复形式化为多轮约束优化问题。本章符号含义参见文前的主要符号对照表。
-
-\begin{figure}[!htp]
-    \centering
-    \includegraphics[width=\linewidth]{figures/chapter5/cis_harq_overview.png}
-    \caption{协同增量语义 HARQ（CIS-HARQ）框架总览：初始轮在接收端建立语义状态，其后各精化轮中任务感知接收端计算任务驱动的 top-$K$ 硬掩码并回传至任务无关发送端；发送端据此条件化语义精化并截断增量负载，接收端则执行门控融合与掩码引导的语义累积}
-    \label{fig:ch5_overview}
-\end{figure}
+本节在第~\ref{sec:ch2_arch_comparison}~节确立的星上分布式管控范式下，对受限条件下的语义可靠传输过程进行建模。在所考虑的非对称 LEO 图像交付系统中，星上发送端获取源图像，经带宽受限的前向链路发送语义表征，地面接收端恢复表征后调用本地任务模型执行下游推理。整个交付是一个协同增量语义 HARQ 过程，初始轮先建立粗粒度的语义状态，其后各精化轮再借助紧凑的接收端反馈，请求并累积任务尚缺的语义分块。据此，本节先建立非对称图像交付场景、多轮语义 HARQ 传输模型与前向/反馈链路模型，再把受限条件下的任务相关语义恢复形式化为多轮约束优化问题。本章符号含义参见文前的主要符号对照表。
 
 \subsection{非对称 LEO 图像交付场景}
 \label{subsec:ch5_scenario}
@@ -88,7 +81,7 @@ h_i^{(r)}=\sqrt{\frac{\kappa}{\kappa+1}}+\sqrt{\frac{1}{\kappa+1}}\,\tilde h_i^{
 
 在上述非对称架构与多轮传输模型下，受限条件下语义可靠传输的目标可表述为：在前向链路带宽、反馈预算与收发机复杂度三重约束下，最大化经多轮传输后下游任务的期望执行性能。
 
-为刻画前向链路开销，记单分块传输符号维度为 $\epsilon$，则截至第 $r$ 轮的累积信道带宽比（CBR）为
+为刻画前向链路开销，记单分块传输符号维度为 $\epsilon$，则截至第 $r$ 轮的累积信道带宽比（Channel Bandwidth Ratio，CBR）为
 \begin{equation}\label{eq:ch5_cbr}
 \mathrm{CBR}^{(r)}=\frac{\epsilon\,(N+rK)}{2HWC_{\mathrm{img}}},
 \end{equation}
@@ -110,7 +103,14 @@ h_i^{(r)}=\sqrt{\frac{\kappa}{\kappa+1}}+\sqrt{\frac{1}{\kappa+1}}\,\tilde h_i^{
 \section{协同增量语义 HARQ 框架设计}
 \label{sec:ch5_framework}
 
-本节将受限语义传输问题 $\mathbf{P1}$ 的闭环求解实例化为四个操作：任务驱动的硬掩码反馈生成、反馈条件化语义精化、掩码引导的语义累积，以及支撑三者协同的两阶段训练。
+本节将受限语义传输问题 $\mathbf{P1}$ 的闭环求解实例化为 CIS-HARQ 框架，其总体结构如图~\ref{fig:ch5_system_model}~所示。该框架由三个功能模块构成闭环：接收端的任务驱动硬掩码反馈生成模块实现映射 $\mathcal F_{\mathrm{mask}}$，依据当前语义状态下的任务输出裕量及其梯度定位任务相关的语义缺口，并将其压缩为 Top-$K$ 硬掩码经反向链路回传；发送端的反馈条件化语义精化编码模块实现映射 $\mathcal F_{\mathrm{tx}}$，以硬掩码与 HARQ 轮次嵌入为条件生成选择性语义增量，仅精化接收端所请求的分块；接收端的掩码引导语义累积模块实现映射 $\mathcal F_{\mathrm{rx}}$，对被请求分块门控融合历史语义与当前增量、对未请求分块保持历史语义不变。三个模块由两阶段训练协同优化。下文先给出各模块协同的单轮协议流程，再依次阐述各模块与训练方法的设计。
+
+\begin{figure}[!htp]
+    \centering
+    \includegraphics[width=\linewidth]{figures/chapter5/system_model.pdf}
+    \caption{CIS-HARQ 框架的总体结构}
+    \label{fig:ch5_system_model}
+\end{figure}
 
 \subsection{协议总览}
 \label{subsec:ch5_protocol}
@@ -124,7 +124,7 @@ h_i^{(r)}=\sqrt{\frac{\kappa}{\kappa+1}}+\sqrt{\frac{1}{\kappa+1}}\,\tilde h_i^{
 \mathbf Y^{(r)}&=\mathcal F_{\mathrm{rx}}\!\left(\mathbf Y^{(r-1)},\hat{\mathbf Z}^{(r)},\mathbf M_{\mathrm{hard}}^{(r)}\right),
 \end{aligned}
 \end{equation}
-其中 $\mathcal F_{\mathrm{mask}}(\cdot)$ 在接收端定位任务缺口，$\mathcal F_{\mathrm{tx}}(\cdot)$ 在发送端将反馈转化为语义增量，$\mathcal F_{\mathrm{rx}}(\cdot)$ 在接收端累积增量而不覆盖未请求分量。该闭环以硬掩码为唯一跨端信令，把接收端的任务感知与发送端的任务无关编码耦合起来。以下分别给出三个映射的设计与相应的训练方法。
+其中 $\mathcal F_{\mathrm{mask}}(\cdot)$ 在接收端定位任务缺口，$\mathcal F_{\mathrm{tx}}(\cdot)$ 在发送端将反馈转化为语义增量，$\mathcal F_{\mathrm{rx}}(\cdot)$ 在接收端累积增量而不覆盖未请求分量。该闭环以硬掩码为唯一跨端信令，把接收端的任务感知与发送端的任务无关编码耦合起来。
 
 \subsection{任务驱动的硬掩码反馈生成}
 \label{subsec:ch5_feedback}
