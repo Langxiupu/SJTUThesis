@@ -161,7 +161,7 @@ LEO-sRAN 无线资源管理的目标是在满足异构用户业务需求的同�
 \end{equation}
 其中 $\mathbf A=\{a_{u,s}(k)\}_{k\ge1}$、$\mathbf X=\{x_{i,s,g}(t)\}_{t\ge1}$、$\mathbf p=\{p_{i,s}(t)\}_{t\ge1}$ 分别为关联、RBG 分配与功率分配决策，$S_i^{\min}$ 为流 $i$ 的 QoS 满足门限。问题 $\mathbf{P1}$ 不施加任何切片结构，表示在卫星级资源约束下将带宽与功率直接分配给业务流的原始流级资源分配问题；其中卫星总带宽约束已由正交 RBG 划分隐式保证。
 
-问题 $\mathbf{P1}$ 难以直接求解，原因有三。其一，它是同时包含二值关联与 RBG 分配变量及连续功率分配变量的混合整数非线性规划问题，其可行空间随卫星数、业务流数与 RBG 数迅速膨胀。其二，QoS 约束为长期随机约束，$S_i(t)$ 取决于未来业务到达、信道服务能力与业务流间竞争；在缺乏未来实现先验的条件下，$\mathbf{P1}$ 无法转化为确定性的在线优化问题。其三，$\mathbf{P1}$ 是全局多星优化问题，集中求解须跨多颗卫星汇聚细粒度的流级状态、信道条件与业务统计，这对回程链路存在时延与间歇性的 LEO-sRAN 而言并不现实。上述困难促使本章在卫星本地以双时间尺度对 $\mathbf{P1}$ 进行分解，相应的子问题分解与建模见下一小节。
+问题 $\mathbf{P1}$ 难以直接求解，原因有三。其一，它是同时包含二值关联与 RBG 分配变量及连续功率分配变量的混合整数非线性规划问题，其可行空间随卫星数、业务流数与 RBG 数迅速膨胀。其二，QoS 约束为长期随机约束，$S_i(t)$ 取决于未来业务到达、信道服务能力与业务流间竞争；在缺少未来业务到达与信道实现的条件下，$\mathbf{P1}$ 无法转化为确定性的在线优化问题。其三，$\mathbf{P1}$ 是全局多星优化问题，集中求解须跨多颗卫星汇聚细粒度的流级状态、信道条件与业务统计，这对回程链路存在时延与间歇性的 LEO-sRAN 而言并不现实。上述困难促使本章在卫星本地以双时间尺度对 $\mathbf{P1}$ 进行分解，相应的子问题分解与建模见下一小节。
 
 \subsection{双时间尺度分解}
 \label{subsec:ch4_decomposition}
@@ -170,7 +170,7 @@ LEO-sRAN 无线资源管理的目标是在满足异构用户业务需求的同�
 
 其一，以单星本地协调替代全局多星优化。不再在所有卫星与用户上求解 $\mathbf{P1}$，而是由每颗卫星依据本地业务观测与邻星上下文执行资源管理；用户关联与迁移通过可见卫星间的本地协调进行调整，以在空间需求不均时重分布业务。
 
-其二，将 $\mathbf{P1}$ 中的长期随机优化转化为离线动态学习与在线资源决策。预测模型离线学习资源预算在随机业务与信道变化下如何影响未来 QoS 可行性；在线执行时，调度器依据观测到的切片状态与已学习的动态推断当前资源预算，而非在每个间隔求解长视野随机规划。所提世界模型进一步以后验校正缓解离线—在线失配，即由最新的 MAC 层服务反馈在后续预算决策前更新隐含切片状态。
+其二，将 $\mathbf{P1}$ 中的长期随机优化转化为离线动态学习与在线资源决策。预测模型离线学习资源预算在随机业务与信道变化下如何影响未来 QoS 可行性；在线执行时，调度器依据观测到的切片状态与已学习的动态推断当前资源预算，而非在每个间隔求解长视野随机规划。所提世界模型进一步以 MAC 反馈校正缓解离线与在线之间的失配，即由最新的 MAC 层服务统计在后续预算决策前更新切片服务状态。
 
 其三，分解遵循可行域参数化原则。上层不直接确定时隙级用户调度，而是通过切片级带宽与功率预算参数化下层 MAC 问题的可行集。对任意满足卫星级资源约束的非负预算，MAC 问题均具有良定义的可行域，并包含无任何业务流可满足其 QoS 需求时的空调度动作；MAC 调度器仅在该预算诱导的可行域内选择用户并分配资源。
 
@@ -182,17 +182,17 @@ LEO-sRAN 无线资源管理的目标是在满足异构用户业务需求的同�
 \begin{equation}\label{eq:ch4_predtrans}
 \hat{\boldsymbol\zeta}_{s,c}(k+\tau+1)=\mathcal F\!\left(\hat{\boldsymbol\zeta}_{s,c}(k+\tau),\hat{\boldsymbol a}_{s,c}(k+\tau)\right),\quad \tau=0,\dots,H_p-1,
 \end{equation}
-其中 $\hat{\boldsymbol\zeta}_{s,c}(k)=\boldsymbol\zeta_{s,c}(k)$，$\hat{\boldsymbol a}_{s,c}(k+\tau)$ 为想象的切片动作，$H_p$ 为预测视野。基于预测切片状态，预测的平均时延、服务速率与 QoS 效用分别记为 $\hat d_{s,c}(k+\tau)$、$\hat r_{s,c}(k+\tau)$ 与 $\hat S_{s,c}(k+\tau)$。
+其中 $\hat{\boldsymbol\zeta}_{s,c}(k)=\boldsymbol\zeta_{s,c}(k)$，$\hat{\boldsymbol a}_{s,c}(k+\tau)$ 为候选切片动作，$H_p$ 为预测视野。基于预测切片状态，预测的平均时延、服务速率与 QoS 效用分别记为 $\hat d_{s,c}(k+\tau)$、$\hat r_{s,c}(k+\tau)$ 与 $\hat S_{s,c}(k+\tau)$。
 
 卫星 $s$ 在间隔 $k$ 的 QoS 违背率定义为
 \begin{equation}\label{eq:ch4_viol}
 \rho_s(k)=\frac{1}{|\mathcal I_s(k)|}\sum_{i\in\mathcal I_s(k)}\mathbf 1\!\left(\bar S_i(k)<S_i^{\min}\right),
 \end{equation}
-其中 $\bar S_i(k)=\frac{1}{N_\text{MAC}}\sum_{t\in\mathcal T_k}S_i(t)$ 为流 $i$ 在间隔 $k$ 内的平均 QoS 效用；将求和范围限于 $\mathcal I_{s,c}(k)$ 即得切片级违背率 $\rho_{s,c}(k)$。由于间隔 $k+\tau$ 的流级效用在预算决策时不可得，预测 QoS 违背率 $\hat\rho_s(k+\tau)$ 定义为对 $\rho_s(k+\tau)$ 的模型估计，由第~\ref{subsec:ch4_worldmodel}~节世界模型的预测头输出。卫星 $s$ 的预测预留代价定义为
+其中 $\bar S_i(k)=\frac{1}{N_\text{MAC}}\sum_{t\in\mathcal T_k}S_i(t)$ 为流 $i$ 在间隔 $k$ 内的平均 QoS 效用；将求和范围限于 $\mathcal I_{s,c}(k)$ 即得切片级违背率 $\rho_{s,c}(k)$。由于间隔 $k+\tau$ 的流级效用在预算决策时不可得，预测 QoS 违背率 $\hat\rho_s(k+\tau)$ 定义为对 $\rho_s(k+\tau)$ 的模型估计，由第~\ref{subsec:ch4_worldmodel}~节世界模型的预测分支输出。卫星 $s$ 的预测预留代价定义为
 \begin{equation}\label{eq:ch4_predcost}
 \hat C_s(k+\tau)=\eta_W\sum_{c\in\mathcal C}\frac{\hat W_{s,c}(k+\tau)}{W_s}+\eta_P\sum_{c\in\mathcal C}\frac{\hat P_{s,c}(k+\tau)}{P_s^{\max}},
 \end{equation}
-其中 $\hat W_{s,c}(k+\tau)$ 与 $\hat P_{s,c}(k+\tau)$ 为想象切片动作在间隔 $k+\tau$ 诱导的切片预算。该代价度量的是加权的归一化预留资源包络，而非实际消耗的时隙级资源。
+其中 $\hat W_{s,c}(k+\tau)$ 与 $\hat P_{s,c}(k+\tau)$ 为候选切片动作在间隔 $k+\tau$ 诱导的切片预算。该代价度量的是加权的归一化预留资源包络，而非实际消耗的时隙级资源。
 
 在间隔 $k$ 起始，卫星 $s$ 的慢时间尺度切片问题形式化为
 \begin{equation}\label{eq:ch4_P2}
@@ -242,9 +242,9 @@ DTPS 将 $\mathbf{P1}$ 的求解沿物理控制层级分置于两个运行在不
 \subsection{基于世界模型的生成式切片资源预留}
 \label{subsec:ch4_worldmodel}
 
-在一个切片间隔内，业务到达、信道状态与资源竞争跨多个 MAC 时隙变化，而切片层仅在 MAC 执行之后观测到聚合的业务统计。这类稀疏观测使其难以推断当前带宽—功率预算将如何影响未来的用户级 QoS 可行性。为此，本节设计基于世界模型的生成式切片资源预留模块：它学习隐空间潜动态，从记忆生成想象的未来切片轨迹，从而在预算决策前评估 $\mathbf{P2}$ 所需的长期 QoS 可行性。
+在一个切片间隔内，业务到达、信道状态与资源竞争跨多个 MAC 时隙变化，而切片层仅在 MAC 执行之后观测到聚合的业务统计。这类稀疏观测使其难以推断当前带宽—功率预算将如何影响未来的用户级 QoS 可行性。为此，本节设计基于世界模型的生成式切片资源预留模块：它在内部状态空间中学习预算条件下的服务状态演化，并据此生成未来切片服务预测，从而在预算决策前评估 $\mathbf{P2}$ 所需的长期 QoS 可行性。
 
-该模块沿用 Dreamer 类世界模型的潜动态思想~\cite{Hafner-WorldModels-arXiv24}，并针对 LEO-sRAN 资源分配作三点适配：其一，观测由切片级服务能力、业务类型需求、资源状态与邻星上下文构成，而非视觉或通用控制状态；其二，预测头输出通信特有量，包括预留代价、QoS 违背率与切片级 QoS 满足；其三，将学习到的潜动态与基于近端策略优化（Proximal Policy Optimization，PPO）的切片策略耦合，以确定带宽—功率预算与本地关联调整，QoS 可行性则由 MAC 层经独立的资源选择机制保证。经此适配，切片层学习的是预算条件下的 QoS 可行性动态，而非仅预测未来业务需求。据此将慢时间尺度问题 $\mathbf{P2}$ 建模为部分可观马尔可夫决策过程（Partially Observable Markov Decision Process，POMDP），其观测、动作与奖励定义如下。
+该模块沿用 Dreamer 类世界模型的时序状态建模思想~\cite{Hafner-WorldModels-arXiv24}，并针对 LEO-sRAN 资源分配作三点适配：其一，观测由切片级服务能力、业务类型需求、资源状态与邻星上下文构成，而非视觉或通用控制状态；其二，预测分支输出通信特有量，包括预留代价、QoS 违背率与切片级 QoS 满足；其三，将学习到的服务状态预测模型与基于近端策略优化（Proximal Policy Optimization，PPO）的切片策略耦合，以确定带宽—功率预算与本地关联调整，QoS 可行性则由 MAC 层经独立的资源选择机制保证。经此适配，切片层学习的是预算条件下的 QoS 可行性动态，而非仅预测未来业务需求。据此将慢时间尺度问题 $\mathbf{P2}$ 建模为部分可观马尔可夫决策过程（Partially Observable Markov Decision Process，POMDP），其观测、动作与奖励定义如下。
 
 \textbf{观测.} 切片间调度器仅可获得粗粒度的切片级服务描述符与统计量，而流级竞争与瞬时 RBG 分配等细粒度 MAC 状态不可见。该观测作为世界模型推断隐含切片状态的输入：
 \begin{equation}\label{eq:ch4_obs}
@@ -268,17 +268,19 @@ R_s(k)=w_1\frac{1}{|\mathcal C|}\sum_{c\in\mathcal C}S_{s,c}^{\mathrm{slice}}(k)
 \end{equation}
 其中 $w_1$、$w_2$、$w_3$ 为标度系数。首项奖励平均切片效用，$R_s^{\mathrm{viol}}(k)$ 与 $R_s^{\mathrm{cost}}(k)$ 分别惩罚 QoS 违背与过度资源预留。其中 $R_s^{\mathrm{cost}}(k)$ 由归一化的预留切片预算而非实际消耗的时隙级资源计算，使奖励仅在所诱导的 MAC 可行域足以维持流级 QoS 满足时才鼓励策略压缩资源预留。
 
-\textbf{潜动态与后验校正.} 该模块的核心是学习切片级预算如何改变下游网络状态的紧凑表征。引入两类隐变量：确定性记忆状态 $\boldsymbol h_k$，概括观测与切片动作的历史演化；随机隐状态 $\boldsymbol z_k$，刻画切片级业务需求、服务能力与 QoS 压力中的不确定成分。二者构成支配推断、预测与轨迹生成的完整隐状态 $(\boldsymbol h_k,\boldsymbol z_k)$。记忆状态经长短期记忆（Long Short-Term Memory，LSTM）网络 $f_\theta(\cdot)$ 更新~\cite{Gong-SatTrafficPrediction-ICCC24}：
+\textbf{切片服务状态跟踪与 MAC 反馈校正.} 该模块并非学习通用的环境动态，而是在切片间隔尺度上跟踪“资源预算、服务能力与 QoS 违背”之间的演化关系。为此，引入两类内部状态变量：历史服务状态记忆 $\boldsymbol h_k$ 用于汇总过去切片观测、资源预算和 MAC 执行结果；不确定服务状态变量 $\boldsymbol z_k$ 用于刻画业务到达、信道服务能力和 QoS 压力中的随机波动。二者共同构成切片层预算决策所需的内部状态表征 $(\boldsymbol h_k,\boldsymbol z_k)$。历史服务状态记忆由长短期记忆（Long Short-Term Memory，LSTM）网络 $f_\theta(\cdot)$ 更新~\cite{Gong-SatTrafficPrediction-ICCC24}：
 \begin{equation}\label{eq:ch4_memory}
 \boldsymbol h_k=f_\theta\!\left(\boldsymbol h_{k-1},\boldsymbol z_{k-1},\mathbf a_s(k-1)\right).
 \end{equation}
-随机隐状态由以当前观测与记忆为条件的后验推断：
+在切片间隔 $k$ 起始，卫星根据最新的切片级观测和上一间隔 MAC 层反馈，对当前服务状态进行校正：
 \begin{equation}\label{eq:ch4_posterior}
 \boldsymbol z_k\sim q_\theta(\boldsymbol z_k\mid\boldsymbol h_k,o_{s,k}),
 \end{equation}
-其中 $q_\theta(\cdot)$ 以多层感知机（Multilayer Perceptron，MLP）参数化。后验将真实 MAC 层反馈纳入隐表征，而先验 $p_\theta(\boldsymbol z_k\mid\boldsymbol h_k)$ 则学习仅凭记忆逼近该后验。这一先验—后验对齐使模型能在真实观测不可得时想象未来切片状态。在线执行时，每个切片间隔均以最新聚合的 MAC 层反馈进行后验推断，即对隐含切片状态执行后验校正。当实际服务动态偏离记忆驱动的先验时（如突发到达或服务率骤降），后验校正尤为重要：仅依赖先验会跨切片间隔累积隐状态漂移，而后验校正以当前观测到的 QoS 违背、预留代价与切片满足更新隐状态；面向未来的想象前向推演（imagination rollout）因缺乏未来物理观测仍依赖先验。
+其中 $q_\theta(\cdot)$ 由多层感知机（Multilayer Perceptron，MLP）参数化。式~\eqref{eq:ch4_posterior} 将已实现吞吐、时延、QoS 违背率和资源占用等 MAC 层统计重新注入切片层状态，使切片层在下一次预算决策前获得经反馈校正的服务能力估计。与之对应，历史预测分布 $p_\theta(\boldsymbol z_k\mid\boldsymbol h_k)$ 学习在缺少当前物理观测时，仅由历史服务状态记忆预测切片服务状态。通过使历史预测分布逼近反馈校正分布，模型能够在未来 MAC 反馈尚不可得时，预测不同带宽--功率预算下的切片级服务能力和 QoS 目标满足能力。
 
-\textbf{预测头与训练目标.} 为使隐表征对切片预留具备预测性，训练模型以重构当前观测并预测 $\mathbf{P2}$ 所需的量。以 $(\boldsymbol h_k,\boldsymbol z_k)$ 为条件，预测头输出重构观测、预留代价、QoS 违背率与切片级 QoS 满足：
+在线执行时，每个切片间隔均利用最新 MAC 层服务统计执行上述反馈校正。当业务突发、服务速率下降或用户关联调整导致实际服务状态偏离历史预测时，反馈校正可以及时修正切片层对当前可行域的估计，避免预算决策持续依赖过时的服务状态。对于未来多个切片间隔的预测，由于尚无真实 MAC 反馈，模型使用历史预测分布递推未来服务状态，从而为切片层提供预算条件下的服务能力预测。
+
+\textbf{预测输出与训练目标.} 为支撑切片级资源预留，模型需要输出与 $\mathbf{P2}$ 直接相关的通信性能指标，而不仅重构观测状态。以 $(\boldsymbol h_k,\boldsymbol z_k)$ 为输入，模型分别预测当前观测、预留代价、QoS 违背率和切片级 QoS 满足度：
 \begin{equation}\label{eq:ch4_predheads}
 \begin{aligned}
 \hat o_{s,k}&=g_{\theta_o}(\boldsymbol h_k,\boldsymbol z_k), & \hat C_s(k)&=g_{\theta_C}(\boldsymbol h_k,\boldsymbol z_k),\\
@@ -289,7 +291,7 @@ R_s(k)=w_1\frac{1}{|\mathcal C|}\sum_{c\in\mathcal C}S_{s,c}^{\mathrm{slice}}(k)
 \begin{equation}\label{eq:ch4_lpred}
 \mathcal L_{\mathrm{pred}}=\sum_k\Big[\ell_o(\hat o_{s,k},o_{s,k})+\ell_C(\hat C_s(k),C_s(k))+\ell_\rho(\hat\rho_s(k),\rho_s(k))+\ell_S(\hat S_s^{\mathrm{slice}}(k),S_s^{\mathrm{slice}}(k))\Big],
 \end{equation}
-其中 $\ell_o$、$\ell_C$、$\ell_\rho$、$\ell_S$ 分别对应观测重构、预留代价估计、QoS 违背预测与切片满足预测，聚合预测切片满足为 $\hat S_s^{\mathrm{slice}}(k)=\frac{1}{|\mathcal C|}\sum_{c\in\mathcal C}\hat S_{s,c}^{\mathrm{slice}}(k)$。转移网络以最小化 Kullback–Leibler（KL）散度对齐记忆驱动的先验与观测相关的后验：
+其中 $\ell_o$、$\ell_C$、$\ell_\rho$、$\ell_S$ 分别对应观测重构、预留代价估计、QoS 违背预测与切片满足预测，聚合预测切片满足为 $\hat S_s^{\mathrm{slice}}(k)=\frac{1}{|\mathcal C|}\sum_{c\in\mathcal C}\hat S_{s,c}^{\mathrm{slice}}(k)$。为保证未来服务能力预测与真实 MAC 反馈校正后的状态一致，引入历史预测分布与反馈校正分布之间的 Kullback--Leibler（KL）散度约束：
 \begin{equation}\label{eq:ch4_ldyn}
 \mathcal L_{\mathrm{dyn}}=\sum_k D_{\mathrm{KL}}\!\left(q_\theta(\boldsymbol z_k\mid\boldsymbol h_k,o_{s,k})\,\big\|\,p_\theta(\boldsymbol z_k\mid\boldsymbol h_k)\right).
 \end{equation}
@@ -297,7 +299,7 @@ R_s(k)=w_1\frac{1}{|\mathcal C|}\sum_{c\in\mathcal C}S_{s,c}^{\mathrm{slice}}(k)
 \begin{equation}\label{eq:ch4_lwm}
 \mathcal L_{\mathrm{wm}}=\mathcal L_{\mathrm{pred}}+\beta\mathcal L_{\mathrm{dyn}},
 \end{equation}
-其中 $\beta$ 权衡预测保真度与先验—后验一致性。世界模型的神经网络结构与上述各损失的反向传播路径如图~\ref{fig:ch4_wm_arch}~所示。
+其中 $\beta$ 权衡性能预测精度与状态预测一致性。世界模型的神经网络结构与上述各损失的反向传播路径如图~\ref{fig:ch4_wm_arch}~所示。
 
 \begin{figure}[!htp]
     \centering
@@ -306,12 +308,12 @@ R_s(k)=w_1\frac{1}{|\mathcal C|}\sum_{c\in\mathcal C}S_{s,c}^{\mathrm{slice}}(k)
     \label{fig:ch4_wm_arch}
 \end{figure}
 
-\textbf{想象前向推演与策略优化.} 训练后的世界模型无需与真实 LEO-sRAN 环境交互即可生成想象切片轨迹。从当前活跃记忆状态出发，模型由先验网络采样后续隐状态并递归展开未来切片状况，所得想象轨迹为 $\mathbf{P2}$ 的奖励与可行性代理提供预测的切片满足、预留代价与 QoS 违背率。在一段想象的资源预算序列下，隐状态递归传播为
+\textbf{模型内前向预测与策略优化.} 训练后的世界模型作为切片层的服务能力预测器使用。在每个切片间隔起始，模型先根据最新 MAC 反馈校正当前切片服务状态；随后，在候选带宽--功率预算和本地关联调整下，递推预测未来若干切片间隔内的预留代价、QoS 违背率和切片级 QoS 满足度。这一模型内前向预测为 $\mathbf{P2}$ 提供长期预算效果评估，而不需要在在线阶段显式求解多步随机优化问题。给定一段候选切片动作序列，内部状态递推为
 \begin{equation}\label{eq:ch4_imagine}
 \boldsymbol h_{k+\tau+1}=f_\theta\!\left(\boldsymbol h_{k+\tau},\boldsymbol z_{k+\tau},\mathbf a_s(k+\tau)\right),\qquad
 \boldsymbol z_{k+\tau+1}\sim p_\theta\!\left(\boldsymbol z_{k+\tau+1}\mid\boldsymbol h_{k+\tau+1}\right).
 \end{equation}
-累积想象奖励估计当前及未来切片动作的长期效应，用于训练切片策略而非在线求解显式的多步优化问题；想象阶段因缺乏未来物理观测，后验网络不参与。在此基础上，将学习到的世界模型与 PPO 集成~\cite{Li-EnergyBalancingOffloading-TGCN26}：确定性记忆状态 $\boldsymbol h_k$ 聚合历史状态与资源决策，先验与后验模块支配隐空间跟踪；通过对齐先验与后验，模型习得可在无需未来真实观测的条件下评估未来切片级 QoS 可行性的隐表征，用于策略训练。图~\ref{fig:ch4_wm_workflow}~在时间轴上展示了世界模型每个切片间隔的推理步骤：记忆更新、后验隐状态推断、预测头输出、先验前向推演与在线后验校正。
+由于未来切片间隔的真实业务到达、信道服务能力和 MAC 执行结果尚不可见，前向预测阶段不使用反馈校正分布，而由历史预测分布递推未来服务状态。由预测得到的预留代价、QoS 违背率和切片级 QoS 满足度进一步构造长期奖励，用于训练切片预算策略。图~\ref{fig:ch4_wm_workflow}~在时间轴上展示了世界模型每个切片间隔的推理步骤：记忆更新、反馈状态校正、性能预测输出、历史状态预测与在线反馈校正。
 
 \begin{figure}[!htp]
     \centering
@@ -320,36 +322,36 @@ R_s(k)=w_1\frac{1}{|\mathcal C|}\sum_{c\in\mathcal C}S_{s,c}^{\mathrm{slice}}(k)
     \label{fig:ch4_wm_workflow}
 \end{figure}
 
-世界模型与基于 PPO 的切片策略交替训练。世界模型训练阶段，以真实轨迹推断后验隐状态、重构观测并预测预留代价与 QoS 违背率，由预测损失与先验—后验对齐损失更新记忆模块、先验网络、后验网络与预测头。策略训练阶段，冻结世界模型并将其用作想象模拟器：从当前隐状态出发，先验网络在切片策略所产生动作下递归生成想象的未来隐状态，并据此导出预留代价、QoS 违背率与想象奖励，PPO 随后以想象轨迹更新策略与评论家网络。每次策略更新时，想象前向推演由近期采集轨迹批中采样的后验隐状态初始化，而非仅从最新轨迹的终止状态出发，以改善切片状态覆盖并稳定长视野策略学习。算法~\ref{algo:ch4_slicing} 给出该交替优化流程。
+在此基础上，将上述服务能力预测模型与基于近端策略优化（Proximal Policy Optimization，PPO）的切片策略结合~\cite{Li-EnergyBalancingOffloading-TGCN26}。这里 PPO 仅作为切片层预算策略的训练方法，其输出仍是通信意义明确的带宽预算、功率预算和本地关联调整；流级 QoS 可行性由第~\ref{subsec:ch4_mac}~节的 MAC 调度器独立保证。训练过程中，世界模型与切片策略交替更新。世界模型训练阶段，利用真实执行轨迹进行状态校正、观测重构和性能预测，并通过预测损失与状态预测一致性损失更新记忆模块、状态预测分布、反馈校正分布和性能预测分支。策略训练阶段，固定世界模型参数，并将其作为模型内预测器：从近期采集轨迹中的反馈校正状态出发，在切片策略给出的预算动作下递推未来服务状态，获得预留代价、QoS 违背率与长期奖励，随后更新切片策略网络和价值函数网络。采用近期轨迹批中的反馈校正状态初始化模型内前向预测，而非仅从最新轨迹的终止状态出发，可以提升切片状态覆盖范围并稳定长视野预算策略训练。算法~\ref{algo:ch4_slicing} 给出该交替优化流程。
 
 \begin{algorithm}[!htp]
 \caption{基于世界模型的生成式切片资源预留训练}
 \label{algo:ch4_slicing}
 \KwIn{环境 $\mathcal E$，预测视野 $H_p$，迭代次数 $N_{\mathrm{iter}}$}
 \KwOut{训练后的世界模型与切片策略}
-初始化 LSTM 记忆模块 $f_{\theta_f}$、先验网络 $p_{\theta_p}$、后验网络 $q_{\theta_q}$、观测预测头 $g_{\theta_o}$、预留代价预测头 $g_{\theta_C}$、QoS 违背率预测头 $g_{\theta_\rho}$、切片满足预测头 $g_{\theta_S}$、切片策略 $\pi_\psi$ 与评论家网络 $V_\omega$，记世界模型参数 $\Theta_{\mathrm{wm}}=\{\theta_f,\theta_p,\theta_q,\theta_o,\theta_C,\theta_\rho,\theta_S\}$\;
+初始化 LSTM 记忆模块 $f_{\theta_f}$、历史状态预测网络 $p_{\theta_p}$、反馈状态校正网络 $q_{\theta_q}$、观测预测分支 $g_{\theta_o}$、预留代价预测分支 $g_{\theta_C}$、QoS 违背率预测分支 $g_{\theta_\rho}$、切片满足预测分支 $g_{\theta_S}$、切片策略 $\pi_\psi$ 与价值函数网络 $V_\omega$，记世界模型参数 $\Theta_{\mathrm{wm}}=\{\theta_f,\theta_p,\theta_q,\theta_o,\theta_C,\theta_\rho,\theta_S\}$\;
 \For{$n\leftarrow 1$ \KwTo $N_{\mathrm{iter}}$}{
   从 $\mathcal E$ 采集轨迹 $\mathcal D^{(n)}=\{(o_{s,k},\mathbf a_s(k),C_s(k),\rho_s(k))\}_{k=1}^{T}$\;
   \For{$k\leftarrow 1$ \KwTo $T$}{
-    \tcc{更新记忆与隐状态}
+    \tcc{更新记忆与服务状态}
     $\boldsymbol h_k=f_{\theta_f}(\boldsymbol h_{k-1},\boldsymbol z_{k-1},\mathbf a_s(k-1))$\;
     $\boldsymbol z_k=q_{\theta_q}(\boldsymbol h_k,o_{s,k})$\;
-    计算先验分布 $p_{\theta_p}(\boldsymbol z_k\mid\boldsymbol h_k)$，用于式~\eqref{eq:ch4_ldyn} 的先验—后验对齐\;
+    计算历史预测分布 $p_{\theta_p}(\boldsymbol z_k\mid\boldsymbol h_k)$，用于式~\eqref{eq:ch4_ldyn} 的状态预测一致性约束\;
     \tcc{重构观测并预测性能指标}
     $\hat o_{s,k}=g_{\theta_o}(\boldsymbol h_k,\boldsymbol z_k)$，$\hat C_s(k)=g_{\theta_C}(\boldsymbol h_k,\boldsymbol z_k)$，$\hat\rho_s(k)=g_{\theta_\rho}(\boldsymbol h_k,\boldsymbol z_k)$，$\hat S_{s,c}^{\mathrm{slice}}(k)=g_{\theta_S}(\boldsymbol h_k,\boldsymbol z_k),\forall c\in\mathcal C$\;
   }
-  \tcc{优化世界模型参数}
+  \tcc{优化服务能力预测模型参数}
   $\Theta_{\mathrm{wm}}\leftarrow\Theta_{\mathrm{wm}}-\alpha_d\nabla_{\Theta_{\mathrm{wm}}}\mathcal L_{\mathrm{wm}}$\;
-  冻结 $\Theta_{\mathrm{wm}}$，由 $\mathcal D^{(n)}$ 中隐状态初始化想象前向推演\;
+  冻结 $\Theta_{\mathrm{wm}}$，由 $\mathcal D^{(n)}$ 中反馈校正状态初始化模型内前向预测\;
   \For{$\tau\leftarrow 0$ \KwTo $H_p-1$}{
-    \tcc{经冻结世界模型生成想象转移}
+    \tcc{经冻结世界模型预测预算条件下的服务状态转移}
     $\mathbf a_s(k+\tau)=\pi_\psi(\boldsymbol h_{k+\tau},\boldsymbol z_{k+\tau})$\;
     $\boldsymbol h_{k+\tau+1}=f_{\theta_f}(\boldsymbol h_{k+\tau},\boldsymbol z_{k+\tau},\mathbf a_s(k+\tau))$\;
     $\boldsymbol z_{k+\tau+1}\sim p_{\theta_p}(\cdot\mid\boldsymbol h_{k+\tau+1})$\;
     $\hat C_s(k+\tau)=g_{\theta_C}(\cdot)$，$\hat\rho_s(k+\tau)=g_{\theta_\rho}(\cdot)$，$\hat S_{s,c}^{\mathrm{slice}}(k+\tau)=g_{\theta_S}(\cdot),\forall c\in\mathcal C$\;
     按罚项奖励构造 $\hat R_s(k+\tau)$\;
   }
-  \tcc{构造想象轨迹并更新 PPO}
+  \tcc{构造模型内预测轨迹并更新切片策略}
   构造 $\hat{\mathcal D}^{(n)}=\{(\boldsymbol h_{k+\tau},\boldsymbol z_{k+\tau},\mathbf a_s(k+\tau),\hat R_s(k+\tau))\}_{\tau=0}^{H_p-1}$\;
   $\Theta_\pi=\{\psi,\omega\}$，$\Theta_\pi\leftarrow\Theta_\pi+\alpha_\pi\nabla_{\Theta_\pi}\mathcal L_{\mathrm{PPO}}(\hat{\mathcal D}^{(n)})$\;
 }
@@ -440,7 +442,7 @@ F_i(n,p)=\max\left\{F_{i-1}(n,p),\,F_{i-1}\!\left(n-n_i^{\min},p-\bar p_i^{\min}
 \subsection{框架工作流与复杂度分析}
 \label{subsec:ch4_workflow}
 
-\textbf{整体工作流.} DTPS 的端到端工作流如图~\ref{fig:ch4_dtps_workflow}~所示。在每个切片间隔起始，切片层更新记忆状态、由当前观测推断后验隐状态，并确定切片级带宽与功率预算以及本地关联调整，这些决策参数化随后 MAC 执行的可行域。在每个 MAC 时隙内，调度器在当前大尺度信道状态下评估候选业务流的 QoS 可行资源需求，经 QCI 优先级背包选取优先级加权的可行子集，并直接执行相应的 RBG—功率分配。实现的服务统计随后反馈至切片层，触发后验校正与后续的预测式预算，由此形成慢/快两个时间尺度上的闭环。
+\textbf{整体工作流.} DTPS 的端到端工作流如图~\ref{fig:ch4_dtps_workflow}~所示。在每个切片间隔起始，切片层更新记忆状态、由当前观测执行反馈状态校正，并确定切片级带宽与功率预算以及本地关联调整，这些决策参数化随后 MAC 执行的可行域。在每个 MAC 时隙内，调度器在当前大尺度信道状态下评估候选业务流的 QoS 可行资源需求，经 QCI 优先级背包选取优先级加权的可行子集，并直接执行相应的 RBG—功率分配。实现的服务统计随后反馈至切片层，触发反馈校正与后续的预测式预算，由此形成慢/快两个时间尺度上的闭环。
 
 \begin{figure}[!htp]
     \centering
@@ -449,7 +451,7 @@ F_i(n,p)=\max\left\{F_{i-1}(n,p),\,F_{i-1}\!\left(n-n_i^{\min},p-\bar p_i^{\min}
     \label{fig:ch4_dtps_workflow}
 \end{figure}
 
-\textbf{复杂度分析.} DTPS 的复杂度由慢时间尺度的生成式切片资源预留与快时间尺度的 MAC 调度两部分构成。在切片层，世界模型推断与 PPO 策略评估在每个切片间隔仅基于聚合的切片级与业务类型描述符执行一次，因而其复杂度与业务流数无关，可记为 $\mathcal O(C_{\mathrm{wm}}+C_\pi)$，其中 $C_{\mathrm{wm}}$ 与 $C_\pi$ 分别为潜动态模型与切片策略的固定推断开销。在 MAC 层，对卫星 $s$ 上的切片 $c$，记候选流数与可行流数分别为 $A_{s,c}=|\mathcal I_{s,c}(k)|$ 与 $A_{s,c}^{\mathrm{fea}}=|\mathcal I_{s,c}^{\mathrm{fea}}(t)|$。最小资源估计的复杂度为 $\mathcal O(A_{s,c}N_{s,c}^{\mathrm{RBG}})$，二维动态规划背包的复杂度为 $\mathcal O(A_{s,c}^{\mathrm{fea}}N_{s,c}^{\mathrm{RBG}}\bar P_{s,c})$，故每时隙 MAC 复杂度为
+\textbf{复杂度分析.} DTPS 的复杂度由慢时间尺度的生成式切片资源预留与快时间尺度的 MAC 调度两部分构成。在切片层，世界模型推断与 PPO 策略评估在每个切片间隔仅基于聚合的切片级与业务类型描述符执行一次，因而其复杂度与业务流数无关，可记为 $\mathcal O(C_{\mathrm{wm}}+C_\pi)$，其中 $C_{\mathrm{wm}}$ 与 $C_\pi$ 分别为服务状态预测模型与切片策略的固定推断开销。在 MAC 层，对卫星 $s$ 上的切片 $c$，记候选流数与可行流数分别为 $A_{s,c}=|\mathcal I_{s,c}(k)|$ 与 $A_{s,c}^{\mathrm{fea}}=|\mathcal I_{s,c}^{\mathrm{fea}}(t)|$。最小资源估计的复杂度为 $\mathcal O(A_{s,c}N_{s,c}^{\mathrm{RBG}})$，二维动态规划背包的复杂度为 $\mathcal O(A_{s,c}^{\mathrm{fea}}N_{s,c}^{\mathrm{RBG}}\bar P_{s,c})$，故每时隙 MAC 复杂度为
 \begin{equation}\label{eq:ch4_complexity}
 \mathcal O\!\left(\sum_{c\in\mathcal C}\big(A_{s,c}N_{s,c}^{\mathrm{RBG}}+A_{s,c}^{\mathrm{fea}}N_{s,c}^{\mathrm{RBG}}\bar P_{s,c}\big)\right).
 \end{equation}
@@ -535,12 +537,12 @@ VR 卸载 & $10$~Mbps & $30$~ms & $68$ \\
     \label{fig:ch4_exp_burst}
 \end{figure}
 
-相比之下，所有基线对突发概率更为敏感。DQN-MAC 由 $82.3\%$ 降至 $72.1\%$，因直接的用户级 RB 映射缺乏对突发需求波动的切片级缓冲；TDRL-RSUA 由 $88.7\%$ 降至 $82.8\%$，表明反应式切片级控制无法完全纠正突发引起的 MAC 竞争所致的预算失配；LACO 在 $72\%$ 至 $76\%$ 间波动，因赌博机式预算调整仅对已观测的 QoS 违背作出反应、而不建模当前预算如何影响未来可行性；RL-JRSS 因其联合切片—调度结构而较上述基线更鲁棒，但因缺乏经后验校正的隐空间前向推演，其 QoS 满足仍低于 DTPS。时延结果呈现类似规律：LACO 的平均时延由 $261.1$~ms 升至 $315.3$~ms，DQN-MAC 由 $32.6$~ms 升至 $38.5$~ms，而 DTPS、RL-JRSS 与 TDRL-RSUA 的平均时延均低于 $11$~ms，其中 DTPS 在资源消耗几乎不变的前提下取得最优 QoS 满足。这表明 DTPS 通过将后验校正的预测式预算与可行性感知的 MAC 执行相结合，在突发引起的需求与服务波动下更好地保持了 QoS。
+相比之下，所有基线对突发概率更为敏感。DQN-MAC 由 $82.3\%$ 降至 $72.1\%$，因直接的用户级 RB 映射缺乏对突发需求波动的切片级缓冲；TDRL-RSUA 由 $88.7\%$ 降至 $82.8\%$，表明反应式切片级控制无法完全纠正突发引起的 MAC 竞争所致的预算失配；LACO 在 $72\%$ 至 $76\%$ 间波动，因赌博机式预算调整仅对已观测的 QoS 违背作出反应、而不建模当前预算如何影响未来可行性；RL-JRSS 因其联合切片—调度结构而较上述基线更鲁棒，但因缺乏经 MAC 反馈校正的服务状态前向预测，其 QoS 满足仍低于 DTPS。时延结果呈现类似规律：LACO 的平均时延由 $261.1$~ms 升至 $315.3$~ms，DQN-MAC 由 $32.6$~ms 升至 $38.5$~ms，而 DTPS、RL-JRSS 与 TDRL-RSUA 的平均时延均低于 $11$~ms，其中 DTPS 在资源消耗几乎不变的前提下取得最优 QoS 满足。这表明 DTPS 通过将反馈校正的预测式预算与可行性感知的 MAC 执行相结合，在突发引起的需求与服务波动下更好地保持了 QoS。
 
 \subsection{生成式切片资源预留机制的消融分析}
 \label{subsec:ch4_exp_ablation}
 
-为评估生成式切片资源预留机制中三个关键组件（先验—后验对齐、基于想象的策略学习与在线后验校正）的独立贡献，开展消融实验。先验—后验对齐训练记忆驱动的先验逼近观测条件后验，使想象轨迹与真实 MAC 层动态保持一致；基于想象的策略学习利用所学潜动态生成推演轨迹用于长视野切片策略训练；在线后验校正在推断时引入最新 MAC 层反馈，以缓解时变服务条件下的隐状态失配。实验在中载配置（$\rho=0.55$、$\kappa=0.9$、$p_b=0.015$）下进行，MAC 层固定为 QCI 优先级背包调度器。考虑三个消融变体：移除对齐变体（图中记为 w/o Align）去除 $\mathcal L_{\mathrm{wm}}$ 中基于 KL 散度的先验—后验对齐项；移除想象变体（w/o Imag）以真实环境轨迹而非想象前向推演训练切片策略；移除后验校正变体（w/o Poster Corr）在在线推断时禁用后验校正。所有结果在 10 次独立运行上平均。
+为评估生成式切片资源预留机制中三个关键组件（状态预测一致性约束、模型内预测策略训练与在线反馈校正）的独立贡献，开展消融实验。状态预测一致性约束训练历史预测分布逼近反馈校正分布，使预算条件下的服务状态预测与真实 MAC 层统计保持一致；模型内预测策略训练利用所学服务状态演化生成前向预测轨迹，用于长视野切片预算策略训练；在线反馈校正在推断时引入最新 MAC 层反馈，以缓解时变服务条件下的服务状态失配。实验在中载配置（$\rho=0.55$、$\kappa=0.9$、$p_b=0.015$）下进行，MAC 层固定为 QCI 优先级背包调度器。考虑三个消融变体：移除一致性约束变体（图中记为 w/o Align）去除 $\mathcal L_{\mathrm{wm}}$ 中基于 KL 散度的状态预测一致性项；移除模型内预测变体（w/o Imag）以真实环境轨迹而非模型内前向预测训练切片策略；移除反馈校正变体（w/o Poster Corr）在在线推断时禁用 MAC 反馈校正。所有结果在 10 次独立运行上平均。
 
 \begin{figure}[!htp]
     \centering
@@ -561,7 +563,7 @@ VR 卸载 & $10$~Mbps & $30$~ms & $68$ \\
     \label{fig:ch4_exp_ablation}
 \end{figure}
 
-如图~\ref{fig:ch4_exp_ablation_qos} 所示，移除对齐变体带来最大降幅，将 QoS 满足率由 $98.0\%$ 降至 $68.4\%$，这一 $29.6$ 个百分点的下降表明先验—后验对齐对可靠的想象前向推演至关重要。移除想象变体取得 $90.8\%$，较完整 DTPS 低 $7.2$ 个百分点，证实基于想象的策略学习对长视野预测式预算有贡献。移除后验校正变体在中载设置下仅有边际退化，由 $98.0\%$ 降至 $97.5\%$，说明在服务动态相对平滑时所学先验已足够。图~\ref{fig:ch4_exp_ablation_burst} 进一步表明，后验校正在更强突发不确定性下更为重要：在高突发概率（$p_b=0.05$）下，DTPS 维持 $97.6\%$ 的 QoS 满足率，而移除后验校正变体降至 $94.6\%$，其标准差亦升至 $5.2$ 个百分点，相比之下 DTPS 为 $2.2$ 个百分点。总体而言，消融结果表明先验—后验对齐、想象前向推演与在线后验校正分别支撑了可靠的动态学习、长视野策略训练与对突发引起的分布漂移的鲁棒性。
+如图~\ref{fig:ch4_exp_ablation_qos} 所示，移除一致性约束变体带来最大降幅，将 QoS 满足率由 $98.0\%$ 降至 $68.4\%$，这一 $29.6$ 个百分点的下降表明状态预测一致性约束对可靠的模型内前向预测至关重要。移除模型内预测变体取得 $90.8\%$，较完整 DTPS 低 $7.2$ 个百分点，证实模型内预测策略训练对长视野预测式预算有贡献。移除反馈校正变体在中载设置下仅有边际退化，由 $98.0\%$ 降至 $97.5\%$，说明在服务动态相对平滑时，历史预测分布已能提供有效服务状态估计。图~\ref{fig:ch4_exp_ablation_burst} 进一步表明，在线反馈校正在更强突发不确定性下更为重要：在高突发概率（$p_b=0.05$）下，DTPS 维持 $97.6\%$ 的 QoS 满足率，而移除反馈校正变体降至 $94.6\%$，其标准差亦升至 $5.2$ 个百分点，相比之下 DTPS 为 $2.2$ 个百分点。总体而言，消融结果表明状态预测一致性约束、模型内前向预测与在线反馈校正分别支撑了可靠的服务状态学习、长视野策略训练与对突发服务波动的鲁棒性。
 
 \subsection{固定切片预算下的 MAC 调度}
 \label{subsec:ch4_exp_mac}

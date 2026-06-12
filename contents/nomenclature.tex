@@ -82,12 +82,12 @@
   $\mathbf{P1},\ \mathbf{P2},\ \mathbf{P3}$ & 原始多星问题、切片预算子问题与 MAC 调度子问题 \\
   $o_{s,k},\ \boldsymbol\zeta_{s,c}(k)$ & POMDP 观测与切片观测状态 \\
   $\mathbf a_s(k),\ \mathbf m_s(k),\ \mathcal M_s(k)$ & 切片动作、本地关联调整与可行调整集 \\
-  $\boldsymbol h_k,\ \boldsymbol z_k$  & 确定性记忆状态与随机隐状态 \\
-  $p_\theta,\ q_\theta$                & 先验网络与后验网络 \\
+  $\boldsymbol h_k,\ \boldsymbol z_k$  & 历史服务状态记忆与不确定服务状态变量 \\
+  $p_\theta,\ q_\theta$                & 历史状态预测网络与反馈状态校正网络 \\
   $\rho_s(k),\ \hat C_s,\ \hat\rho_s,\ \hat S_{s,c}^{\mathrm{slice}}$ & QoS 违背率、预测预留代价、预测 QoS 违背率与预测切片满足 \\
-  $\mathcal L_{\mathrm{pred}},\ \mathcal L_{\mathrm{dyn}},\ \mathcal L_{\mathrm{wm}},\ \beta$ & 预测损失、先验—后验对齐损失、世界模型总损失与权衡系数 \\
+  $\mathcal L_{\mathrm{pred}},\ \mathcal L_{\mathrm{dyn}},\ \mathcal L_{\mathrm{wm}},\ \beta$ & 预测损失、状态预测一致性损失、世界模型总损失与权衡系数 \\
   $R_s(k),\ \gamma_{\mathrm d},\ \epsilon_s^{\max}$ & 切片奖励、折扣因子与最大可容忍 QoS 违背率 \\
-  $\pi_\psi,\ V_\omega$                & 切片策略网络与评论家网络 \\
+  $\pi_\psi,\ V_\omega$                & 切片策略网络与价值函数网络 \\
   $\mathcal I_{s,c}(k),\ \mathcal I_{s,c}^{\mathrm{fea}}(t)$ & 切片应用流集合与可行流集合 \\
   $i,\ y_i(t),\ \pi_i,\ q_i$           & 应用流索引、调度指示、QCI 优先级值与 QCI/5QI 标识 \\
   $r_i^{\mathrm{req}}(t),\ n_i^{\min}(t),\ p_i^{\min}(t)$ & 满足 QoS 所需最小速率、最小 RBG 数与最小发射功率 \\
