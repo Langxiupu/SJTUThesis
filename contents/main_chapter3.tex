@@ -46,12 +46,12 @@
 \section{系统模型与问题建模}
 \label{sec:ch3_sysmodel}
 
-本节在第~\ref{sec:ch2_arch_comparison}~节确立的纯分布式管控范式下，对海量终端在大规模 LEO 卫星星座中的自主切换过程建模。其中，用户终端不依赖核心网集中协调，而是依据本地观测与有限邻域信息，在每个切换时隙独立选择接入卫星与子信道。下文依次建立切换场景与网络模型、卫星可见性与连接模型、信道与链路速率模型，并据此将海量终端公平切换形式化为最大化最小用户吞吐量的优化问题；随后说明该问题由二进制接入、子信道竞争与同信道干扰共同造成的混合整数非凸性质，引出后续面向分布式接入的序列决策建模。全章符号含义参见文前的主要符号对照表。
+本节在第~\ref{sec:ch2_arch_comparison}~节确立的纯分布式管控范式下，建立海量终端在大规模 LEO 卫星星座中的自主切换模型。在该范式中，用户终端不依赖核心网集中协调，而是在每个切换时隙依据本地观测与有限邻域信息自主选择接入卫星和子信道。模型依次刻画切换场景、卫星可见关系、连接约束、信道损耗以及链路速率，并将海量终端公平切换形式化为最大化最小用户吞吐量的优化问题。该问题的计算难度主要来自二进制接入、子信道竞争和同信道干扰之间的耦合关系，由此引出后续面向分布式接入的序列决策建模。全章符号含义参见文前的主要符号对照表。
 
 \subsection{切换场景与网络模型}
 \label{subsec:ch3_scenario}
 
-如图~\ref{fig:ch3_system_model}~所示，本章考虑单层大规模 LEO 卫星星座持续服务一片用户密集区域。卫星波束以固定相位覆盖星下点邻近区域，地面终端经星地链路以直连入网（Direct-to-Cell）方式接入卫星~\cite{tuzi-DirecttoCell-wcom23}。本章关注用户自主分布式切换场景：终端基于本地观测完成切换判决，无需将测量结果回传核心网，规避较长的星地回程时延与集中调度开销。终端准备切换时，依据 CHO 流程提前监测候选卫星的负载与信道状态~\cite{wang-SeamlessHO-TComm23}；分布式策略仅辅助选择目标卫星、接入触发时机及候选子信道，终端仍须按随机接入流程完成同步、前导码发送、接入响应与确认。由此，所提机制的作用是降低目标卫星与子信道盲选概率，并缩短候选目标筛选时间。为在缺乏全局信息时估计邻域接入状态，终端还可经设备直通（Device-to-Device，D2D）通信或星上中继，与地理邻近的终端交换有限的网络状态信息~\cite{yang-fingerprintMARL-TVT24}。
+如图~\ref{fig:ch3_system_model}~所示，本章考虑单层大规模 LEO 卫星星座持续服务用户密集区域。卫星波束覆盖星下点邻近区域，地面终端通过星地链路以直连入网（Direct-to-Cell）方式接入卫星~\cite{tuzi-DirecttoCell-wcom23}。本章关注用户自主分布式切换场景：终端基于本地观测完成切换判决，无需将测量结果回传核心网，以规避较长的星地回程时延与集中调度开销。终端准备切换时，依据 CHO 流程提前监测候选卫星的负载与信道状态~\cite{wang-SeamlessHO-TComm23}；分布式策略用于辅助确定目标卫星、接入触发时机和候选子信道，终端仍按照随机接入流程完成同步、前导码发送、接入响应与确认。因此，所提机制并不改变标准接入流程，而是在候选目标筛选阶段降低卫星与子信道盲选概率。为在缺乏全局信息时估计邻域接入状态，终端还可通过设备直通（Device-to-Device，D2D）通信或星上中继，与地理邻近终端交换有限网络状态信息~\cite{yang-fingerprintMARL-TVT24}。
 
 \begin{figure}[!htp]
     \centering
@@ -60,12 +60,12 @@
     \label{fig:ch3_system_model}
 \end{figure}
 
-地面终端集合记为 $\mathcal{U}=\{U_1,U_2,\dots,U_{E_u}\}$，均匀分布于服务区域内，$E_u$ 为终端数；由于 LEO 卫星的运动速度远高于地面终端的移动速度，终端在服务周期内可近似视为静止。服务周期内所有终端的可见卫星集合记为 $\mathcal{S}=\{S_1,S_2,\dots,S_{L_s}\}$，$L_s$ 为卫星数。考虑到 LEO 卫星接入业务的突发特性~\cite{han-SelfSimilarTraffic-Aerospace24}，单个终端的服务周期 $T$ 通常远短于卫星轨道周期。在周期 $T$ 内存在 $N_t$ 次切换机会~\cite{lee-HOProtocolLearning-TWC24}，每个切换时隙时长为 $\tau=T/N_t$，整个服务周期被划分为 $N_t$ 个时隙 $\{[t_0,t_0+\tau),[t_0+\tau,t_0+2\tau),\dots,[t_0+(N_t-1)\tau,t_0+N_t\tau)\}$。在每个时隙 $t\in[1,N_t]$ 内，终端连接目标、信道状态与可见卫星集合等网络状态保持恒定。
+地面终端集合记为 $\mathcal{U}=\{U_1,U_2,\dots,U_{E_u}\}$，均匀分布于服务区域内，其中 $E_u$ 为终端数。由于 LEO 卫星的运动速度远高于地面终端的移动速度，终端在服务周期内可近似视为静止。服务周期内所有终端的可见卫星集合记为 $\mathcal{S}=\{S_1,S_2,\dots,S_{L_s}\}$，其中 $L_s$ 为卫星数。考虑到 LEO 卫星接入业务具有突发性~\cite{han-SelfSimilarTraffic-Aerospace24}，单个终端的服务周期 $T$ 通常远短于卫星轨道周期。在周期 $T$ 内存在 $N_t$ 次切换机会~\cite{lee-HOProtocolLearning-TWC24}，每个切换时隙时长为 $\tau=T/N_t$，服务周期被划分为 $N_t$ 个时隙 $\{[t_0,t_0+\tau),[t_0+\tau,t_0+2\tau),\dots,[t_0+(N_t-1)\tau,t_0+N_t\tau)\}$。在每个时隙 $t\in[1,N_t]$ 内，终端连接目标、信道状态和可见卫星集合等网络状态保持不变。
 
 \subsection{卫星可见性与连接模型}
 \label{subsec:ch3_visibility}
 
-LEO 卫星的快速运动使终端可见的卫星集合在服务周期内动态变化。定义时隙 $t$ 下终端与卫星间的可见性矩阵 $\Gamma_t=[\gamma_{l,e}^t]\in\{0,1\}^{L_s\times E_u}$，其元素 $\gamma_{l,e}^t$ 表征卫星 $S_l$ 与终端 $U_e$ 之间的可见关系。在以视距（Line-of-Sight，LoS）传播为主的星地场景中，传播距离引起的路径损耗是信号衰减的主导因素，而仰角越高则星地距离越短、接收信号越强，故以仰角作为可见性判据：仰角门限 $\theta_{th}$ 可由系统链路预算确定，直接对应终端可接受的最低信噪比。设 $\theta_{l,e}^t$ 为时隙 $t$ 下 $U_e$ 对 $S_l$ 的仰角（由服务卫星广播的星历计算），则可见性指示为
+LEO 卫星的高速运动使终端可见卫星集合随时间变化。定义时隙 $t$ 下终端与卫星之间的可见性矩阵 $\Gamma_t=[\gamma_{l,e}^t]\in\{0,1\}^{L_s\times E_u}$，其中元素 $\gamma_{l,e}^t$ 表征卫星 $S_l$ 与终端 $U_e$ 之间的可见关系。在以视距（Line-of-Sight，LoS）传播为主的星地场景中，传播距离引起的路径损耗是信号衰减的主要来源。仰角越高，星地距离通常越短，接收信号强度越高。因此，本章采用仰角作为可见性判据。仰角门限 $\theta_{th}$ 由系统链路预算确定，并对应终端可接受的最低信噪比。设 $\theta_{l,e}^t$ 为时隙 $t$ 下 $U_e$ 对 $S_l$ 的仰角，该仰角可由服务卫星广播的星历计算得到，则可见性指示为
 \begin{equation}\label{eq:ch3_visibility}
 \gamma_{l,e}^t=
 \begin{cases}
@@ -86,11 +86,11 @@ x_{l,e}^t=
 0, & \text{其他}.
 \end{cases}
 \end{equation}
-终端接入须满足可见性与单连接约束。若 $U_e$ 接入 $S_l$，则 $S_l$ 必属于其可见集合，即
+终端接入须满足可见性与单连接约束。若 $U_e$ 接入 $S_l$，则 $S_l$ 必须属于其可见集合，即
 \begin{equation}\label{eq:ch3_visible_conn}
 x_{l,e}^t\leqslant\gamma_{l,e}^t,\quad\forall S_l\in\mathcal{S},~U_e\in\mathcal{U},~t=1,\dots,N_t.
 \end{equation}
-同时，单个终端在一个时隙至多接入一颗卫星，即
+同时，单个终端在一个时隙内至多接入一颗卫星，即
 \begin{equation}\label{eq:ch3_single_conn}
 \sum_{l=1}^{L_s}x_{l,e}^t\leqslant 1,\quad\forall U_e\in\mathcal{U},~t=1,\dots,N_t.
 \end{equation}
@@ -98,15 +98,15 @@ x_{l,e}^t\leqslant\gamma_{l,e}^t,\quad\forall S_l\in\mathcal{S},~U_e\in\mathcal{
 \subsection{信道与链路速率模型}
 \label{subsec:ch3_channel}
 
-LEO 卫星下行信道特性参照 3GPP TR38.811 规范~\cite{3gpp-38811}。$S_l$ 发往 $U_e$ 的 S 频段信号，其总路径损耗由四个损耗分量构成，可表示为
+LEO 卫星下行信道特性参照 3GPP TR38.811 规范~\cite{3gpp-38811}。$S_l$ 发往 $U_e$ 的 S 频段信号，其总路径损耗由自由空间传播损耗、阴影衰落损耗、杂波损耗和大气损耗共同构成，可表示为
 \begin{equation}\label{eq:ch3_pathloss}
 |h_{l,e}^t|^2[\text{dB}]=-L_{fp}-L_{sf}-L_{cl}-L_a,
 \end{equation}
-其中 $L_{fp}$ 为自由空间传播损耗，$L_{sf}$ 为阴影衰落损耗，$L_{cl}$ 为杂波损耗，$L_a$ 为大气损耗。自由空间传播损耗由长传播距离引起，可表示为
+其中 $L_{fp}$ 为自由空间传播损耗，$L_{sf}$ 为阴影衰落损耗，$L_{cl}$ 为杂波损耗，$L_a$ 为大气损耗。自由空间传播损耗由长距离传播引起，可表示为
 \begin{equation}\label{eq:ch3_lfp}
 L_{fp}=20\log_{10}(f)+20\log_{10}(d)+32.5,
 \end{equation}
-其中载频 $f$ 以 MHz 为单位、链路距离 $d$ 以 km 为单位。$L_{sf}$ 服从零均值对数正态分布；在满足 LoS 条件时杂波损耗 $L_{cl}$ 可忽略；$L_a$ 主要由星地路径上的大气吸收与雨衰引起。TR38.811 给出了郊区与乡村场景下各损耗分量的参考取值。
+其中载频 $f$ 以 MHz 为单位，链路距离 $d$ 以 km 为单位。$L_{sf}$ 服从零均值对数正态分布；在满足 LoS 条件时，杂波损耗 $L_{cl}$ 可忽略；$L_a$ 主要由星地传播中的大气吸收和雨衰引起。TR38.811 给出了郊区与乡村场景下各损耗分量的参考取值。
 
 假设 LEO 卫星采用正交频分复用（Orthogonal Frequency Division Multiplexing，OFDM）体制为终端分配子信道，与 Starlink 的配置一致~\cite{neinavaie-StarlinkOFDM-TAES24}。每颗卫星的总带宽被等分为 $N_c$ 个等带宽子信道，集合记为 $\mathcal{C}=\{1,2,\dots,N_c\}$，每次切换时终端从中选择一个子信道进行传输。以二元矩阵 $\mathcal{Y}^{t,e}=[y_{l,m}^{t,e}]\in\{0,1\}^{L_s\times N_c}$ 表示 $U_e$ 的子信道分配状态，其元素定义为
 \begin{equation}\label{eq:ch3_sc_alloc}
@@ -116,7 +116,7 @@ y_{l,m}^{t,e}=
 0, & \text{其他}.
 \end{cases}
 \end{equation}
-子信道分配须同时满足连接--资源耦合、单终端单子信道以及同星同子信道正交接入约束。具体而言，若 $U_e$ 由 $S_l$ 服务，则其只能在该卫星上占用一个子信道；若未接入 $S_l$，则不得占用该星的任何子信道，即
+子信道分配须同时满足连接--资源耦合、单终端单子信道以及同星同子信道正交接入约束。若 $U_e$ 由 $S_l$ 服务，则其只能在该卫星上占用一个子信道；若未接入 $S_l$，则不得占用该卫星的任何子信道，即
 \begin{equation}\label{eq:ch3_sc_coupling}
 \sum_{m=1}^{N_c}y_{l,m}^{t,e}=x_{l,e}^t,\quad\forall S_l\in\mathcal{S},~U_e\in\mathcal{U},~t=1,\dots,N_t.
 \end{equation}
@@ -133,7 +133,7 @@ y_{l,m}^{t,e}=
 \sum_{e=1}^{E_u}\sum_{m=1}^{N_c}y_{l,m}^{t,e}\leqslant N_c,\quad\forall S_l\in\mathcal{S},~t=1,\dots,N_t.
 \end{equation}
 
-本章以链路吞吐量度量终端的服务质量。$U_e$ 经 $S_l$ 的子信道 $c_m$ 通信时，其链路吞吐量受分配带宽、接收信号强度 $p_e^{t,r}$、加性高斯白噪声（Additive White Gaussian Noise，AWGN）功率 $N_e$ 与同信道干扰 $I_{l,e,m}^t$ 共同影响。设终端传输带宽等于子信道带宽 $B_c$，卫星发射功率 $p_S$ 在服务周期内恒定，则 $U_e$ 的接收功率为
+本章以链路吞吐量度量终端服务质量。$U_e$ 经 $S_l$ 的子信道 $c_m$ 通信时，其链路吞吐量受分配带宽、接收信号强度 $p_e^{t,r}$、加性高斯白噪声（Additive White Gaussian Noise，AWGN）功率 $N_e$ 和同信道干扰 $I_{l,e,m}^t$ 共同影响。设终端传输带宽等于子信道带宽 $B_c$，卫星发射功率 $p_S$ 在服务周期内恒定，则 $U_e$ 的接收功率为
 \begin{equation}\label{eq:ch3_rxpower}
 p_e^{t,r}[\text{dBm}]=p_S[\text{dBm}]+g_S[\text{dBi}]+|h_{l,e}^t|^2[\text{dB}],
 \end{equation}
@@ -141,7 +141,7 @@ p_e^{t,r}[\text{dBm}]=p_S[\text{dBm}]+g_S[\text{dBi}]+|h_{l,e}^t|^2[\text{dB}],
 \begin{equation}\label{eq:ch3_awgn}
 N_e[\text{dBW}]=k[\text{dBJ/K}]+B_c[\text{dBHz}]-G/T[\text{dB/K}],
 \end{equation}
-其中 $k=1.38\times10^{-23}$~J/K 为玻尔兹曼常数。$U_e$ 接入 $S_l$ 子信道 $c_m$ 时所受干扰来自其他终端在同一子信道上的并发通信，可表示为
+其中 $k=1.38\times10^{-23}$~J/K 为玻尔兹曼常数。$U_e$ 接入 $S_l$ 子信道 $c_m$ 时，干扰来自其他终端在同一子信道上的并发通信，可表示为
 \begin{equation}\label{eq:ch3_interference}
 I_{l,e,m}^t=\sum_{l_i\neq l}\sum_{e_j\neq e}y_{l_i,m}^{t,e_j}\,p_S g_S|h_{l_i,e}^t|^2,\quad\text{s.t.}~y_{l,m}^{t,e}=1.
 \end{equation}
@@ -153,7 +153,7 @@ R_e^t=\sum_{l_i=1}^{L_s}\sum_{m_j=1}^{N_c}B_c\log_2\!\left(1+\frac{y_{l_i,m_j}^{
 \subsection{问题建模与复杂度分析}
 \label{subsec:ch3_problem}
 
-切换请求引起的中断时延、随机接入碰撞和卫星过载会降低终端在服务周期内获得的有效吞吐量。为在海量终端并发切换下兼顾接入效率与用户间公平性，本章以切换决策变量 $\mathcal{X}^t$ 与子信道分配变量 $\mathcal{Y}^{t,e}$ 为优化变量，以最大化服务周期内最小用户吞吐量为目标，将海量用户公平切换问题形式化为
+切换请求引起的中断时延、随机接入碰撞和卫星过载会降低终端在服务周期内获得的有效吞吐量。为在海量终端并发切换下兼顾接入效率与用户间公平性，本章以切换决策变量 $\mathcal{X}^t$ 和子信道分配变量 $\mathcal{Y}^{t,e}$ 为优化变量，以最大化服务周期内最小用户吞吐量为目标，将海量用户公平切换问题形式化为
 \begin{equation}\label{eq:ch3_p1}
 \begin{aligned}
 \mathcal{P}_1:\quad
@@ -168,46 +168,46 @@ R_e^t=\sum_{l_i=1}^{L_s}\sum_{m_j=1}^{N_c}B_c\log_2\!\left(1+\frac{y_{l_i,m_j}^{
 &\text{式}~(\ref{eq:ch3_interference})\text{--}(\ref{eq:ch3_throughput}).
 \end{aligned}
 \end{equation}
-其中 C1 为服务连续性约束，要求每个终端在服务周期的每个时隙均保持接入；C2 排除不可见卫星；C3 给出连接变量与子信道变量之间的耦合关系，并保证终端一旦接入某颗卫星即仅占用该星一个子信道；C4 限制同一卫星同一子信道至多服务一个终端，从而刻画同星内的子信道竞争；C5 给出单星子信道总容量约束。式~(\ref{eq:ch3_ue_one_sc})~可由 C1--C3 推出，式~(\ref{eq:ch3_sc_cap})~对应 C5。$\mathcal{P}_1$ 虽只对区域内终端的切换决策建模，但借助 LEO 星座的分层管控架构~\cite{ji-SpaceGroundMM-TWC24,liu-reconfigurableRAN-TCCN25}，不同区域的切换决策相互独立，该区域级建模因而可推广至全网大规模星座的切换优化。
+其中 C1 为服务连续性约束，要求每个终端在服务周期的每个时隙均保持接入；C2 排除不可见卫星；C3 给出连接变量与子信道变量之间的耦合关系，并保证终端一旦接入某颗卫星即仅占用该卫星的一个子信道；C4 限制同一卫星同一子信道至多服务一个终端，用于刻画同星内的子信道竞争；C5 给出单星子信道总容量约束。式~(\ref{eq:ch3_ue_one_sc})~可由 C1--C3 推出，式~(\ref{eq:ch3_sc_cap})~对应 C5。$\mathcal{P}_1$ 虽然只对区域内终端的切换决策建模，但在 LEO 星座的分层管控架构下~\cite{ji-SpaceGroundMM-TWC24,liu-reconfigurableRAN-TCCN25}，不同区域的切换决策可并行执行，因而该区域级模型可用于描述全网大规模星座中的局部切换优化过程。
 
-由式~(\ref{eq:ch3_p1})~可见，$\mathcal{P}_1$ 同时包含二进制卫星接入变量、二进制子信道分配变量以及由同信道复用引起的速率耦合项，是一个混合整数非凸优化问题。其计算困难主要来自三方面。首先，终端--卫星--子信道三元组须同时满足可见性、服务连续性和单星容量约束，可行接入图随 LEO 星座运动快速变化。其次，式~(\ref{eq:ch3_interference})~中的同信道干扰使任一终端的链路速率依赖其他卫星在同一子信道上的并发传输选择。再次，在 $N_t$ 个切换时隙内联合优化接入路径会使精确枚举的搜索空间随 $E_u$、$L_s$、$N_c$ 和 $N_t$ 快速增长。因此，集中式精确求解不仅需要实时汇聚全局链路状态与子信道占用信息，还难以满足 LEO 切换的在线决策时限。本文将 $\mathcal{P}_1$ 作为在线难以精确求解的混合整数非凸接入优化问题处理。
+由式~(\ref{eq:ch3_p1})~可见，$\mathcal{P}_1$ 同时包含二进制卫星接入变量、二进制子信道分配变量以及由同信道复用引起的速率耦合项，是一个混合整数非凸优化问题。其求解困难主要来自以下约束耦合。终端、卫星和子信道三元组须同时满足可见性、服务连续性和单星容量约束，而可行接入图会随 LEO 星座运动快速变化；式~(\ref{eq:ch3_interference})~中的同信道干扰使任一终端的链路速率依赖其他卫星在同一子信道上的并发传输选择；在 $N_t$ 个切换时隙内联合优化接入决策，也会使精确枚举的搜索空间随 $E_u$、$L_s$、$N_c$ 和 $N_t$ 快速增长。因此，集中式精确求解不仅需要实时汇聚全局链路状态与子信道占用信息，也难以满足 LEO 切换的在线决策时限。本文将 $\mathcal{P}_1$ 作为在线难以精确求解的混合整数非凸接入优化问题处理。
 
-上述混合整数非凸性质叠加 LEO 卫星网络的高动态与部分可观测特征，使 $\mathcal{P}_1$ 难以由集中式方法在线求解。为此，本章将其转化为面向多终端分布式接入的序列决策模型：终端在本地链路质量、候选卫星负载、子信道竞争和邻域公平性指示之间进行联合权衡。下一节将给出该模型的状态、动作与奖励定义，并进一步说明如何利用广义 Gini 公平聚合函数将长期吞吐公平性转化为可训练的本地更新信号。
+上述混合整数非凸性质叠加 LEO 卫星网络的高动态与部分可观测特征，使 $\mathcal{P}_1$ 难以由集中式方法在线求解。为此，本章将其转化为面向多终端分布式接入的序列决策模型，使终端在本地链路质量、候选卫星负载、子信道竞争和邻域公平性指示之间进行联合权衡。下一节将给出该模型的状态、动作与奖励定义，并进一步说明如何利用广义 Gini 公平聚合函数将长期吞吐公平性转化为可训练的本地更新信号。
 
 \section{多目标公平切换建模与公平性策略梯度推导}
 \label{sec:ch3_theory}
 
-为在动态可见性、随机接入竞争和受限邻域信令下求解 $\mathcal{P}_1$，本节将海量终端切换抽象为多终端序列接入决策过程，并给出公平性引导的策略更新方式。具体而言，先建立分布式切换的状态、动作与奖励模型，再采用广义 Gini 公平聚合函数刻画多用户长期吞吐分布，最后说明该公平性目标如何转化为可在邻域内交换和训练的标量更新信号，为 FG-MAPPO 的网络结构设计与分布式训练奠定基础。
+为在动态可见关系、随机接入竞争和受限邻域信令下求解 $\mathcal{P}_1$，本节将海量终端切换建模为多终端序列接入决策过程，并推导公平性引导的策略更新方式。该模型以分布式切换的状态、动作与奖励为基础，采用广义 Gini 公平聚合函数刻画多用户长期吞吐分布，并将长期公平目标转化为可由邻域标量信令估计的策略更新项，为 FG-MAPPO 的网络结构设计与分布式训练提供理论基础。
 
 \subsection{多终端马尔可夫接入决策建模}
 \label{subsec:ch3_momdp}
 
-在纯分布式管控范式下，每个终端作为独立接入决策单元，依据本地观测自主选择接入卫星与子信道。将海量终端的协作切换过程建模为多终端马尔可夫决策过程（Multi-Agent Markov Decision Process，MAMDP），由七元组 $\langle\mathcal{S}^{MDP},\mathcal{A}^{MDP},O,R,P,n,\gamma\rangle$ 描述。其中，$\mathcal{S}^{MDP}$ 为 LEO 卫星网络的全局状态；$\mathcal{A}^{MDP}$ 为所有终端共享的动作空间，包含卫星选择与子信道选择；$o_{n_i}=O(s;n_i)$ 为终端 $n_i$ 从全局状态 $s$ 中可获得的本地观测；$R(s,A)\in\mathbb{R}$ 为由全局状态 $s$ 与联合接入动作 $A$ 决定的网络级奖励；$P(s'\mid s;A)$ 为状态转移概率；$n=E_u$ 为终端数；$\gamma$ 为折扣因子。
+在纯分布式管控范式下，每个终端作为独立接入决策单元，依据本地观测自主选择接入卫星与子信道。海量终端的协作切换过程可建模为多终端马尔可夫决策过程（Multi-Agent Markov Decision Process，MAMDP），由七元组 $\langle\mathcal{S}^{MDP},\mathcal{A}^{MDP},O,R,P,n,\gamma\rangle$ 描述。其中，$\mathcal{S}^{MDP}$ 为 LEO 卫星网络的全局状态；$\mathcal{A}^{MDP}$ 为所有终端共享的动作空间，包含卫星选择与子信道选择；$o_{n_i}=O(s;n_i)$ 为终端 $n_i$ 从全局状态 $s$ 中获得的本地观测；$R(s,A)\in\mathbb{R}$ 为由全局状态 $s$ 与联合接入动作 $A$ 决定的网络级奖励；$P(s'\mid s;A)$ 为状态转移概率；$n=E_u$ 为终端数；$\gamma$ 为折扣因子。
 
-策略梯度是求解 MAMDP 的常用方法，每个终端依据本地观测，以参数为 $\theta_{n_i}$ 的策略 $\pi_\theta^{n_i}(a_{n_i}\mid o_{n_i})$ 产生接入动作。考虑到实际系统中海量终端并发接入，本章聚焦该决策过程的分布式求解，即各终端的策略 $\pi_\theta^{n_i}$ 互不共享，且不以集中式全局奖励作为直接优化目标，而是以本地接入奖励 $r(o_{n_i},a_{n_i})\in\mathbb{R}$ 更新各自策略。终端 $n_i$ 的优化目标 $J(\theta_{n_i})$ 为最大化其本地观测下的长期接入回报，即
+策略梯度是求解 MAMDP 的基本方法。每个终端依据本地观测，由参数为 $\theta_{n_i}$ 的策略 $\pi_\theta^{n_i}(a_{n_i}\mid o_{n_i})$ 产生接入动作。考虑到实际系统中海量终端并发接入，本章关注该决策过程的分布式求解形式，即各终端的策略 $\pi_\theta^{n_i}$ 互不共享，且不直接依赖集中式全局奖励进行更新，而是依据本地接入奖励 $r(o_{n_i},a_{n_i})\in\mathbb{R}$ 更新各自策略。终端 $n_i$ 的优化目标 $J(\theta_{n_i})$ 为最大化其本地观测下的长期接入回报，即
 \begin{equation}\label{eq:ch3_pgobj}
 \max_{\pi_\theta^{n_i}} J(\theta_{n_i})=\max_{\pi_\theta^{n_i}} V_{\pi_{n_i}}(o_{n_i}^t)
 =\max\mathbb{E}_{o_{n_i}^t,a_{n_i}^t}\!\left[\sum_t\gamma^t r_{n_i}(o_{n_i}^t,a_{n_i}^t)\right],\quad\forall n_i\in\{1,\dots,n\}.
 \end{equation}
-若采用集中式训练—分布式执行（CTDE）范式，式~(\ref{eq:ch3_pgobj})~通常经随机梯度下降按下式更新：
+若采用集中训练、分布执行（CTDE）范式，式~(\ref{eq:ch3_pgobj})~通常通过随机梯度下降按下式更新：
 \begin{equation}\label{eq:ch3_pggrad}
 \hat{g}_{o_{n_i}^t,a_{n_i}^t}=\hat{\mathbb{E}}_{n_i}^t\!\left[\nabla_{\theta_{n_i}}\log\pi_\theta^{n_i}(a_{n_i}^t\mid o_{n_i}^t)\,\hat{A}_t^{\mathrm{IND}}\right],\quad\forall n_i\in\{1,\dots,n\},
 \end{equation}
-其中个体优势估计 $\hat{A}_t^{\mathrm{IND}}$ 用于引导策略 $\pi_\theta^{n_i}$ 的更新方向。CTDE 在训练阶段采用集中式架构，其优势估计由全局状态 $s_t^{MDP}$ 计算，而非仅来自单个终端的本地观测。
+其中个体优势估计 $\hat{A}_t^{\mathrm{IND}}$ 用于确定策略 $\pi_\theta^{n_i}$ 的更新方向。CTDE 在训练阶段引入集中式信息，其优势估计通常由全局状态 $s_t^{MDP}$ 计算，而非仅由单个终端的本地观测得到。
 
-在经典 MAMDP 中，每个终端倾向于最大化自身长期速率；而公平切换要求把每个终端的长期接入质量均作为一个独立目标。换言之，含 $n$ 个终端的网络对应 $n$ 个长期吞吐目标，其奖励输出为包含 $n$ 个本地奖励的向量 $R_t^{\mathrm{loc}}\in\mathbb{R}^n$ 而非单一标量。相应地，式~(\ref{eq:ch3_pggrad})~的优化可重构为多终端目标的联合优化：
+在经典 MAMDP 中，每个终端倾向于最大化自身长期速率；而公平切换要求将每个终端的长期接入质量均作为独立目标纳入优化。对于含 $n$ 个终端的网络，系统对应 $n$ 个长期吞吐目标，其奖励输出应为包含 $n$ 个本地奖励的向量 $R_t^{\mathrm{loc}}\in\mathbb{R}^n$，而非单一标量奖励。因此，式~(\ref{eq:ch3_pggrad})~中的策略优化可重构为多终端目标的联合优化：
 \begin{equation}\label{eq:ch3_p2}
 \mathcal{P}_2:\quad\max_\theta\mathcal{J}(\theta)=\max_\theta\big(J_1(\theta_1),\dots,J_n(\theta_n)\big),
 \end{equation}
-其中 $J_{n_i}(\theta_{n_i})$ 由式~(\ref{eq:ch3_pgobj})~定义。由于优化目标为 $n$ 维向量，无法直接用于单次策略更新，需引入标量化映射 $\phi(\cdot):\mathbb{R}^n\to\mathbb{R}$ 把多终端回报转化为一个公平性驱动的标量训练目标，详见第~\ref{subsec:ch3_ggf}~节。
+其中 $J_{n_i}(\theta_{n_i})$ 由式~(\ref{eq:ch3_pgobj})~定义。由于优化目标为 $n$ 维向量，无法直接用于单次策略更新，需要引入标量化映射 $\phi(\cdot):\mathbb{R}^n\to\mathbb{R}$，将多终端回报转化为公平性驱动的标量训练目标，详见第~\ref{subsec:ch3_ggf}~节。
 
-在给出标量化与求解之前，先完成该序列接入决策模型的状态、动作与奖励定义。
+在给出标量化与策略更新方式之前，先定义该序列接入决策模型的状态、动作与奖励。
 
-\textbf{状态}：终端 $U_e$ 在时隙 $t$ 的状态 $s_e^t=\langle\mathbf{s}_e^t,\mathbf{C}_e^t,\mathbf{I}_{l,e,m}^t,\mathbf{T}_e^t,\mathbf{V}_e^t,\mathbf{N}_e^t,\mathbf{J}_e^t\rangle$ 由前 $t_H$ 个时隙的历史数据构成，包括：连接卫星 $\mathbf{s}_e^t$、子信道选择 $\mathbf{C}_e^t$、所受干扰 $\mathbf{I}_{l,e,m}^t$、所有可见卫星的剩余可见时间 $\mathbf{T}_e^t$ 与仰角 $\mathbf{V}_e^t$、各可见卫星的可用子信道数 $\mathbf{N}_e^t$，以及邻域内 $N_n$ 个最近邻终端共享的累计接入效用 $\mathbf{J}_e^t$。其中 $\mathbf{J}_e^t$ 可由历史吞吐量、接入成功奖励和碰撞惩罚累加得到，用于表征邻近终端的长期服务质量，而不是训练阶段的优势估计。单时隙特征无法反映环境动态，例如当前仰角无法判别卫星正在接近还是远离终端，故堆叠前 $t_H$ 个时隙的特征以刻画环境演化。上述特征主要由源卫星采集、处理并下发至终端，且多为大时间尺度缓变参数，对星间链路波动具有较强稳定性；当链路实际中断时，系统以历史状态作为替代特征，从而维持动作预测的可靠性。
+\textbf{状态}：终端 $U_e$ 在时隙 $t$ 的状态 $s_e^t=\langle\mathbf{s}_e^t,\mathbf{C}_e^t,\mathbf{I}_{l,e,m}^t,\mathbf{T}_e^t,\mathbf{V}_e^t,\mathbf{N}_e^t,\mathbf{J}_e^t\rangle$ 由前 $t_H$ 个时隙的历史数据构成，包括连接卫星 $\mathbf{s}_e^t$、子信道选择 $\mathbf{C}_e^t$、所受干扰 $\mathbf{I}_{l,e,m}^t$、所有可见卫星的剩余可见时间 $\mathbf{T}_e^t$ 与仰角 $\mathbf{V}_e^t$、各可见卫星的可用子信道数 $\mathbf{N}_e^t$，以及邻域内 $N_n$ 个最近邻终端共享的累计接入效用 $\mathbf{J}_e^t$。其中，$\mathbf{J}_e^t$ 由历史吞吐量、接入成功奖励和碰撞惩罚累加得到，用于表征邻近终端的长期服务质量，而非训练阶段的优势估计。单时隙特征难以刻画环境演化，例如当前仰角无法区分卫星正在接近终端还是远离终端，因此本章堆叠前 $t_H$ 个时隙的特征以引入时序信息。上述特征主要由源卫星采集、处理并下发至终端，且多为大时间尺度缓变参数，对星间链路波动不敏感；当链路实际中断时，系统采用历史状态作为替代特征，以维持动作预测的稳定性。
 
-\textbf{动作}：动作 $a_e^t=(x_{l,e}^t,y_{l,m}^{t,e})$ 包含目标卫星选择与候选子信道选择两部分，指示 $U_e$ 在时隙 $t$ 选择卫星 $S_l$ 与子信道 $c_m$ 进行接入。可见卫星数随时隙波动会引起动作空间规模变化，为此本章将动作空间维度设为服务周期内可见卫星数的最大值，并以动作掩码滤除不可见卫星对应的无效动作及动作空间填充项；同时，按星地距离升序定义可见卫星与动作索引之间的映射关系。
+\textbf{动作}：动作 $a_e^t=(x_{l,e}^t,y_{l,m}^{t,e})$ 包含目标卫星选择与候选子信道选择两部分，表示 $U_e$ 在时隙 $t$ 选择卫星 $S_l$ 与子信道 $c_m$ 进行接入。由于可见卫星数随时隙变化，动作空间规模也随之变化。为保持策略网络输出维度一致，本章将动作空间维度设为服务周期内可见卫星数的最大值，并通过动作掩码滤除不可见卫星对应的无效动作及动作空间填充项；同时，按星地距离升序定义可见卫星与动作索引之间的映射关系。
 
-\textbf{奖励}：奖励函数 $r_e^t$ 度量终端在本地观测 $o_e^t$ 下执行接入动作 $a_e^t$ 后获得的链路服务质量。由于序列决策模型需要处理失连和随机接入碰撞等不可行接入结果，服务连续性与子信道容量约束以惩罚项形式纳入奖励：正奖励鼓励有效接入，负奖励抑制失连、过载和同星同子信道碰撞，故奖励函数分三种情形定义：
+\textbf{奖励}：奖励函数 $r_e^t$ 度量终端在本地观测 $o_e^t$ 下执行接入动作 $a_e^t$ 后获得的链路服务质量。由于序列决策模型需要处理失连和随机接入碰撞等不可行接入结果，服务连续性与子信道容量约束通过惩罚项纳入奖励函数。正奖励鼓励有效接入，负奖励抑制失连、过载和同星同子信道碰撞。因此，奖励函数定义为
 \begin{equation}\label{eq:ch3_reward}
 r_e^t(o_e^t,a_e^t)=
 \begin{cases}
@@ -216,12 +216,12 @@ R_e^t, & \text{若成功接入且未发生同星同子信道碰撞或卫星过�
 -1, & \text{若发生同星同子信道碰撞或卫星过载}.
 \end{cases}
 \end{equation}
-即仅当 $U_e$ 持续被某颗卫星服务时奖励为正且正比于其链路速率；若因子信道碰撞或卫星过载导致失连，则视为违反服务连续性并施加 $-1$ 惩罚。
+即仅当 $U_e$ 持续被某颗卫星服务时，奖励为正且正比于其链路速率；若因子信道碰撞或卫星过载导致失连，则视为违反服务连续性并施加 $-1$ 惩罚。
 
 \subsection{基于广义 Gini 指标的接入公平性标量化}
 \label{subsec:ch3_ggf}
 
-标量化映射 $\phi$ 须将 $n$ 维终端回报向量转化为一个可训练的标量目标。面向 LEO 接入场景，该映射应满足三项要求：一是提高无线资源利用率，避免可用卫星和子信道空置；二是优先改善长期吞吐较低终端的服务质量，抑制边缘终端或频繁碰撞终端长期受损；三是评价结果不依赖终端编号，使地理位置或接入顺序不会引入额外偏置。
+标量化映射 $\phi$ 需要将 $n$ 维终端回报向量转化为可训练的标量目标。面向 LEO 接入场景，该映射应同时满足三项性质：其一，保持无线资源利用效率，避免可用卫星和子信道空置；其二，优先改善长期吞吐较低终端的服务质量，抑制边缘终端或频繁碰撞终端长期处于弱服务状态；其三，评价结果不依赖终端编号，避免地理位置或接入顺序引入额外偏置。
 
 为此，本章采用广义 Gini 公平聚合函数对 $\mathcal{P}_2$ 的多终端回报进行标量化。该函数在多目标强化学习中常用于同时刻画效率与公平性~\cite{busaFekete-GGI-ICML17,siddique-FairMORL-ICML20}，定义为
 \begin{equation}\label{eq:ch3_ggf}
@@ -239,23 +239,23 @@ R_e^t, & \text{若成功接入且未发生同星同子信道碰撞或卫星过�
 \begin{equation}\label{eq:ch3_p3}
 \mathcal{P}_3:\quad\max_\theta\sum_{i=1}^{n}w_iV_i^{t\uparrow}.
 \end{equation}
-当最大权重进一步集中于最低效用终端时，$\mathcal{P}_3$ 可逼近 $\mathcal{P}_1$ 中的最大最小公平目标~\cite{siddique-FairMORL-ICML20}。因此，广义 Gini 聚合能够在不改变底层链路速率模型的情况下，将用户长期吞吐公平性嵌入接入策略训练目标。
+当最大权重进一步集中于最低效用终端时，$\mathcal{P}_3$ 可逼近 $\mathcal{P}_1$ 中的最大最小公平目标~\cite{siddique-FairMORL-ICML20}。因此，广义 Gini 聚合能够在不改变底层链路速率模型的条件下，将用户长期吞吐公平性纳入接入策略训练目标。
 
 \subsection{公平性修正的策略更新与 PPO 集成}
 \label{subsec:ch3_pg}
 
-广义 Gini 聚合给出了长期公平目标，但在策略梯度更新中还需要把该目标落实为可训练的优势估计。根据式~(\ref{eq:ch3_p3})，各终端价值按长期接入效用从低到高排序后，公平目标的梯度可等价地表示为对个体优势估计的加权修正。记 $\hat{A}_{t}^{j\uparrow}$ 为按对应终端长期接入效用升序排列后的个体优势估计，则公平性修正优势为
+广义 Gini 聚合给出了长期公平目标，但策略梯度更新还需要将该目标落实为可训练的优势估计。根据式~(\ref{eq:ch3_p3})，各终端价值按长期接入效用从低到高排序后，公平目标的梯度可等价表示为对个体优势估计的加权修正。记 $\hat{A}_{t}^{j\uparrow}$ 为按对应终端长期接入效用升序排列后的个体优势估计，则公平性修正优势为
 \begin{equation}\label{eq:ch3_swfcorrect}
 \hat{A}_{t,n_i}^{\mathrm{SWF}}=
 \sum_{j=1}^{n}w_j\hat{A}_{t}^{j\uparrow}.
 \end{equation}
-式~(\ref{eq:ch3_swfcorrect})~表明，长期服务质量较低的终端在公平性修正中获得更高权重，从而引导接入策略减少对弱服务终端的持续挤压。在受限信令条件下，FG-MAPPO 通过最近邻终端交换累计接入效用与个体优势估计，对式~(\ref{eq:ch3_swfcorrect})~中的排序和优势项进行局部估计；当邻域覆盖全体终端时，该估计退化为全局广义 Gini 修正。该处理只限定可用信令范围，不重新定义公平性优化目标。相应的策略梯度可写为
+式~(\ref{eq:ch3_swfcorrect})~表明，长期服务质量较低的终端在公平性修正中获得更高权重，从而引导接入策略减少对弱服务终端的持续挤压。在受限信令条件下，FG-MAPPO 通过最近邻终端交换累计接入效用与个体优势估计，对式~(\ref{eq:ch3_swfcorrect})~中的排序和优势项进行局部估计；当邻域覆盖全体终端时，该估计退化为全局广义 Gini 修正。该处理仅限定可用信令范围，并不改变公平性优化目标。相应的策略梯度可写为
 \begin{equation}\label{eq:ch3_swfgrad}
 \hat{g}_{o_{n_i}^t,a_{n_i}^t}=
 \nabla_{\theta_{n_i}}\log\pi_{\theta_{n_i}}(a_{n_i}^t\mid o_{n_i}^t)\,\hat{A}_{t,n_i}^{\mathrm{SWF}}.
 \end{equation}
 
-上述修正可以直接嵌入近端策略优化（Proximal Policy Optimization，PPO）框架~\cite{schulman-PPO-arXiv17}。在实现中，策略网络输出给定观测下的卫星--子信道动作概率，价值网络估计经 SWF 聚合后的回报。记重要性采样比为 $\rho_t^{n_i}=\pi_{\theta_{n_i}}(a_t^{n_i}\mid o_t^{n_i})/\pi_{\mathrm{old}}(a_t^{n_i}\mid o_t^{n_i})$，则策略网络与价值网络的损失函数分别为
+上述修正可直接嵌入近端策略优化（Proximal Policy Optimization，PPO）框架~\cite{schulman-PPO-arXiv17}。在实现中，策略网络输出给定观测下的卫星和子信道动作概率，价值网络估计经 SWF 聚合后的回报。记重要性采样比为 $\rho_t^{n_i}=\pi_{\theta_{n_i}}(a_t^{n_i}\mid o_t^{n_i})/\pi_{\mathrm{old}}(a_t^{n_i}\mid o_t^{n_i})$，则策略网络与价值网络的损失函数分别为
 \begin{equation}\label{eq:ch3_actorloss}
 \mathcal{L}^{\mathrm{Policy}}(\theta_{n_i})=\mathbb{E}_t\!\left[\min\!\left(\rho_t^{n_i}\hat{A}_{t,n_i}^{\mathrm{SWF}},~\mathrm{clip}(\rho_t^{n_i},1-\epsilon,1+\epsilon)\,\hat{A}_{t,n_i}^{\mathrm{SWF}}\right)\right],
 \end{equation}
