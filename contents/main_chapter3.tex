@@ -34,18 +34,7 @@
 
 在实现结构上，本章进一步构建吞吐与公平分支分立的切换策略结构（Throughput-Oriented and Fairness-Oriented，TOFO），分别刻画速率优先选择与公平性感知修正，以缓解个体速率收益与系统公平目标耦合引起的策略偏置；随后通过两阶段训练和并行化同步采样获得公平性感知切换策略。最后，本章将所提策略作为辅助决策模块嵌入 3GPP 条件切换（CHO）的候选目标筛选、触发条件配置与资源预选择环节，使公平性信令能够在不改变标准随机接入流程的前提下进入在线切换决策。
 
-本章的主要贡献如下：
-\begin{itemize}
-\item 建立长期吞吐公平驱动的分布式协作切换模型，将海量终端并发切换表示为多终端序列接入决策过程，并采用广义 Gini 指标对多用户长期吞吐目标进行公平性标量化。
-
-\item 推导基于社会福利函数（Social Welfare Function，SWF）的公平性修正优势估计，将广义 Gini 长期公平目标转化为可嵌入近端策略优化（Proximal Policy Optimization，PPO）更新的加权策略梯度项，并通过邻域累计接入效用与训练阶段个体优势标量实现局部分布式估计。
-
-\item 提出吞吐分支与公平分支分立的切换策略结构（TOFO），以吞吐导向网络产生速率优先候选动作，以公平导向网络结合邻域累计接入效用进行公平性修正，并通过两阶段交替训练获得公平性感知切换策略。
-
-\item 构建同步分布式训练框架，并将 FG-MAPPO 作为辅助决策模块嵌入 3GPP 条件切换协议的候选目标筛选、触发条件配置与资源预选择流程。
-
-\item 在 Starlink、Kuiper 与 Telesat 等真实星座参数配置下开展大规模组网仿真，并与集中式匈牙利优化、分布式演化博弈调度、独立深度 Q 网络（Independent Deep Q-Network，IDQN）、独立 Soft Actor-Critic（Independent Soft Actor-Critic，I-SAC）和原始多智能体近端策略优化等代表性基线对比，评估长期公平性、平均速率、切换接入成功率、空间负载均衡以及不同用户规模、纬度区域和星座构型下的适应性。
-\end{itemize}
+本章的主要贡献如下：建立长期吞吐公平驱动的分布式协作切换模型并采用广义 Gini 指标对多用户长期吞吐目标进行公平性标量化，推导基于社会福利函数的公平性修正优势估计并通过邻域累计接入效用与训练阶段个体优势标量实现局部分布式估计，提出吞吐导向和公平导向分立的切换策略结构（TOFO）并经两阶段交替训练得到公平性感知切换策略，构建同步分布式训练框架并将 FG-MAPPO 嵌入 3GPP 条件切换协议的候选目标筛选、触发条件配置与资源预选择流程，在 Starlink、Kuiper 与 Telesat 等真实星座参数下评估长期公平性、平均速率、切换接入成功率、空间负载均衡及不同用户规模、纬度区域和星座构型下的适应性。本章相关成果已撰写成期刊论文``Incentivizing Cooperation for Handover Strategies in LEO Constellations via fairness-guaranteed MARL''，投稿于 ACM Transactions on Internet Technology (TOIT)。
 
 \section{系统模型与问题建模}
 \label{sec:ch3_sysmodel}
