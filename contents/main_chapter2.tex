@@ -1,6 +1,5 @@
 \chapter{大规模LEO卫星网络分布式管控架构及关键技术}
 \label{chap:arch-techniques}
-展位展位展位
 
 \section{引言}
 
@@ -139,6 +138,271 @@
 
 \subsection{基于时空图学习的节点信息感知方法}
 
+在基于 AI 的纯分布式网络管控架构下，星上节点不再依赖中心控制器汇聚全网状态，也不维护全网一致的链路状态数据库，而是依据本地观测与有限跳邻域状态独立完成路由转发、拥塞规避和资源调度等控制决策。由于单个节点的直接观测范围有限，仅依据本地队列、相邻链路质量和一跳邻居负载进行决策，容易忽略下游多跳链路的拥塞演化与相邻节点间的资源竞争关系，从而导致局部最优、路径震荡或链路争用冲突。因此，分布式管控中的节点信息感知不应仅停留在本地状态测量层面，而需要通过轻量级邻域协作，在控制信令开销可控的条件下构建能够近似反映全局网络状态的本地多跳视图，并为后续分布式决策提供冲突规避与协同优化依据。
+
+考虑到 LEO 卫星网络中的邻域状态天然具有图结构特征，时空图学习为上述节点信息感知提供了一种有效实现途径\cite{zhou2021graphneuralnetworksreview}。具体而言，卫星、波束、用户或业务流可被抽象为图中的节点，星间链路、星地可见关系、候选接入关系、干扰关系或资源竞争关系可被抽象为边。节点特征可包含队列积压、业务负载、缓存状态、接入用户数、可用计算能力和历史服务水平等状态，边特征可包含链路容量、传播时延、信道质量、链路利用率、剩余可见时间和分组误码状态等属性。随着卫星轨道运动和业务流量变化，节点邻接关系、链路状态和负载分布均呈现显著的时变性，因此节点信息感知需要同时刻画空间邻接依赖与时间状态演化。
+
+为形式化描述上述过程，记时隙 $k$ 下以管控节点 $i$ 为中心的 $h$ 跳局部邻域图为
+\begin{equation}
+    \mathcal G_i^h(k)=
+    \big(\mathcal V_i^h(k),\mathcal E_i^h(k),
+    \mathbf X_i^h(k),\mathbf E_i^h(k)\big),
+\end{equation}
+其中 $\mathcal V_i^h(k)$ 和 $\mathcal E_i^h(k)$ 分别表示局部邻域内的节点集合和边集合，$\mathbf X_i^h(k)=\{\mathbf x_v(k)\}_{v\in\mathcal V_i^h(k)}$ 表示节点状态特征，$\mathbf E_i^h(k)=\{\mathbf e_{uv}(k)\}_{(u,v)\in\mathcal E_i^h(k)}$ 表示边状态特征。节点信息感知的目标是在不汇聚全网状态的条件下，将局部邻域图中的节点状态、边状态和拓扑关系映射为紧凑的时空节点表征，为后续分布式资源管控提供状态输入。
+
+从数学形式上看，图神经网络可被理解为定义在图结构上的参数共享信息聚合算子\cite{Gilmer-MessagePassingNN-ICML17,battaglia2018relationalinductivebiasesdeep}。令 $\mathbf h_v^{(0)}(k)=\rho_x(\mathbf x_v(k))$ 表示节点 $v$ 的初始状态表征，$\mathbf g_{uv}(k)=\rho_e(\mathbf e_{uv}(k))$ 表示边 $(u,v)$ 的状态表征，其中 $\rho_x(\cdot)$ 和 $\rho_e(\cdot)$ 分别为节点特征和边特征映射。第 $\ell$ 层图信息传播可写为
+\begin{equation}
+    \mathbf m_{u\rightarrow v}^{(\ell)}(k)
+    =
+    \psi_\ell
+    \left(
+    \mathbf h_u^{(\ell)}(k),
+    \mathbf h_v^{(\ell)}(k),
+    \mathbf g_{uv}(k)
+    \right),
+    \quad u\in\mathcal N_v(k),
+\end{equation}
+\begin{equation}
+    \mathbf h_v^{(\ell+1)}(k)
+    =
+    \phi_\ell
+    \left(
+    \mathbf h_v^{(\ell)}(k),
+    \mathrm{AGG}_\ell
+    \left(
+    \left\{
+    \mathbf m_{u\rightarrow v}^{(\ell)}(k)
+    \mid u\in\mathcal N_v(k)
+    \right\}
+    \right)
+    \right),
+\end{equation}
+其中 $\mathcal N_v(k)$ 为节点 $v$ 的一跳邻居集合，$\psi_\ell(\cdot)$ 为消息生成函数，$\mathrm{AGG}_\ell(\cdot)$ 为邻居消息聚合函数，$\phi_\ell(\cdot)$ 为节点状态更新函数。该定义表明，GNN 的基本作用并非简单拼接邻居状态，而是在邻接关系约束下联合利用邻居节点状态、本节点状态和边状态。对于分布式网络管控而言，这使节点能够在有限邻域内区分不同链路质量、不同拥塞程度和不同服务可靠性的邻居状态，从而形成面向决策的局部网络态势。
+
+若暂不显式区分边特征，上述空间聚合可写为归一化图卷积形式\cite{kipf2017semisupervisedclassificationgraphconvolutional}。记 $\mathbf A(k)$ 为时隙 $k$ 的邻接矩阵，$\widetilde{\mathbf A}(k)=\mathbf A(k)+\mathbf I$ 为加入自环后的邻接矩阵，$\widetilde{\mathbf D}(k)$ 为对应度矩阵，则一层图卷积可表示为
+\begin{equation}
+    \mathbf H^{(\ell+1)}(k)
+    =
+    \sigma
+    \left(
+    \widehat{\mathbf A}(k)
+    \mathbf H^{(\ell)}(k)
+    \mathbf W^{(\ell)}
+    \right),
+    \quad
+    \widehat{\mathbf A}(k)
+    =
+    \widetilde{\mathbf D}^{-\frac{1}{2}}(k)
+    \widetilde{\mathbf A}(k)
+    \widetilde{\mathbf D}^{-\frac{1}{2}}(k).
+\end{equation}
+其中 $\mathbf H^{(\ell)}(k)$ 为第 $\ell$ 层节点表征矩阵，$\mathbf W^{(\ell)}$ 为共享参数矩阵，$\sigma(\cdot)$ 为非线性变换。该表达式说明，图卷积本质上是在既有邻接链路或资源竞争关系上进行局部状态交换与加权聚合。堆叠 $L$ 层图聚合后，节点表征最多依赖 $L$ 跳邻域内的节点和边状态。若忽略非线性变换，可近似写为
+\begin{equation}
+    \mathbf H^{(L)}(k)
+    =
+    \widehat{\mathbf A}^{L}(k)
+    \mathbf X(k)
+    \mathbf W .
+\end{equation}
+由于 $\widehat{\mathbf A}^{L}(k)$ 的第 $(v,u)$ 个元素非零仅当节点 $u$ 位于节点 $v$ 的 $L$ 跳可达邻域内，因此空间图聚合具有有限邻域感知特性\cite{Hamilton-GraphSAGE-NIPS17}。该性质与大规模 LEO 星座的分布式管控需求相匹配，即节点可以通过有限邻域协作获得多跳负载、链路余量和拥塞风险信息，同时将控制信令限制在可控范围内。
+
+空间聚合还具有状态压缩作用。若节点 $v$ 直接收集 $L$ 跳邻域内的全部原始遥测信息，则输入维度随邻域节点数和边数增长，可近似表示为
+\begin{equation}
+    D_v^{\mathrm{raw}}(k)
+    =
+    |\mathcal B_L(v,k)|F_x
+    +
+    |\mathcal E_L(v,k)|F_e,
+\end{equation}
+其中 $\mathcal B_L(v,k)$ 为 $L$ 跳邻域节点集合，$\mathcal E_L(v,k)$ 为邻域内边集合，$F_x$ 和 $F_e$ 分别为节点特征和边特征维度。经图聚合后，节点仅需维护固定维度的空间表征
+\begin{equation}
+    \bar{\mathbf h}_v(k)
+    =
+    \mathbf h_v^{(L)}(k)
+    \in\mathbb R^{F_z},
+    \quad
+    F_z\ll D_v^{\mathrm{raw}}(k).
+\end{equation}
+因此，GNN 可将多跳邻域内的队列、业务、链路、信道和可见时间等状态压缩为紧凑表征，降低分布式节点之间的状态转发开销和星上处理开销。
+
+除空间邻域依赖外，LEO 卫星网络状态还具有显著的时间演化特征。卫星轨道运动导致星间链路和星地可见关系周期性变化，业务到达和队列积压具有时间相关性，信道质量和链路余量也会随覆盖几何关系和业务负载持续变化。因此，节点信息感知不仅需要刻画当前时隙的邻域图状态，还需要融合历史观测以判断负载增长趋势、链路退化趋势和服务质量变化趋势。
+
+设节点 $v$ 在时隙 $k$ 由空间图聚合得到的邻域状态表征为
+\begin{equation}
+    \bar{\mathbf h}_v(k)
+    =
+    \mathrm{GNN}_{\theta}
+    \left(
+    \mathcal G_i^h(k),
+    \mathbf X_i^h(k),
+    \mathbf E_i^h(k)
+    \right)_v .
+\end{equation}
+基于历史观测窗口 $[k-T_o,k]$，时间信息聚合可抽象表示为
+\begin{equation}
+    \mathbf z_v(k)
+    =
+    \Gamma_{\theta}
+    \left(
+    \bar{\mathbf h}_v(k-T_o),
+    \bar{\mathbf h}_v(k-T_o+1),
+    \ldots,
+    \bar{\mathbf h}_v(k)
+    \right),
+\end{equation}
+或以递推形式写为
+\begin{equation}
+    \mathbf z_v(k)
+    =
+    \Gamma_{\theta}
+    \left(
+    \mathbf z_v(k-1),
+    \bar{\mathbf h}_v(k)
+    \right),
+\end{equation}
+其中 $\Gamma_{\theta}(\cdot)$ 表示时间状态聚合算子，$\mathbf z_v(k)$ 表示融合空间邻域状态和历史演化状态后的时空节点表征。该表达式不限定具体实现形式，可对应循环更新或时间卷积等序列建模方式\cite{li2018diffusionconvolutionalrecurrentneural}。其共同作用是将当前邻域状态与历史状态演化相结合，使节点能够在遥测滞后、链路间歇可见和业务突发的条件下形成更稳定的网络状态感知。从时空联合建模角度看，空间聚合刻画“当前邻域内哪些节点和链路影响本节点状态”，时间聚合刻画“这些邻域状态如何随时间变化”。二者结合后，节点表征 $\mathbf z_v(k)$ 可作为路由、切换、负载均衡、资源调度和 QoS 保障等任务的统一状态输入。
+
+基于 GNN 的表征学习还可以与图学习中的节点级、边级和图级任务形成对应关系。在节点级任务中，模型以单个节点的时空表征 $\mathbf z_v(k)$ 为输入，输出该节点相关的状态类别或连续状态量，即
+\begin{equation}
+    \widehat{\mathbf y}_v(k)
+    =
+    f_{\mathrm N}
+    \left(
+    \mathbf z_v(k)
+    \right).
+\end{equation}
+当 $\widehat{\mathbf y}_v(k)$ 表示拥塞等级、接入风险等级、服务状态类别或切换风险类别时，对应节点级分类任务；当其表示未来队列长度、业务到达率、节点负载、可服务速率或 QoS 违背概率时，对应节点级回归任务。因此，节点级分类和回归可分别映射到拥塞状态识别、负载感知、流量预测和服务连续性风险感知等分布式管控功能。
+
+在边级任务中，模型根据相邻节点表征及边状态判断链路或竞争关系的状态，即
+\begin{equation}
+    \widehat{\mathbf y}_{uv}(k)
+    =
+    f_{\mathrm E}
+    \left(
+    \mathbf z_u(k),
+    \mathbf z_v(k),
+    \mathbf e_{uv}(k)
+    \right),
+    \quad (u,v)\in\mathcal E(k).
+\end{equation}
+当输出为链路是否可用、候选下一跳是否可选、是否存在强资源竞争或是否触发链路规避时，对应边级分类任务；当输出为链路剩余容量、端到端时延贡献、丢包风险、链路利用率或剩余可见时间时，对应边级回归任务。由此，边级任务可支撑分布式路由中的候选下一跳判别、星间链路质量感知、拥塞链路规避和资源竞争关系识别。
+
+在图级或子图级任务中，模型对一个局部区域、波束集合、覆盖区域或多跳邻域内的节点表征进行汇聚，形成区域级状态表征
+\begin{equation}
+    \mathbf z_{\mathcal S}(k)
+    =
+    \mathrm{READOUT}
+    \left(
+    \left\{
+    \mathbf z_v(k)
+    \mid v\in\mathcal V_{\mathcal S}(k)
+    \right\}
+    \right),
+    \quad
+    \widehat{\mathbf y}_{\mathcal S}(k)
+    =
+    f_{\mathrm G}
+    \left(
+    \mathbf z_{\mathcal S}(k)
+    \right).
+\end{equation}
+其中 $\mathcal S$ 可表示一个波束覆盖区、局部星间子网、候选接入区域或资源调度区域。当输出为区域是否过载、是否存在服务失衡或是否需要触发资源重配置时，对应图级或子图级分类任务；当输出为区域总业务需求、平均服务速率、资源缺口、负载不均衡程度或长期公平性指标时，对应图级或子图级回归任务。因此，图级任务可用于支撑区域负载感知、覆盖区公平性感知、资源池容量评估和跨节点协同调度。
+
+综上，基于时空图学习的节点信息感知可从三个层面理解。首先，在空间维度上，GNN 利用星间链路、星地可见关系、候选接入关系或资源竞争关系聚合多跳邻域状态，使分布式节点能够在有限信令开销下获得局部多跳网络视图。其次，在时间维度上，时间聚合算子利用历史观测刻画业务负载、链路质量、队列积压和服务状态的演化趋势，缓解瞬时观测不完整和遥测更新滞后带来的状态不确定性。最后，在任务维度上，节点级、边级和图级分类与回归任务分别对应拥塞识别、链路判别、路由选择、流量预测、负载感知、区域公平性感知和资源调度状态评估等网络管控功能\cite{rusek2019unveilinggnn}。由此，GNN 在分布式 LEO 卫星网络中的作用并非单纯的图结构特征提取，而是面向邻域协作、状态压缩和下游资源管控任务的通用时空状态表征基础。
+
 \subsection{基于智能体协作的分布式资源调度方法}
+
+大规模 LEO 卫星网络通常由成千上万颗高速运动的低轨卫星组成，星间链路、星地可见关系、业务负载和信道状态均随时间动态变化。受限于星间链路时延、星上处理能力、控制信令开销以及覆盖区域的快速切换，网络难以依赖可靠且高速的全局控制平面实时汇聚全网状态并统一下发资源调度决策。因此，面向大规模 LEO 卫星网络的在线资源管控需要从传统集中式优化转向分布式协作模式，即由邻近卫星、波束或接入节点形成局部自治域，在有限信息交互条件下自主完成业务感知、资源协调、干扰规避和负载均衡等调度功能。多智能体强化学习为上述分布式资源调度提供了一种有效的理论基础，使多个智能体能够在共享网络环境中依据局部观测、邻域交互和资源调度反馈形成协作决策能力\cite{huh2024multiagentreinforcementlearningcomprehensive}。在 LEO 卫星网络中，可将卫星节点、波束控制器、接入节点或局部调度单元抽象为智能体，将链路带宽、发射功率、时频资源、缓存空间和星上计算能力等抽象为可调度资源，从而通过多智能体协作实现分布式在线资源管控。
+
+从数学形式上看，分布式资源调度过程可被描述为部分可观测的多智能体马尔可夫决策过程，其基本形式可写为
+\begin{equation}
+    \mathcal M=
+    \left(
+    \mathcal I,\mathcal S,
+    \{\mathcal O_i\}_{i\in\mathcal I},
+    \{\mathcal A_i\}_{i\in\mathcal I},
+    P,\{r_i\}_{i\in\mathcal I},\gamma
+    \right),
+\end{equation}
+其中 $\mathcal I=\{1,\ldots,N\}$ 表示智能体集合，$\mathcal S$ 表示全局网络状态空间，$\mathcal O_i$ 和 $\mathcal A_i$ 分别表示智能体 $i$ 的局部观测空间和动作空间，$P$ 表示网络状态转移关系，$r_i$ 表示智能体 $i$ 获得的调度反馈，$\gamma\in[0,1)$ 为折扣因子。该形式可视为随机博弈模型在分布式网络管控中的表达，其中多个智能体在同一网络环境中同时执行动作，并共同影响后续链路状态、队列状态和资源占用状态\cite{sutton1998reinforcementlearning}。
+
+在时隙 $k$，智能体 $i$ 根据局部观测 $\mathbf o_i(k)$ 选择资源调度动作
+\begin{equation}
+    a_i(k)\sim \pi_i\left(\cdot\mid \mathbf o_i(k)\right),
+\end{equation}
+所有智能体的动作组成联合动作
+\begin{equation}
+    \mathbf a(k)=\left(a_1(k),a_2(k),\ldots,a_N(k)\right).
+\end{equation}
+随后，网络状态按照
+\begin{equation}
+    s(k+1)\sim P\left(\cdot\mid s(k),\mathbf a(k)\right)
+\end{equation}
+进行演化，并向各智能体返回相应调度反馈 $r_i(k)$。智能体的目标是在长期交互过程中形成策略 $\pi_i$，使其在局部观测受限的条件下提升长期资源利用效率、业务服务质量和邻域协作性能。由于 LEO 卫星网络难以实时获取完整全局状态，智能体策略在执行阶段通常只能依赖本地状态、邻域状态和有限交互信息，而不能依赖全网集中式控制信息。
+
+在分布式资源调度中，局部观测 $\mathbf o_i(k)$ 的设计应体现“本地可测、邻域可交互、任务相关、开销可控”的原则。一般可将智能体 $i$ 的观测表示为
+\begin{equation}
+    \mathbf o_i(k)=
+    \left[
+    \mathbf o_i^{\mathrm{loc}}(k),
+    \mathbf o_i^{\mathrm{nei}}(k),
+    \mathbf o_i^{\mathrm{qos}}(k),
+    \mathbf o_i^{\mathrm{msg}}(k)
+    \right],
+\end{equation}
+其中 $\mathbf o_i^{\mathrm{loc}}(k)$ 表示本地资源与业务状态，例如本地队列长度、缓存占用、可用带宽、剩余功率、可用计算能力和当前接入用户数；$\mathbf o_i^{\mathrm{nei}}(k)$ 表示有限跳邻域状态，例如相邻链路质量、邻居负载、候选下一跳状态、干扰关系和邻域资源占用情况；$\mathbf o_i^{\mathrm{qos}}(k)$ 表示业务服务状态，例如时延约束、丢包风险、服务连续性风险和用户公平性状态；$\mathbf o_i^{\mathrm{msg}}(k)$ 表示来自邻居智能体的压缩协作信息。上一小节中的时空图节点表征 $\mathbf z_i(k)$ 也可作为 $\mathbf o_i^{\mathrm{nei}}(k)$ 或 $\mathbf o_i^{\mathrm{msg}}(k)$ 的一种紧凑表示，从而避免在强化学习决策阶段重复传输高维原始遥测信息。
+
+动作空间应根据具体资源调度对象区分离散动作、连续动作以及混合动作。对于路由下一跳选择、候选接入卫星选择、波束选择、信道块选择、用户调度顺序和切换触发判决等问题，动作通常表现为离散动作，可表示为
+\begin{equation}
+    a_i^{\mathrm d}(k)\in\mathcal A_i^{\mathrm d}(k).
+\end{equation}
+对于功率控制、带宽比例分配、时频资源占比、计算资源分配、缓存空间分配和语义压缩率控制等问题，动作通常表现为连续动作，可表示为
+\begin{equation}
+    \mathbf a_i^{\mathrm c}(k)\in\mathcal A_i^{\mathrm c}(k).
+\end{equation}
+在实际网络资源管控中，离散动作和连续动作往往同时存在，因此可将智能体动作统一表示为
+\begin{equation}
+    a_i(k)=
+    \left(
+    a_i^{\mathrm d}(k),
+    \mathbf a_i^{\mathrm c}(k)
+    \right),
+\end{equation}
+其中离散部分决定资源调度对象或调度模式，连续部分决定资源分配比例或控制参数。无论动作空间采用何种形式，动作设计均应满足物理链路约束、功率约束、带宽约束、可见性约束和星上处理能力约束；对于不可行动作，应通过动作掩码、可行域约束或动作投影等方式保证策略输出不会破坏通信资源约束。
+
+奖励反馈用于刻画智能体动作对网络运行状态的影响，其设计应同时反映个体调度收益和邻域协作影响。一般可将智能体 $i$ 的奖励写为
+\begin{equation}
+    r_i(k)
+    =
+    u_i^{\mathrm{svc}}(k)
+    -
+    c_i^{\mathrm{qos}}(k)
+    -
+    c_i^{\mathrm{res}}(k)
+    -
+    c_i^{\mathrm{conf}}(k)
+    +
+    u_i^{\mathrm{coop}}(k),
+\end{equation}
+其中 $u_i^{\mathrm{svc}}(k)$ 表示业务服务收益，可对应吞吐量提升、成功传输分组数或有效服务用户数；$c_i^{\mathrm{qos}}(k)$ 表示 QoS 代价，可对应时延违约、丢包、链路中断或切换失败；$c_i^{\mathrm{res}}(k)$ 表示资源消耗代价，可对应功率消耗、带宽占用、缓存占用或计算开销；$c_i^{\mathrm{conf}}(k)$ 表示决策冲突代价，可对应干扰增强、链路争用、重复调度或邻居拥塞外溢；$u_i^{\mathrm{coop}}(k)$ 表示协作收益，可对应负载均衡、区域公平性提升或邻域拥塞缓解。奖励设计不应只鼓励单个节点的瞬时吞吐最大化，还应抑制自私抢占资源、局部链路过载和跨节点决策冲突，使局部学习目标与网络整体服务目标保持一致。
+
+在训练范式方面，集中训练分布执行是一类适合大规模网络离线训练和在线部署相结合的通用方法\cite{kraemer2016multiagentreinforcementlearning}。其核心思想是在训练阶段允许利用更完整的网络状态、联合动作、邻域反馈或仿真轨迹，以缓解多智能体同时学习带来的环境非平稳性和协作信用分配困难；但在执行阶段，每个智能体仍只依据本地观测和邻域交互信息独立输出动作，即
+\begin{equation}
+    a_i(k)\sim\pi_i\left(\cdot\mid \mathbf o_i(k)\right).
+\end{equation}
+因此，CTDE 并不要求在实际运行时部署中心控制器，也不要求在线收集全局状态，而是将集中信息主要用于训练阶段的策略评估、经验复用或离线预训练。对于 LEO 卫星网络，该范式适合在数字孪生环境、地面训练平台或历史遥测数据集上学习协作策略，再将局部策略部署到星上节点或边缘调度单元中执行。
+
+与 CTDE 不同，完全分布式训练与执行要求智能体在训练和执行阶段均不依赖全局状态、集中式价值评估器或中心参数更新器。每个智能体仅基于自身观测、局部奖励、邻域消息和有限历史经验更新策略，可表示为
+\begin{equation}
+    \pi_i:
+    \left(
+    \mathbf o_i(k),
+    \{\mathbf m_{j\rightarrow i}(k)\}_{j\in\mathcal N_i^{\mathrm c}(k)}
+    \right)
+    \mapsto a_i(k),
+\end{equation}
+其中 $\mathcal N_i^{\mathrm c}(k)$ 表示智能体 $i$ 在通信约束下可交换信息的邻居集合，$\mathbf m_{j\rightarrow i}(k)$ 表示邻居智能体 $j$ 发送的协作消息。完全分布式训练更符合星间控制平面不稳定、跨域回传受限和在线自适应需求较强的场景，但也更容易受到部分可观测、样本效率低、非平稳学习和智能体间误协调的影响\cite{zhang2018fullydecentralizedmultiagentreinforcement}。因此，在该范式下，观测设计、奖励设计和邻域消息设计需要更加谨慎，应尽量通过有限邻域信息交换、同构节点参数共享、局部模型同步或协作约束来提升策略稳定性和可迁移性。
+
+综上，基于智能体协作的分布式资源调度方法可从三个层面理解。首先，在决策建模层面，LEO 卫星网络中的分布式资源调度可被建模为部分可观测的多智能体马尔可夫决策过程，智能体在局部观测和邻域交互条件下共同影响网络状态演化。其次，在资源管控层面，观测、动作和奖励应分别围绕业务状态感知、资源调度行为和网络服务目标进行设计，并兼顾链路约束、QoS 保障、资源利用效率和邻域协作关系。最后，在训练部署层面，CTDE 适合利用离线全局信息提升训练稳定性并支持分布式执行，而完全分布式训练更适合在缺乏可靠控制平面的星上自治场景中进行在线自适应。由此，多智能体强化学习为大规模 LEO 卫星网络中的分布式路由、接入切换、负载均衡、功率控制和无线资源调度提供了统一的协作决策基础。
 
 \section{本章小结}

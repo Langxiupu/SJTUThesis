@@ -2472,8 +2472,7 @@ year = {2016}
   year={2025},
   volume={11},
   number={1},
-  pages={90-104},
-  doi={10.1109/TCCN.2024.3424842}}
+  pages={90-104}}
 
 @ARTICLE{DiffJSCC,
   author={Yang, Mingyu and Liu, Bowen and Wang, Boyang and Kim, Hun-Seok},
@@ -2481,5 +2480,137 @@ year = {2016}
   title={Diffusion-Aided Joint Source Channel Coding for High Realism Wireless Image Transmission},
   year={2025},
   volume={3},
-  pages={1227-1243},
-  doi={10.1109/TMLCN.2025.3628535}}
+  pages={1227-1243}}
+
+@misc{zhou2021graphneuralnetworksreview,
+      title={Graph Neural Networks: A Review of Methods and Applications}, 
+      author={Jie Zhou and Ganqu Cui and Shengding Hu and Zhengyan Zhang and Cheng Yang and Zhiyuan Liu and Lifeng Wang and Changcheng Li and Maosong Sun},
+      year={2021},
+      eprint={1812.08434},
+      archivePrefix={arXiv},
+      primaryClass={cs.LG},
+      url={https://arxiv.org/abs/1812.08434}, 
+}
+
+@inproceedings{Gilmer-MessagePassingNN-ICML17,
+author = {Gilmer, Justin and Schoenholz, Samuel S. and Riley, Patrick F. and Vinyals, Oriol and Dahl, George E.},
+title = {Neural message passing for Quantum chemistry},
+year = {2017},
+publisher = {JMLR.org},
+abstract = {Supervised learning on molecules has incredible potential to be useful in chemistry, drug discovery, and materials science. Luckily, several promising and closely related neural network models invariant to molecular symmetries have already been described in the literature. These models learn a message passing algorithm and aggregation procedure to compute a function of their entire input graph. At this point, the next step is to find a particularly effective variant of this general approach and apply it to chemical prediction benchmarks until we either solve them or reach the limits of the approach. In this paper, we reformulate existing models into a single common framework we call Message Passing Neural Networks (MPNNs) and explore additional novel variations within this framework. Using MPNNs we demonstrate state of the art results on an important molecular property prediction benchmark; these results are strong enough that we believe future work should focus on datasets with larger molecules or more accurate ground truth labels.},
+booktitle = {Proceedings of the 34th International Conference on Machine Learning - Volume 70},
+pages = {1263–1272},
+numpages = {10},
+location = {Sydney, NSW, Australia},
+series = {ICML'17}
+}
+
+@misc{battaglia2018relationalinductivebiasesdeep,
+      title={Relational inductive biases, deep learning, and graph networks}, 
+      author={Peter W. Battaglia and Jessica B. Hamrick and Victor Bapst and Alvaro Sanchez-Gonzalez and Vinicius Zambaldi and Mateusz Malinowski and Andrea Tacchetti and David Raposo and Adam Santoro and Ryan Faulkner and Caglar Gulcehre and Francis Song and Andrew Ballard and Justin Gilmer and George Dahl and Ashish Vaswani and Kelsey Allen and Charles Nash and Victoria Langston and Chris Dyer and Nicolas Heess and Daan Wierstra and Pushmeet Kohli and Matt Botvinick and Oriol Vinyals and Yujia Li and Razvan Pascanu},
+      year={2018},
+      eprint={1806.01261},
+      archivePrefix={arXiv},
+      primaryClass={cs.LG},
+      url={https://arxiv.org/abs/1806.01261}, 
+}
+
+@misc{kipf2017semisupervisedclassificationgraphconvolutional,
+      title={Semi-Supervised Classification with Graph Convolutional Networks}, 
+      author={Thomas N. Kipf and Max Welling},
+      year={2017},
+      eprint={1609.02907},
+      archivePrefix={arXiv},
+      primaryClass={cs.LG},
+      url={https://arxiv.org/abs/1609.02907}, 
+}
+
+@inproceedings{Hamilton-GraphSAGE-NIPS17,
+author = {Hamilton, William L. and Ying, Rex and Leskovec, Jure},
+title = {Inductive representation learning on large graphs},
+year = {2017},
+isbn = {9781510860964},
+publisher = {Curran Associates Inc.},
+address = {Red Hook, NY, USA},
+abstract = {Low-dimensional embeddings of nodes in large graphs have proved extremely useful in a variety of prediction tasks, from content recommendation to identifying protein functions. However, most existing approaches require that all nodes in the graph are present during training of the embeddings; these previous approaches are inherently transductive and do not naturally generalize to unseen nodes. Here we present GraphSAGE, a general inductive framework that leverages node feature information (e.g., text attributes) to efficiently generate node embeddings for previously unseen data. Instead of training individual embeddings for each node, we learn a function that generates embeddings by sampling and aggregating features from a node's local neighborhood. Our algorithm outperforms strong baselines on three inductive node-classification benchmarks: we classify the category of unseen nodes in evolving information graphs based on citation and Reddit post data, and we show that our algorithm generalizes to completely unseen graphs using a multi-graph dataset of protein-protein interactions.},
+booktitle = {Proceedings of the 31st International Conference on Neural Information Processing Systems},
+pages = {1025–1035},
+numpages = {11},
+location = {Long Beach, California, USA},
+series = {NIPS'17}
+}
+
+@misc{li2018diffusionconvolutionalrecurrentneural,
+      title={Diffusion Convolutional Recurrent Neural Network: Data-Driven Traffic Forecasting}, 
+      author={Yaguang Li and Rose Yu and Cyrus Shahabi and Yan Liu},
+      year={2018},
+      eprint={1707.01926},
+      archivePrefix={arXiv},
+      primaryClass={cs.LG},
+      url={https://arxiv.org/abs/1707.01926}, 
+}
+
+@inproceedings{rusek2019unveilinggnn,
+author = {Rusek, Krzysztof and Su\'{a}rez-Varela, Jos\'{e} and Mestres, Albert and Barlet-Ros, Pere and Cabellos-Aparicio, Albert},
+title = {Unveiling the potential of Graph Neural Networks for network modeling and optimization in SDN},
+year = {2019},
+isbn = {9781450367103},
+publisher = {Association for Computing Machinery},
+address = {New York, NY, USA},
+url = {https://doi.org/10.1145/3314148.3314357},
+doi = {10.1145/3314148.3314357},
+abstract = {Network modeling is a critical component for building self-driving Software-Defined Networks, particularly to find optimal routing schemes that meet the goals set by administrators. However, existing modeling techniques do not meet the requirements to provide accurate estimations of relevant performance metrics such as delay and jitter. In this paper we propose a novel Graph Neural Network (GNN) model able to understand the complex relationship between topology, routing and input traffic to produce accurate estimates of the per-source/destination pair mean delay and jitter. GNN are tailored to learn and model information structured as graphs and as a result, our model is able to generalize over arbitrary topologies, routing schemes and variable traffic intensity. In the paper we show that our model provides accurate estimates of delay and jitter (worst case R2 = 0.86) when testing against topologies, routing and traffic not seen during training. In addition, we present the potential of the model for network operation by presenting several use-cases that show its effective use in per-source/destination pair delay/jitter routing optimization and its generalization capabilities by reasoning in topologies and routing schemes not seen during training.},
+booktitle = {Proceedings of the 2019 ACM Symposium on SDN Research},
+pages = {140–151},
+numpages = {12},
+keywords = {network optimization, network modeling, SDN, Graph Neural Networks},
+location = {San Jose, CA, USA},
+series = {SOSR '19}
+}
+
+@misc{huh2024multiagentreinforcementlearningcomprehensive,
+      title={Multi-agent Reinforcement Learning: A Comprehensive Survey}, 
+      author={Dom Huh and Prasant Mohapatra},
+      year={2024},
+      eprint={2312.10256},
+      archivePrefix={arXiv},
+      primaryClass={cs.MA},
+      url={https://arxiv.org/abs/2312.10256}, 
+}
+
+@ARTICLE{sutton1998reinforcementlearning,
+  author={Sutton, R.S. and Barto, A.G.},
+  journal={IEEE Transactions on Neural Networks}, 
+  title={Reinforcement Learning: An Introduction}, 
+  year={1998},
+  volume={9},
+  number={5},
+  pages={1054-1054},
+  keywords={Books;Neural networks;Dynamic programming;Machine learning;Learning systems;Artificial intelligence;Artificial neural networks;Bibliographies;Neurofeedback;Function approximation}}
+
+@article{kraemer2016multiagentreinforcementlearning,
+author = {Kraemer, Landon and Banerjee, Bikramjit},
+title = {Multi-agent reinforcement learning as a rehearsal for decentralized planning},
+year = {2016},
+issue_date = {May 2016},
+publisher = {Elsevier Science Publishers B. V.},
+address = {NLD},
+volume = {190},
+number = {C},
+issn = {0925-2312},
+journal = {Neurocomput.},
+month = may,
+pages = {82–94},
+numpages = {13},
+keywords = {Decentralized planning, Multi-agent reinforcement learning}
+}
+
+@misc{zhang2018fullydecentralizedmultiagentreinforcement,
+      title={Fully Decentralized Multi-Agent Reinforcement Learning with Networked Agents}, 
+      author={Kaiqing Zhang and Zhuoran Yang and Han Liu and Tong Zhang and Tamer Başar},
+      year={2018},
+      eprint={1802.08757},
+      archivePrefix={arXiv},
+      primaryClass={cs.LG},
+      url={https://arxiv.org/abs/1802.08757}, 
+}
