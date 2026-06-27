@@ -195,17 +195,7 @@
 \section{论文研究内容与主要创新点}
 \label{sec:research-contents}
 
-针对前一节提出的四项核心挑战，本文按照“可信状态输入--接入服务持续可用--用户级资源保障--可靠业务传输”的端到端管控功能链，开展面向大规模 LEO 星座端到端 QoS 保障的分布式协同资源管控研究。四项研究并非相互独立的算法组合，而是分别作用于端到端业务承载过程中的可信状态输入、接入服务持续可用、用户级资源保障和可靠业务传输环节：可信网络状态感知为星上路由与转发决策提供可靠状态输入，移动性管理维持业务服务窗口内的有效网络附着和可调度接入关联，无线资源调度在资源受限和网络不确定性下维持长期用户级 QoS 保障，语义可靠传输则在星上算力与链路带宽受限条件下支撑任务相关信息的可靠业务传输。四项研究在管控功能上递进衔接，共同支撑大规模 LEO 星座中的用户级端到端 QoS 保障。
 
-图\ref{fig:intelligent-management-components}给出了四项研究内容在端到端业务承载过程中的部署位置与功能关联。核心网侧承担接入与移动性管理、拓扑与星历管理以及网络切片管理等低频管控功能，并通过监控和离线配置为卫星节点提供全局参数；星上节点依托本地观测与有限邻域信息执行网络状态处理、路由转发、切片资源预留和 MAC 层无线资源调度；用户终端基于本地链路测量与邻域协作信令完成分布式接入切换；语义发送端、星间/星地传输链路与任务感知接收端共同构成语义可靠传输闭环。由此，四项研究分别作用于可信状态输入、接入服务持续可用、用户级资源保障和可靠业务传输环节，并通过相应管控接口形成端到端功能关联。
-
-\begin{figure}[!htp]
-\centering
-\includegraphics[width=0.9\textwidth]{figures/技术耦合.pdf}
-\bicaption{四项研究内容在 LEO 卫星端到端传输系统中的部署与功能关联}
-{Deployment and Functional Interrelation of the Four Research Components in the End-to-End LEO Satellite Transmission System}
-\label{fig:intelligent-management-components}
-\end{figure}
 
 \textbf{（1）多源置信度调控的分布式网络状态感知}
 

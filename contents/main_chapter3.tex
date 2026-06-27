@@ -1,564 +1,715 @@
-\chapter{基于局部公平性估计的分布式协作接入切换机制}
-\label{chap:handover}
+\chapter{多源置信度调控的分布式网络状态感知方法}
+\label{chap:perception}
 
 \section{引言}
 
-第~\ref{chap:perception}~章面向退化遥测条件下的本地状态获取，解决了星上分布式决策所需的状态输入问题。本章推进至业务传输入口的接入与切换环节，研究海量终端在高动态 LEO 星座中的分布式协作接入切换。与星间路由不同，接入切换直接决定终端能否持续获得服务资源；其目标不仅是选择瞬时链路质量较好的卫星，还需平衡随机接入竞争、候选子信道占用和用户长期吞吐公平。
+在纯分布式 LEO 卫星路由中，每颗卫星不依赖全网状态同步，而是依据本地观测与有限跳邻域遥测独立完成下一跳选择。路由策略可利用的网络状态不再是全局链路状态数据库，而是星上节点本地维护的多跳网络状态视图。分布式路由性能不仅取决于策略模型，也取决于该本地视图能否及时、完整且可信地刻画邻域链路负载、剩余容量与拥塞状态。
 
-在纯分布式管控下，终端通常依据本地链路测量、候选卫星状态和有限邻域信息自主选择目标卫星。不同于地面蜂窝网络，LEO 星座接入决策同时受到多重覆盖和高频可见卫星变化制约。首先，卫星多重覆盖使相邻终端在同一时刻往往具有高度重叠的候选卫星集合。以 Starlink Shell~1 在某一时刻对美国中部地区的覆盖为例，如图~\ref{fig:ch3_intro_motivation}(a) 所示，多个用户终端同时处于多颗卫星的重叠覆盖范围内；从一天内的可见卫星统计看，单个用户通常可同时观测到 $4$--$11$ 颗卫星。由于每次接入或切换均需联合确定目标卫星与候选子信道，目标卫星和子信道会成为相邻终端共享竞争的无线资源。其次，LEO 卫星高速运动使用户可见卫星集合持续变化。图~\ref{fig:ch3_intro_motivation}(b) 给出了用户可见卫星集合保持时长的累积分布，结果表明，多数终端的候选卫星集合会在约 $10$--$20$~s 内变化。终端间接入竞争关系会随星座运动持续重构，静态负载均衡或单次最优切换难以长期维持稳定接入。
+在星间链路带内遥测（In-band Network Telemetry，INT）条件下，状态更新与业务数据共享传输资源。拥塞排队、链路误码与分组译码失败会使邻域状态呈现陈旧、缺失或可信度不一致等退化形态。若将此类退化本地状态矩阵直接输入多跳图神经网络（Graph Neural Network，GNN）聚合，残余估计误差会随邻域特征传播扩散，削弱可靠节点间由负载差异形成的状态区分度，进而使路由策略对下一跳优劣的判断偏移，并诱发业务流向拥塞区域聚集。
 
-\begin{figure}[!htp]
-    \centering
-    \begin{subfigure}[t]{0.56\linewidth}
-        \centering
-        \includegraphics[width=\linewidth]{figures/chapter3/multi-coverage.png}
-        \caption{Starlink Shell~1 对美国中部地区的多重覆盖}
-        \label{fig:ch3_multi_coverage}
-    \end{subfigure}
-    \hfill
-    \begin{subfigure}[t]{0.40\linewidth}
-        \centering
-        \includegraphics[width=\linewidth]{figures/chapter3/fixed_slot_duration_cdf_cn.png}
-        \caption{可见卫星集合保持时长的累积分布}
-        \label{fig:ch3_fixed_slot_cdf}
-    \end{subfigure}
-    \caption{LEO 星座分布式接入中的多重覆盖与高动态可见卫星特征。图~(a) 显示，相邻终端在同一时刻通常具有重叠的候选接入卫星，从而形成目标卫星与子信道竞争；图~(b) 显示，候选卫星集合变化频繁，终端需要在短时间尺度内重新评估接入目标。}
-    \label{fig:ch3_intro_motivation}
-\end{figure}
+本章关注的不是缺失状态的简单补全，也不是退化状态的一般平滑，而是判定经接收或校准得到的链路、队列与拥塞状态在多大程度上可作为可信的本地状态估计，并确定其以何种权重参与多跳路由特征构建。若缺少这一判别机制，校准后状态中残留的不确定性仍会被视为等价路由证据写入本地网络视图，并在拥塞条件下误导下一跳选择。现有状态恢复与多跳图聚合方法通常将二者作为解耦阶段处理，缺少贯穿退化遥测校准与多跳状态传播的置信度接口，难以利用校准阶段得到的状态可信度约束后续邻域聚合过程~\cite{Nagahama-GraphSignalRestoration-TSP22,liu-GNNAdaptiveResidual-NeurIPS21}。
 
-在大规模候选目标与高频可见卫星变化的共同作用下，相邻终端往往在同一时隙面临相近的候选卫星和子信道集合。若各终端仅追求自身瞬时链路增益或短期接入速率，切换请求将向少数卫星和子信道集中，引发随机接入碰撞、卫星间负载倾斜以及用户间长期吞吐差异扩大。其物理原因在于，边缘用户、可见卫星较少的用户以及频繁处于拥塞覆盖区的用户更易在竞争中被挤压，长期获得的有效接入资源和服务时长持续低于其他用户。本章关注的核心问题并非单个终端的短期切换收益最大化，而是如何在无中心协调的并发切换中，借助有限邻域信令在个体接入速率、切换成功率与系统长期接入公平性之间形成可解释且可执行的权衡。
+针对上述问题，本章提出面向退化遥测条件下分布式 LEO 卫星路由的置信度自适应局部分布式处理（Confidence-Adaptive Local Distributed Processing，CA-LDP）框架。该框架将置信度由状态恢复中的局部权重提升为跨阶段接口，使退化遥测校准、置信度传递与多跳状态聚合形成连续处理过程。CA-LDP 首先依据遥测新鲜度、邻域空间相关性与当前观测质量，校准陈旧、缺失或含噪的遥测状态，得到用于路由决策的本地网络状态估计及其置信度；随后将校准后置信度传递至多跳传播，使高可信链路负载、队列与拥塞状态在邻域聚合中保留，同时抑制低可信状态对路由特征的干扰。
 
-现有移动性管理方法大致可分为两类。集中式移动性管理可基于全局用户分布、卫星负载与子信道占用进行区域级均衡，但需要持续汇聚全网状态并下发切换策略，控制闭环较长，难以适应 LEO 星座中的快速覆盖变化。独立分布式切换则缩短接入决策闭环，使终端能够依据本地测量快速选择目标卫星，但若缺少邻域协作，多个终端的自利切换容易同时指向相同卫星或子信道，形成局部拥塞和随机接入碰撞~\cite{Li-userHOLEO-ComLetter20,liu-HO4LargeSat-VTC2022,he-HOMARL-GlobeCom20,yang-fingerprintMARL-TVT24}。二者之间缺少可在线交换的长期服务质量指示，使终端在不依赖全网状态汇聚的条件下感知邻近用户弱服务状态，并将公平性收益纳入切换判决。
+本章的主要贡献如下：提出置信度自适应局部分布式处理（CA-LDP）框架，通过置信度自适应图信号修复（CaGSR）联合遥测新鲜度、时序先验、观测质量与邻域空间相关性得到本地网络状态估计与校准后置信度，经置信度受控多跳状态传播以发送端置信度加权和接收端锚定构建路由策略输入特征，并在 Starlink 星座壳层拓扑的受控遥测退化场景下验证端到端路由性能、状态校准精度、遥测预算和本地感知半径的改善效果。本章相关成果已撰写成期刊论文``Confidence-Adaptive Local Perception for Distributed LEO Satellite Routing under Degraded Telemetry''，投稿于Elsevier Future Generation Computer Systems (FGCS)。
 
-针对上述问题，本章提出公平性引导的多智能体近端策略优化（Fairness-Guided Multi-Agent Proximal Policy Optimization，FG-MAPPO）方法，在受限邻域信令下优化分布式协作切换中的用户长期公平性。其核心思想是将系统级长期公平目标转化为终端可在邻域内估计的公平性收益，使各终端在仅依赖本地观测和有限邻域交互的条件下，联合考虑候选卫星链路质量、接入负载和长期吞吐公平。FG-MAPPO 采用广义 Gini 接入公平性指标刻画多用户长期吞吐分布，并将经公平性修正的邻域接入收益压缩为低开销可交换信令，使终端无需获取全网用户状态即可估计自身切换行为对邻域公平性的影响。
 
-在实现结构上，本章进一步构建吞吐与公平分支分立的切换策略结构（Throughput-Oriented and Fairness-Oriented，TOFO），分别刻画速率优先选择与公平性感知修正，以缓解个体速率收益与系统公平目标耦合引起的策略偏置；随后通过两阶段训练和并行化同步采样获得公平性感知切换策略。最后，本章将所提策略作为辅助决策模块嵌入 3GPP 条件切换（CHO）的候选目标筛选、触发条件配置与资源预选择环节，使公平性信令能够在不改变标准随机接入流程的前提下进入在线切换决策。
+\section{系统模型}
+\label{sec:ch2_sysmodel}
 
-本章的主要贡献如下：建立长期吞吐公平驱动的分布式协作切换模型并采用广义 Gini 指标对多用户长期吞吐目标进行公平性标量化，推导基于社会福利函数的公平性修正优势估计并通过邻域累计接入效用与训练阶段个体优势标量实现局部分布式估计，提出吞吐导向和公平导向分立的切换策略结构（TOFO）并经两阶段交替训练得到公平性感知切换策略，构建同步分布式训练框架并将 FG-MAPPO 嵌入 3GPP 条件切换协议的候选目标筛选、触发条件配置与资源预选择流程，在 Starlink、Kuiper 与 Telesat 等真实星座参数下评估长期公平性、平均速率、切换接入成功率、空间负载均衡及不同用户规模、纬度区域和星座构型下的适应性。本章相关成果已撰写成期刊论文``Incentivizing Cooperation for Handover Strategies in LEO Constellations via fairness-guaranteed MARL''，投稿于 ACM Transactions on Internet Technology (TOIT)。
+本节在第~\ref{sec:ch2_arch_comparison} 节确立的纯分布式管控范式下，建模路由决策时刻每颗卫星可获得的本地网络状态信息。在该范式下，星上节点不依赖全网状态同步，而是在以自身为中心的有限跳邻域内接收状态更新，并据此构建供下游决策使用的本地网络状态视图。为刻画退化遥测对该状态视图的影响，本节依次给出网络与拓扑模型、状态更新获取与新鲜度建模、退化状态模型与置信度量，并形式化局部感知问题，给出面向后续方案设计的算子分解。全章符号含义参见文前的主要符号对照表。
 
-\section{系统模型与问题建模}
-\label{sec:ch3_sysmodel}
+\subsection{网络与拓扑模型}
+\label{subsec:ch2_network_model}
 
-本节在第~\ref{sec:ch2_arch_comparison}~节确立的纯分布式管控范式下，建立海量终端在大规模 LEO 卫星星座中的自主切换模型。在该范式中，用户终端不依赖核心网集中协调，而是在每个切换时隙依据本地观测与有限邻域信息自主选择接入卫星和子信道。模型依次刻画切换场景、卫星可见关系、连接约束、信道损耗以及链路速率，并将海量终端公平切换形式化为最大化最小用户吞吐量的优化问题。该问题计算难度主要来自二进制接入、子信道竞争和同信道干扰之间的耦合，由此引出后续面向分布式接入的序列决策建模。全章符号含义参见文前的主要符号对照表。
-
-\subsection{切换场景与网络模型}
-\label{subsec:ch3_scenario}
-
-如图~\ref{fig:ch3_system_model}~所示，本章考虑单层大规模 LEO 卫星星座持续服务用户密集区域。卫星波束覆盖星下点邻近区域，地面终端通过星地链路以直连入网（Direct-to-Cell）方式接入卫星~\cite{tuzi-DirecttoCell-wcom23}。本章关注用户自主分布式切换场景：终端基于本地观测完成切换判决，无需将测量结果回传核心网，以规避较长星地回程时延与集中调度开销。本章以 3GPP 条件切换（Conditional Handover，CHO）作为接入切换流程基础，分布式策略仅在候选目标筛选、触发条件配置和候选子信道预选择中提供辅助，具体协议融合见第~\ref{subsec:ch3_cho}~节。为在缺乏全局信息时估计邻域接入状态，终端还可通过设备直通（Device-to-Device，D2D）通信或星上中继，与地理邻近终端交换有限网络状态信息~\cite{yang-fingerprintMARL-TVT24}。
+在纯分布式管控范式下，星上节点经星间链路交换本地状态更新，并在以自身为中心的有限跳邻域内完成网络状态获取~\cite{ran-DistributedRoutingGNN-TVT25}。为约束状态更新信令开销，中继卫星仅在 $h$ 跳本地域内借助多点中继（Multi-Point Relaying，MPR）等轻量分发机制转发状态更新~\cite{Qayyum-MPR-HICSS02,Li-OLSR-ICACS23}，中继策略设计与优化不属于本章讨论范围。如图~\ref{fig:ch2_perception_scenario} 所示，观测卫星通过四邻星间链路网格中的直连链路，以及多点中继辅助的多跳转发接收状态更新，形成 $h$ 跳监测拓扑视图，并据此完成星上本地决策。
 
 \begin{figure}[!htp]
     \centering
-    \includegraphics[width=0.9\linewidth]{figures/chapter3/system_model.pdf}
-    \caption{大规模 LEO 卫星星座中的用户分布式条件切换场景}
-    \label{fig:ch3_system_model}
+    \includegraphics[width=0.85\linewidth]{figures/chapter2/perception_scenario.pdf}
+    \caption{LEO 卫星网络中经直连链路与多点中继辅助多跳分发的本地状态监测}
+    \label{fig:ch2_perception_scenario}
 \end{figure}
 
-地面终端集合记为 $\mathcal{U}=\{U_1,U_2,\dots,U_{E_u}\}$，均匀分布于服务区域内，其中 $E_u$ 为终端数。由于 LEO 卫星运动速度远高于地面终端，终端在服务周期内可近似视为静止。服务周期内所有终端的可见卫星集合记为 $\mathcal{S}=\{S_1,S_2,\dots,S_{L_s}\}$，其中 $L_s$ 为卫星数。考虑到 LEO 卫星接入业务具有突发性~\cite{han-SelfSimilarTraffic-Aerospace24}，单个终端的服务周期 $T$ 通常远短于卫星轨道周期。在周期 $T$ 内存在 $N_t$ 次切换机会~\cite{lee-HOProtocolLearning-TWC24}，每个切换时隙时长为 $\tau=T/N_t$，服务周期被划分为 $N_t$ 个时隙 $\{[t_0,t_0+\tau),[t_0+\tau,t_0+2\tau),\dots,[t_0+(N_t-1)\tau,t_0+N_t\tau)\}$。在每个时隙 $t\in[1,N_t]$ 内，终端连接目标、信道状态和可见卫星集合等网络状态保持不变。
+系统以离散时隙运行，时隙集合记为 $k\in\{0,\ldots,K-1\}$，时隙长度为 $\Delta t$。在每个时隙起始处，卫星依据时隙边界前成功译码的分组更新本地网络状态信息，随后执行本地决策。时隙 $k$ 的 LEO 网络由图 $\mathcal G(k)=(\mathcal V,\mathcal E(k))$ 表示，其中 $\mathcal V$ 为 $N$ 颗卫星构成的节点集，$\mathcal E(k)$ 为时隙 $k$ 处于激活状态的星间链路集合。四邻星间链路网格确定候选邻接关系，链路状态、业务负载与状态更新质量随时隙变化。卫星 $i$ 的本地状态记为 $x_i(k)\in\mathbb R^{d}$，由出向链路利用率、可用容量、链路时延、丢包率与活动链路状态等分量构成。
 
-\subsection{卫星可见性与连接模型}
-\label{subsec:ch3_visibility}
+对于卫星 $i$，其 $h$ 跳监测拓扑视图记为 $\mathcal G_i^h(k)=(\mathcal V_i^h(k),\mathcal E_i^h(k))$，其中节点集为
+\begin{equation}
+\mathcal V_i^h(k)=\{i\}\cup\bigcup_{l=1}^{h}\mathcal N_i^{(l)}(k),
+\label{eq:ch2_hhop_view}
+\end{equation}
+$\mathcal N_i^{(l)}(k)$ 表示卫星 $i$ 的 $l$ 跳邻居集合，边集 $\mathcal E_i^h(k)$ 由 $\mathcal V_i^h(k)$ 内节点间的激活星间链路诱导得到。该图构成本章状态校准与多跳聚合的本地计算域。在 +Grid 星间拓扑~\cite{Bhattacherjee-Singla-NetworkTopologyDesign-CCS19} 下，监测视图的节点规模随跳数迅速扩大，而大规模星座中端到端星间转发常需经过十余跳中继~\cite{chen-AnalysisISLLEO-TVT21}。因此，监测半径 $h$ 既需覆盖足够下游状态信息，也需使本地状态处理开销保持可控。
 
-LEO 卫星的高速运动使终端可见卫星集合随时间变化。定义时隙 $t$ 下终端与卫星之间的可见性矩阵 $\Gamma_t=[\gamma_{l,e}^t]\in\{0,1\}^{L_s\times E_u}$，其中元素 $\gamma_{l,e}^t$ 表征卫星 $S_l$ 与终端 $U_e$ 之间的可见关系。在以视距（Line-of-Sight，LoS）传播为主的星地场景中，传播距离引起的路径损耗是信号衰减的主要来源。仰角越高，星地距离通常越短，接收信号强度越高。本章采用仰角作为可见性判据。仰角门限 $\theta_{th}$ 由系统链路预算确定，对应终端可接受的最低信噪比。设 $\theta_{l,e}^t$ 为时隙 $t$ 下 $U_e$ 对 $S_l$ 的仰角，该仰角可由服务卫星广播的星历计算得到，则可见性指示为
-\begin{equation}\label{eq:ch3_visibility}
-\gamma_{l,e}^t=
-\begin{cases}
-1, & \theta_{l,e}^t\geqslant\theta_{th},\\[2pt]
-0, & \theta_{l,e}^t<\theta_{th}.
-\end{cases}
-\end{equation}
-据此，$U_e$ 在时隙 $t$ 的可见卫星集合为
-\begin{equation}\label{eq:ch3_visset}
-\mathcal{V}_e^t=\{S_l\mid \theta_{l,e}^t\geqslant\theta_{th},~l=1,\dots,L_s\}.
-\end{equation}
+\subsection{状态更新获取与新鲜度建模}
+\label{subsec:ch2_acquisition_model}
 
-假设服务周期内每个终端在每个时隙均存在连接需求。以矩阵 $\mathcal{X}^t=[x_{l,e}^t]\in\{0,1\}^{L_s\times E_u}$ 表示所有终端在时隙 $t$ 的接入状态，其元素定义为
-\begin{equation}\label{eq:ch3_connection}
-x_{l,e}^t=
-\begin{cases}
-1, & U_e~\text{由}~S_l~\text{服务},\\[2pt]
-0, & \text{其他}.
-\end{cases}
-\end{equation}
-终端接入须满足可见性与单连接约束。若 $U_e$ 接入 $S_l$，则 $S_l$ 必须属于其可见集合，即
-\begin{equation}\label{eq:ch3_visible_conn}
-x_{l,e}^t\leqslant\gamma_{l,e}^t,\quad\forall S_l\in\mathcal{S},~U_e\in\mathcal{U},~t=1,\dots,N_t.
-\end{equation}
-同时，单个终端在一个时隙内至多接入一颗卫星，即
-\begin{equation}\label{eq:ch3_single_conn}
-\sum_{l=1}^{L_s}x_{l,e}^t\leqslant 1,\quad\forall U_e\in\mathcal{U},~t=1,\dots,N_t.
-\end{equation}
+在带内网络遥测机制下，状态更新与业务数据共享同一星间链路，并竞争链路残余服务容量~\cite{chuai-ResourceAllocation-TON19}。这一共享机制使状态更新同时受拥塞排队与链路误码影响，分别表现为更新陈旧和分组不可用两类退化来源，如图~\ref{fig:ch2_reliability_source} 所示。本小节先刻画状态更新沿多跳遥测路径传播时的排队时延与路径级译码成功概率，再根据更新是否在决策截止前到达且完整译码定义实际可用性、观测状态和信息新鲜度。
 
-\subsection{信道与链路速率模型}
-\label{subsec:ch3_channel}
+\begin{figure}[!htp]
+    \centering
+    \includegraphics[width=0.92\linewidth]{figures/chapter2/reliability_source.pdf}
+    \caption{由拥塞排队与链路误码引发的状态更新退化}
+    \label{fig:ch2_reliability_source}
+\end{figure}
 
-LEO 卫星下行信道特性参照 3GPP TR38.811 规范~\cite{3gpp-38811}。$S_l$ 发往 $U_e$ 的 S 频段信号总路径损耗由自由空间传播损耗、阴影衰落损耗、杂波损耗和大气损耗共同构成，可表示为
-\begin{equation}\label{eq:ch3_pathloss}
-|h_{l,e}^t|^2[\text{dB}]=-L_{fp}-L_{sf}-L_{cl}-L_a,
-\end{equation}
-其中 $L_{fp}$ 为自由空间传播损耗，$L_{sf}$ 为阴影衰落损耗，$L_{cl}$ 为杂波损耗，$L_a$ 为大气损耗。自由空间传播损耗由长距离传播引起，可表示为
-\begin{equation}\label{eq:ch3_lfp}
-L_{fp}=20\log_{10}(f)+20\log_{10}(d)+32.5,
-\end{equation}
-其中载频 $f$ 以 MHz 为单位，链路距离 $d$ 以 km 为单位。$L_{sf}$ 服从零均值对数正态分布；在满足 LoS 条件时，杂波损耗 $L_{cl}$ 可忽略；$L_a$ 主要由星地传播中的大气吸收和雨衰引起。TR38.811 给出了郊区与乡村场景下各损耗分量的参考取值。
-
-假设 LEO 卫星采用正交频分复用（Orthogonal Frequency Division Multiplexing，OFDM）体制为终端分配子信道，与 Starlink 配置一致~\cite{neinavaie-StarlinkOFDM-TAES24}。每颗卫星的总带宽被等分为 $N_c$ 个等带宽子信道，集合记为 $\mathcal{C}=\{1,2,\dots,N_c\}$，每次切换时终端从中选择一个子信道传输。以二元矩阵 $\mathcal{Y}^{t,e}=[y_{l,m}^{t,e}]\in\{0,1\}^{L_s\times N_c}$ 表示 $U_e$ 的子信道分配状态，其元素定义为
-\begin{equation}\label{eq:ch3_sc_alloc}
-y_{l,m}^{t,e}=
-\begin{cases}
-1, & U_e~\text{经}~S_l~\text{的子信道}~c_m~\text{服务},\\[2pt]
-0, & \text{其他}.
-\end{cases}
-\end{equation}
-子信道分配须同时满足连接--资源耦合、单终端单子信道以及同星同子信道正交接入约束。若 $U_e$ 由 $S_l$ 服务，则其只能在该卫星上占用一个子信道；若未接入 $S_l$，则不得占用该卫星任何子信道，即
-\begin{equation}\label{eq:ch3_sc_coupling}
-\sum_{m=1}^{N_c}y_{l,m}^{t,e}=x_{l,e}^t,\quad\forall S_l\in\mathcal{S},~U_e\in\mathcal{U},~t=1,\dots,N_t.
-\end{equation}
-因此，单个终端在一个时隙内最多占用一个子信道，满足
-\begin{equation}\label{eq:ch3_ue_one_sc}
-\sum_{l=1}^{L_s}\sum_{m=1}^{N_c}y_{l,m}^{t,e}\leqslant 1,\quad\forall U_e\in\mathcal{U},~t=1,\dots,N_t.
-\end{equation}
-为刻画同一卫星内的随机接入与子信道竞争，同一卫星的同一子信道在同一时隙至多服务一个终端，即
-\begin{equation}\label{eq:ch3_sc_orthogonal}
-\sum_{e=1}^{E_u}y_{l,m}^{t,e}\leqslant 1,\quad\forall S_l\in\mathcal{S},~c_m\in\mathcal{C},~t=1,\dots,N_t.
-\end{equation}
-由此，接入同一卫星的终端数不得超过其可用子信道数，即
-\begin{equation}\label{eq:ch3_sc_cap}
-\sum_{e=1}^{E_u}\sum_{m=1}^{N_c}y_{l,m}^{t,e}\leqslant N_c,\quad\forall S_l\in\mathcal{S},~t=1,\dots,N_t.
-\end{equation}
-
-本章以链路吞吐量度量终端服务质量。$U_e$ 经 $S_l$ 的子信道 $c_m$ 通信时，其链路吞吐量受分配带宽、接收信号强度 $p_e^{t,r}$、加性高斯白噪声（Additive White Gaussian Noise，AWGN）功率 $N_e$ 和同信道干扰 $I_{l,e,m}^t$ 共同影响。设终端传输带宽等于子信道带宽 $B_c$，卫星发射功率 $p_S$ 在服务周期内恒定，则 $U_e$ 的接收功率为
-\begin{equation}\label{eq:ch3_rxpower}
-p_e^{t,r}[\text{dBm}]=p_S[\text{dBm}]+g_S[\text{dBi}]+|h_{l,e}^t|^2[\text{dB}],
-\end{equation}
-其中 $g_S$ 为卫星天线增益。AWGN 功率由分配带宽与接收端增益噪温比 $G/T$ 决定，即
-\begin{equation}\label{eq:ch3_awgn}
-N_e[\text{dBW}]=k[\text{dBJ/K}]+B_c[\text{dBHz}]-G/T[\text{dB/K}],
-\end{equation}
-其中 $k=1.38\times10^{-23}$~J/K 为玻尔兹曼常数。$U_e$ 接入 $S_l$ 子信道 $c_m$ 时，干扰来自其他终端在同一子信道上的并发通信，可表示为
-\begin{equation}\label{eq:ch3_interference}
-I_{l,e,m}^t=\sum_{l_i\neq l}\sum_{e_j\neq e}y_{l_i,m}^{t,e_j}\,p_S g_S|h_{l_i,e}^t|^2,\quad\text{s.t.}~y_{l,m}^{t,e}=1.
-\end{equation}
-综合式~(\ref{eq:ch3_rxpower})--(\ref{eq:ch3_interference})，$U_e$ 在时隙 $t$ 的链路吞吐量为
-\begin{equation}\label{eq:ch3_throughput}
-R_e^t=\sum_{l_i=1}^{L_s}\sum_{m_j=1}^{N_c}B_c\log_2\!\left(1+\frac{y_{l_i,m_j}^{t,e}\,p_S g_S|h_{l_i,e}^t|^2}{N_e+I_{l_i,e,m_j}^t}\right),\quad\forall U_e\in\mathcal{U},~t=1,\dots,N_t.
-\end{equation}
-
-\subsection{问题建模与复杂度分析}
-\label{subsec:ch3_problem}
-
-切换请求引起的中断时延、随机接入碰撞和卫星过载会降低终端在服务周期内获得的有效吞吐量。为在海量终端并发切换下兼顾接入效率与用户间公平性，本章以切换决策变量 $\mathcal{X}^t$ 和子信道分配变量 $\mathcal{Y}^{t,e}$ 为优化变量，以最大化服务周期内最小用户吞吐量为目标，将海量用户公平切换问题形式化为
-\begin{equation}\label{eq:ch3_p1}
+为描述拥塞排队引起的状态更新时延，令 $C_e(k)$、$\eta_e(k)$ 与 $\tau_e^{\mathrm{prop}}(k)$ 分别表示时隙 $k$ 下星间链路 $e$ 的容量、归一化数据面利用率与传播时延。遥测分组与业务数据共享链路残余服务能力，以上标 $\mathrm{tel}$ 标记遥测相关量。对具有正残余遥测服务能力的链路 $e$，其逐跳时延与多跳路径时延建模为
+\begin{equation}
 \begin{aligned}
-\mathcal{P}_1:\quad
-&\max_{\{\mathcal{X}^t,\mathcal{Y}^{t,e}\}}~\min_{U_e\in\mathcal{U}}~\sum_{t=1}^{N_t}R_e^t\\[2pt]
-\text{s.t.}\quad
-&\text{C1:}~\sum_{l=1}^{L_s}x_{l,e}^t=1,\quad\forall U_e\in\mathcal{U},~t=1,\dots,N_t,\\
-&\text{C2:}~x_{l,e}^t\leqslant\gamma_{l,e}^t,\quad\forall S_l\in\mathcal{S},~U_e\in\mathcal{U},~t=1,\dots,N_t,\\
-&\text{C3:}~\sum_{m=1}^{N_c}y_{l,m}^{t,e}=x_{l,e}^t,\quad\forall S_l\in\mathcal{S},~U_e\in\mathcal{U},~t=1,\dots,N_t,\\
-&\text{C4:}~\sum_{e=1}^{E_u}y_{l,m}^{t,e}\leqslant 1,\quad\forall S_l\in\mathcal{S},~c_m\in\mathcal{C},~t=1,\dots,N_t,\\
-&\text{C5:}~\sum_{e=1}^{E_u}\sum_{m=1}^{N_c}y_{l,m}^{t,e}\leqslant N_c,\quad\forall S_l\in\mathcal{S},~t=1,\dots,N_t,\\
-&x_{l,e}^t\in\{0,1\},~y_{l,m}^{t,e}\in\{0,1\},\quad\forall S_l,U_e,c_m,t,\\
-&\text{式}~(\ref{eq:ch3_interference})\text{--}(\ref{eq:ch3_throughput}).
+\tau_e^{\mathrm{tel}}(k)
+&=
+\tau_e^{\mathrm{prop}}(k)
++
+\frac{B_{\mathrm m}}
+{\zeta_{\mathrm{tel}} C_e(k)\left(1-\eta_e(k)\right)},
+\\
+T_{u\rightarrow i}^{\mathrm{tel}}(k)
+&=
+\sum_{e\in\mathcal P_{u\rightarrow i}^{\mathrm{tel}}}
+\tau_e^{\mathrm{tel}}(k),
 \end{aligned}
+\label{eq:ch2_state_update_delay}
 \end{equation}
-其中 C1 为服务连续性约束，要求每个终端在服务周期的每个时隙均保持接入；C2 排除不可见卫星；C3 给出连接变量与子信道变量之间的耦合关系，并保证终端一旦接入某颗卫星即仅占用该卫星的一个子信道；C4 限制同一卫星同一子信道至多服务一个终端，用于刻画同星内子信道竞争；C5 给出单星子信道总容量约束。式~(\ref{eq:ch3_ue_one_sc})~可由 C1--C3 推出，式~(\ref{eq:ch3_sc_cap})~对应 C5。$\mathcal{P}_1$ 虽然只对区域内终端的切换决策建模，但在 LEO 星座的分层管控架构下~\cite{ji-SpaceGroundMM-TWC24,liu-reconfigurableRAN-TCCN25}，不同区域的切换决策可并行执行，因而该区域级模型可用于描述全网大规模星座中的局部切换优化过程。
+其中 $\zeta_{\mathrm{tel}}$ 为分配给遥测分发的残余链路容量比例，$B_{\mathrm m}$ 为状态更新分组大小，$\mathcal P_{u\rightarrow i}^{\mathrm{tel}}$ 为节点 $u$ 至卫星 $i$ 的遥测转发路径。
 
-由式~(\ref{eq:ch3_p1})~可见，$\mathcal{P}_1$ 同时包含二进制卫星接入变量、二进制子信道分配变量以及由同信道复用引起的速率耦合项，是混合整数非凸优化问题。其求解困难主要来自以下约束耦合。终端、卫星和子信道三元组须同时满足可见性、服务连续性和单星容量约束，而可行接入图会随 LEO 星座运动快速变化；式~(\ref{eq:ch3_interference})~中的同信道干扰使任一终端的链路速率依赖其他卫星在同一子信道上的并发传输选择；在 $N_t$ 个切换时隙内联合优化接入决策，也会使精确枚举搜索空间随 $E_u$、$L_s$、$N_c$ 和 $N_t$ 快速增长。集中式精确求解不仅需要实时汇聚全局链路状态与子信道占用信息，也难以满足 LEO 切换的在线决策时限。本文将 $\mathcal{P}_1$ 作为在线难以精确求解的混合整数非凸接入优化问题处理。
-
-上述混合整数非凸性质叠加 LEO 卫星网络的高动态与部分可观测特征，使 $\mathcal{P}_1$ 难以由集中式方法在线求解。为此，本章将其转化为面向多终端分布式接入的序列决策模型，使终端在本地链路质量、候选卫星负载、子信道竞争和邻域公平性指示之间联合权衡。需要说明的是，$\mathcal{P}_1$ 给出了以最弱服务用户为核心的公平切换基准，但严格最大最小目标在大规模并发接入中难以直接用于策略梯度更新。后续采用广义 Gini 公平聚合函数对多终端长期吞吐进行标量化，在保留对低吞吐终端优先保护的同时，使公平目标嵌入分布式策略训练。下一节将给出该模型的状态、动作与奖励定义，并说明如何将长期吞吐公平性转化为可训练的本地更新信号。
-
-\section{多目标公平切换建模与公平性策略梯度推导}
-\label{sec:ch3_theory}
-
-为在动态可见关系、随机接入竞争和受限邻域信令下求解 $\mathcal{P}_1$，本节将海量终端切换建模为多终端序列接入决策过程，并推导公平性引导的策略更新方式。该模型以分布式切换的状态、动作与奖励为基础，采用广义 Gini 公平聚合函数刻画多用户长期吞吐分布，并将长期公平目标转化为可由邻域标量信令估计的策略更新项，为 FG-MAPPO 网络结构设计与分布式训练提供理论基础。
-
-\subsection{多终端马尔可夫接入决策建模}
-\label{subsec:ch3_momdp}
-
-在纯分布式管控范式下，每个终端作为独立接入决策单元，只能依据本地链路测量、候选卫星状态、候选子信道占用和有限邻域信令选择接入卫星与子信道。海量终端的协作切换可表示为多终端序列接入决策过程：全局网络状态包含卫星可见关系、子信道占用、负载状态与终端服务历史，而终端 $n_i$ 仅获得本地观测 $o_{n_i}$ 并由策略 $\pi_\theta^{n_i}(a_{n_i}\mid o_{n_i})$ 产生接入动作。若终端仅依据自身接入奖励 $r(o_{n_i},a_{n_i})$ 更新策略，则其优化目标为最大化本地长期接入回报，即
-\begin{equation}\label{eq:ch3_pgobj}
-\max_{\pi_\theta^{n_i}} J(\theta_{n_i})=\max_{\pi_\theta^{n_i}} V_{\pi_{n_i}}(o_{n_i}^t)
-=\max\mathbb{E}_{o_{n_i}^t,a_{n_i}^t}\!\left[\sum_t\gamma^t r_{n_i}(o_{n_i}^t,a_{n_i}^t)\right],\quad\forall n_i\in\{1,\dots,n\}.
+除排队时延外，状态更新还可能因链路误码而无法通过完整性校验。对节点 $u$ 在时隙 $s$ 生成的更新，令 $q_{u\rightarrow i}^{\mathrm{dq}}(s)\in[0,1]$ 表示其在多跳遥测路径上的路径级译码成功概率。将时隙 $s$ 内的信道衰减、指向抖动与轨道摄动归并为等效逐跳误码概率，在逐跳残余比特误码独立假设下，长度为 $B_{\mathrm m}$ 比特的状态更新分组译码成功概率为
+\begin{equation}
+q_{u\rightarrow i}^{\mathrm{dq}}(s)
+=
+\prod_{r=1}^{l_{ui}}
+\left(1-p_{\mathrm b}^{(r)}(s)\right)^{B_{\mathrm m}},
+\label{eq:ch2_decode_success}
 \end{equation}
-对应的独立策略更新可写为
-\begin{equation}\label{eq:ch3_pggrad}
-\hat{g}_{o_{n_i}^t,a_{n_i}^t}=\hat{\mathbb{E}}_{n_i}^t\!\left[\nabla_{\theta_{n_i}}\log\pi_\theta^{n_i}(a_{n_i}^t\mid o_{n_i}^t)\,\hat{A}_t^{\mathrm{IND}}\right],\quad\forall n_i\in\{1,\dots,n\},
-\end{equation}
-其中个体优势估计 $\hat{A}_t^{\mathrm{IND}}$ 只反映终端自身动作带来的速率、碰撞和失连反馈。在共享卫星和子信道资源下，这种独立回报会把接入竞争造成的外部性留给其他终端承担：某个终端的短期速率提升可能增加邻近终端的随机接入碰撞和长期弱服务风险。公平切换不能只优化单个终端的长期速率，而需将每个终端的长期接入质量同时纳入训练目标。对于含 $n$ 个终端的网络，系统对应 $n$ 个长期吞吐目标，可写为
-\begin{equation}\label{eq:ch3_p2}
-\mathcal{P}_2:\quad\max_\theta\mathcal{J}(\theta)=\max_\theta\big(J_1(\theta_1),\dots,J_n(\theta_n)\big),
-\end{equation}
-其中 $J_{n_i}(\theta_{n_i})$ 由式~(\ref{eq:ch3_pgobj})~定义。由于该目标为多终端向量，无法直接用于单次策略更新，需要引入标量化映射 $\phi(\cdot):\mathbb{R}^n\to\mathbb{R}$，将多终端长期服务质量转化为公平性驱动训练信号，详见第~\ref{subsec:ch3_ggf}~节。
+其中 $p_{\mathrm b}^{(r)}(s)$ 为第 $r$ 跳的等效比特误码概率，$l_{ui}$ 为节点 $u$ 至卫星 $i$ 的跳距。当仅可获得路径级平均误码率 $\bar p_{\mathrm b}(s)$ 时，式~\eqref{eq:ch2_decode_success} 退化为 $q_{u\rightarrow i}^{\mathrm{dq}}(s)=(1-\bar p_{\mathrm b}(s))^{l_{ui}B_{\mathrm m}}$。
 
-在给出标量化与策略更新方式之前，先定义该序列接入决策模型的状态、动作与奖励。
-
-\textbf{状态}：终端 $U_e$ 在时隙 $t$ 的状态 $s_e^t=\langle\mathbf{s}_e^t,\mathbf{C}_e^t,\mathbf{I}_{l,e,m}^t,\mathbf{T}_e^t,\mathbf{V}_e^t,\mathbf{N}_e^t,\mathbf{J}_e^t\rangle$ 由前 $t_H$ 个时隙的历史数据构成，包括连接卫星 $\mathbf{s}_e^t$、子信道选择 $\mathbf{C}_e^t$、所受干扰 $\mathbf{I}_{l,e,m}^t$、所有可见卫星的剩余可见时间 $\mathbf{T}_e^t$ 与仰角 $\mathbf{V}_e^t$、各可见卫星的可用子信道数 $\mathbf{N}_e^t$，以及邻域内 $N_n$ 个最近邻终端共享的累计接入效用 $\mathbf{J}_e^t$。其中，$\mathbf{J}_e^t$ 由历史吞吐量、接入成功奖励和碰撞惩罚累加得到，用于表征邻近终端的长期服务质量，而非训练阶段的优势估计。单时隙特征难以刻画环境演化，例如当前仰角无法区分卫星正在接近终端还是远离终端，因此本章堆叠前 $t_H$ 个时隙的特征以引入时序信息。上述特征主要由源卫星采集、处理并下发至终端，且多为大时间尺度缓变参数，对星间链路波动不敏感；当链路实际中断时，系统采用历史状态作为替代特征，以维持动作预测稳定性。
-
-\textbf{动作}：动作 $a_e^t=(x_{l,e}^t,y_{l,m}^{t,e})$ 包含目标卫星选择与候选子信道选择两部分，表示 $U_e$ 在时隙 $t$ 选择卫星 $S_l$ 与子信道 $c_m$ 接入。由于可见卫星数随时隙变化，动作空间规模也随之变化。为保持策略网络输出维度一致，本章将动作空间维度设为服务周期内可见卫星数的最大值，并通过动作掩码滤除不可见卫星对应的无效动作及动作空间填充项；同时，按星地距离升序定义可见卫星与动作索引之间的映射关系。
-
-\textbf{奖励}：奖励函数 $r_e^t$ 度量终端在本地观测 $o_e^t$ 下执行接入动作 $a_e^t$ 后获得的链路服务质量。由于序列决策模型需要处理失连和随机接入碰撞等不可行接入结果，服务连续性与子信道容量约束通过惩罚项纳入奖励函数。正奖励鼓励有效接入，负奖励抑制失连、过载和同星同子信道碰撞。奖励函数定义为
-\begin{equation}\label{eq:ch3_reward}
-r_e^t(o_e^t,a_e^t)=
+状态更新的实际可用性由到达时限与分组完整性共同决定。在决策时刻，卫星 $i$ 或持有节点 $u$ 的可用状态更新，或将相应表项视为缺失。引入分组可用性指示 $b_{i,u}(k)$：当且仅当存在由节点 $u$ 在时隙 $s\le k$ 生成的状态更新，其沿遥测路径传播的时延满足决策截止约束，且该分组通过完整性校验时，置 $b_{i,u}(k)=1$；若更新尚未到达、晚于决策截止时刻到达或未通过完整性校验，则置 $b_{i,u}(k)=0$。因此，$q_{u\rightarrow i}^{\mathrm{dq}}(s)$ 仅刻画完整性校验概率分量，不能单独决定 $b_{i,u}(k)$。可用更新对应一个较早状态 $x_u(s_{i\leftarrow u}^{\star}(k))$，其中 $s_{i\leftarrow u}^{\star}(k)\le k$ 为满足上述到达与完整性条件的最新更新生成时隙。由此，卫星 $i$ 处节点 $u$ 的观测状态定义为
+\begin{equation}
+x_{i\leftarrow u}^{\mathrm{obs}}(k)
+=
 \begin{cases}
-R_e^t, & \text{若成功接入且未发生同星同子信道碰撞或卫星过载},\\[2pt]
--1, & \text{若}~\sum_{l=1}^{L_s}\sum_{m=1}^{N_c}y_{l,m}^{t,e}=0,\\[2pt]
--1, & \text{若发生同星同子信道碰撞或卫星过载}.
+x_u(s_{i\leftarrow u}^{\star}(k)), & b_{i,u}(k)=1,\\
+\mathbf 0, & b_{i,u}(k)=0,
 \end{cases}
+\label{eq:ch2_observed_state}
 \end{equation}
-即仅当 $U_e$ 持续被某颗卫星服务时，奖励为正且正比于其链路速率；若因子信道碰撞或卫星过载导致失连，则视为违反服务连续性并施加 $-1$ 惩罚。
+退化遥测矩阵记为 $X_i^{\mathrm{obs}}(k)=[x_{i\leftarrow u}^{\mathrm{obs}}(k)]_{u\in\mathcal V_i^h(k)}$。一旦 $b_{i,u}(k)=1$，译码状态即进入后续校准，不再附加与 $q_{u\rightarrow i}^{\mathrm{dq}}(s)$ 相关的额外惩罚；可用译码更新的剩余不确定性主要来自陈旧状态。
 
-\subsection{基于广义 Gini 指标的接入公平性标量化}
-\label{subsec:ch3_ggf}
-
-标量化映射 $\phi$ 需要将 $n$ 维终端回报向量转化为可训练标量目标。面向 LEO 接入场景，该映射应同时满足三项性质：其一，保持无线资源利用效率，避免可用卫星和子信道空置；其二，优先改善长期吞吐较低终端的服务质量，抑制边缘终端或频繁碰撞终端长期处于弱服务状态；其三，评价结果不依赖终端编号，避免地理位置或接入顺序引入额外偏置。
-
-为此，本章采用广义 Gini 公平聚合函数对 $\mathcal{P}_2$ 的多终端回报进行标量化。该函数在多目标强化学习中常用于同时刻画效率与公平性~\cite{busaFekete-GGI-ICML17,siddique-FairMORL-ICML20}，定义为
-\begin{equation}\label{eq:ch3_ggf}
-\phi(\mathbf{u})=\min_{\sigma\in\mathbb{S}_n}\mathbf{w}_\sigma^\top\mathbf{u},
+为定量衡量已译码更新的陈旧程度，采用信息年龄（Age of Information，AoI）作为时隙级度量~\cite{Yates-AoI-JSAC21}。最新译码状态更新的信息年龄为
+\begin{equation}
+\Delta_{i\leftarrow u}(k)
+=
+\begin{cases}
+k-s_{i\leftarrow u}^{\star}(k), & b_{i,u}(k)=1,\\
++\infty, & b_{i,u}(k)=0,
+\end{cases}
+\label{eq:ch2_aoi}
 \end{equation}
-其中 $\mathbf{u}\in\mathbb{R}^n$ 为各终端的长期接入效用向量，$\mathbb{S}_n$ 为 $n$ 阶置换集合，$\mathbf{w}\in\mathbb{R}^n$ 为广义 Gini 权重向量。权重采用严格降序形式，并可按统一比例归一化。本文训练目标、评价指标和实验设置采用表~\ref{tab:ch3_train_params}~所示的指数递减权重配置。将式~(\ref{eq:ch3_ggf})~应用于 $\mathcal{P}_2$，其优化目标可重写为
-\begin{equation}\label{eq:ch3_maxmin}
-\max_\theta\phi(\mathcal{J}(\theta))=\max_\theta\min_{\sigma\in\mathbb{S}_n}\mathbf{w}_\sigma^\top\mathcal{J}(\theta).
+该量表征自状态生成以来经过的时隙数，且不因中继转发而重置。由此，新鲜度评分定义为
+\begin{equation}
+\rho_{i,u}(k)
+=
+\begin{cases}
+\exp\!\left[-\mu_f \Delta_{i\leftarrow u}(k)\right],
+& b_{i,u}(k)=1,\\
+0,
+& b_{i,u}(k)=0,
+\end{cases}
+\label{eq:ch2_freshness}
 \end{equation}
-由于 $w_1>\dots>w_n$，式~(\ref{eq:ch3_maxmin})~的内层最小化会把较大权重分配给长期接入效用较低的终端，即
-\begin{equation}\label{eq:ch3_innermin}
-\min_{\sigma\in\mathbb{S}_n}\mathbf{w}_\sigma^\top\mathcal{J}(\theta)=\sum_{i=1}^{n}w_iJ_i^{\uparrow},
-\end{equation}
-其中 $J^{\uparrow}$ 表示各终端长期接入效用按升序排列。将 $J_i$ 替换为价值函数 $V_i$，则公平切换的训练目标可表示为
-\begin{equation}\label{eq:ch3_p3}
-\mathcal{P}_3:\quad\max_\theta\sum_{i=1}^{n}w_iV_i^{t\uparrow}.
-\end{equation}
-当最大权重进一步集中于最低效用终端时，$\mathcal{P}_3$ 可逼近 $\mathcal{P}_1$ 中的最大最小公平目标~\cite{siddique-FairMORL-ICML20}。广义 Gini 聚合能够在不改变底层链路速率模型的条件下，将用户长期吞吐公平性纳入接入策略训练目标。
+其中 $\mu_f$ 控制对状态陈旧的敏感度。在该约定下，误码经可用性掩码 $b_i(k)$ 进入后续处理，信息年龄则经新鲜度评分 $\rho_{i,u}(k)$ 作用于状态校准与多跳聚合。
 
-\subsection{公平性修正的策略更新与 PPO 集成}
-\label{subsec:ch3_pg}
-
-广义 Gini 聚合给出了长期公平目标，但策略梯度更新还需将该目标落实为可训练的优势估计。根据式~(\ref{eq:ch3_p3})，在全网公平目标下，排序对象是全部 $n$ 个终端的长期接入效用；效用越低的终端在更新中获得越高权重。记 $\hat{A}_{t}^{j\uparrow}$ 为按对应终端长期接入效用升序排列后的个体优势估计，则公平性修正优势为
-\begin{equation}\label{eq:ch3_swfcorrect}
-\hat{A}_{t,n_i}^{\mathrm{SWF}}=
-\sum_{j=1}^{n}w_j\hat{A}_{t}^{j\uparrow}.
-\end{equation}
-式~(\ref{eq:ch3_swfcorrect})~表明，长期服务质量较低的终端在公平性修正中获得更高权重，从而引导接入策略减少对弱服务终端的持续挤压。在受限信令条件下，终端 $n_i$ 仅能对自身及 $N_n$ 个最近邻终端形成局部排序，并以该邻域排序近似全网排序；当邻域覆盖全体终端时，该估计退化为全局广义 Gini 修正。需要区分的是，在线切换阶段，终端仅交换累计接入效用 $J$，用于 FO 网络判断邻域长期服务状态；优势估计 $\hat{A}^{\mathrm{IND}}$ 只在离线训练或周期性策略更新阶段交换，用于构造公平性修正训练信号，不作为在线接入判决输入。相应策略梯度可写为
-\begin{equation}\label{eq:ch3_swfgrad}
-\hat{g}_{o_{n_i}^t,a_{n_i}^t}=
-\nabla_{\theta_{n_i}}\log\pi_{\theta_{n_i}}(a_{n_i}^t\mid o_{n_i}^t)\,\hat{A}_{t,n_i}^{\mathrm{SWF}}.
+对于观测卫星自身，其本地状态直接可得，即 $x_{i\leftarrow i}^{\mathrm{obs}}(k)=x_i(k)$、$b_{i,i}(k)=1$、$\rho_{i,i}(k)=1$ 且 $\Delta_{i\leftarrow i}(k)=0$。卫星 $i$ 处的新鲜度向量与可用性向量分别汇集为 $\rho_i(k)=[\rho_{i,u}(k)]_{u\in\mathcal V_i^h(k)}$ 与 $b_i(k)=[b_{i,u}(k)]_{u\in\mathcal V_i^h(k)}$。令 $M_i(k)\in\mathbb R^{|\mathcal E_i^h(k)|\times|\mathcal V_i^h(k)|}$ 为 $\mathcal G_i^h(k)$ 的关联矩阵：对每条定向边 $e=(u,v)$，其所在行在第 $u$ 列取 $+1$、第 $v$ 列取 $-1$。将网络状态矩阵左乘 $M_i(k)$ 即得图正则化校准所需的边级状态差。此外，卫星 $i$ 还维护短期时序先验 $X_i^{\mathrm{pri}}(k)$，其本地状态处理上下文记为
+\begin{equation}
+\mathcal I_i(k)
+\triangleq
+\left\{
+\mathcal G_i^h(k),
+X_i^{\mathrm{obs}}(k),
+\rho_i(k),
+b_i(k),
+X_i^{\mathrm{pri}}(k),
+M_i(k)
+\right\}.
+\label{eq:ch2_context}
 \end{equation}
 
-上述修正可直接嵌入近端策略优化（Proximal Policy Optimization，PPO）框架~\cite{schulman-PPO-arXiv17}。实现中，策略网络输出给定观测下的卫星和子信道动作概率，价值网络估计经 SWF 聚合后的回报。记重要性采样比为 $\rho_t^{n_i}=\pi_{\theta_{n_i}}(a_t^{n_i}\mid o_t^{n_i})/\pi_{\mathrm{old}}(a_t^{n_i}\mid o_t^{n_i})$，则策略网络与价值网络的损失函数分别为
-\begin{equation}\label{eq:ch3_actorloss}
-\mathcal{L}^{\mathrm{Policy}}(\theta_{n_i})=\mathbb{E}_t\!\left[\min\!\left(\rho_t^{n_i}\hat{A}_{t,n_i}^{\mathrm{SWF}},~\mathrm{clip}(\rho_t^{n_i},1-\epsilon,1+\epsilon)\,\hat{A}_{t,n_i}^{\mathrm{SWF}}\right)\right],
+\subsection{退化状态模型与置信度量}
+\label{subsec:ch2_confidence}
+
+本地感知需要将卫星 $i$ 收集的退化状态更新转换为 $\mathcal G_i^h(k)$ 上的网络状态视图。在线推理时，当前状态矩阵 $X_i^h(k)=[x_u(k)]_{u\in\mathcal V_i^h(k)}$ 不可观，而直接聚合 $X_i^{\mathrm{obs}}(k)$ 可能使退化表项沿邻域特征传播，进而模糊拥塞边界、负载失衡与链路质量差异。$X_i^{\mathrm{obs}}(k)$ 与 $X_i^h(k)$ 的偏差来自两类实际退化结果：不可用分组使相应表项从本地状态矩阵中缺失，成功译码但陈旧的分组则提供过时取值。本章将上述效应抽象为两段式退化模型
+\begin{equation}
+X_i^{\mathrm{obs}}(k)=B_i(k)X_i^h(k)+E_i(k),
+\label{eq:ch2_degradation}
 \end{equation}
-\begin{equation}\label{eq:ch3_valueloss}
-\mathcal{L}^{\mathrm{Value}}(\Phi_{n_i})=\mathbb{E}_t\!\left[\left(V_{\Phi_{n_i}}(o_t^{n_i})-R_{t,n_i}^{\mathrm{SWF}}\right)^2\right],
-\end{equation}
-其中 $R_{t,n_i}^{\mathrm{SWF}}$ 为按 SWF 目标聚合后的折扣回报，$\hat{A}_{t,n_i}^{\mathrm{IND}}$ 由本地回报和价值网络通过广义优势估计（Generalized Advantage Estimation，GAE）计算~\cite{schulman-PPO-arXiv17}。由式~(\ref{eq:ch3_actorloss})~和式~(\ref{eq:ch3_valueloss})~可见，公平性优化不改变 PPO 基本更新形式，而是通过 SWF 对优势估计和价值目标进行修正，并在分布式实现中由邻域标量信令提供可用估计。
+其中 $B_i(k)=\mathrm{diag}(b_i(k))\in\mathbb R^{|\mathcal V_i^h(k)|\times|\mathcal V_i^h(k)|}$ 为可用性诱导的掩蔽算子；残差项 $E_i(k)$ 按行定义：当 $b_{i,u}(k)=0$ 时 $E_{i\leftarrow u}(k)=\mathbf 0$，当 $b_{i,u}(k)=1$ 时 $E_{i\leftarrow u}(k)=x_u(s_{i\leftarrow u}^{\star}(k))-x_u(k)$。由此，$B_i(k)$ 表征由到达滞后或译码失败造成的二值可观性，$E_i(k)$ 则对应状态在生成时隙与决策时隙间演化造成的陈旧失配。该结构显式分离可用性掩蔽与陈旧失配，为后续状态校准提供建模基础。
 
-\section{FG-MAPPO 网络结构设计与分布式训练实现}
-\label{sec:ch3_method}
+退化结构表明，对监测视图内不同节点状态需要施加不同信任程度。为此，本章区分作用于不同处理环节的三类置信度量。新鲜度评分 $\rho_{i,u}(k)$ 由式~\eqref{eq:ch2_freshness} 给出，在观测与先验融合前度量最新译码更新的陈旧程度；观测权重 $c_{i,u}(k)$ 调节译码观测与时序先验在参考状态构建中的相对贡献；校准后置信度 $w_{i,u}(k)$ 表征融合参考经校准后的可信程度，并供后续多跳聚合使用。三者中，$\rho_{i,u}(k)$ 由遥测侧可用性与信息年龄直接确定，$c_{i,u}(k)$ 与 $w_{i,u}(k)$ 则需在状态处理过程中估计。
 
-第~\ref{sec:ch3_theory}~节表明，分布式公平切换可通过 SWF 修正训练信号，并与 PPO 框架兼容。然而，将该结论实现为可在实际星座环境中在线运行的切换机制，仍需解决三个部署问题：如何在个体吞吐与长期公平之间形成可解释且稳定的权衡，如何在受限星地/终端间链路下以低开销获取邻域服务质量指示，以及如何在海量终端下高效完成同策略训练并接入实际切换协议。为此，本节依次给出吞吐与公平分立的网络结构、低开销邻域协作机制、两阶段交替训练与同步分布式训练框架，并阐述 FG-MAPPO 与 3GPP 条件切换协议的融合方式。
+\subsection{问题建模：局部感知目标与算子分解}
+\label{subsec:ch2_problem}
 
-\subsection{吞吐与公平分立的 TOFO 网络结构}
-\label{subsec:ch3_tofo}
+基于上述退化状态模型，本地感知需要在每个决策时隙仅依据本地上下文 $\mathcal I_i(k)$，由译码更新、时序先验、新鲜度评分与图结构空间支撑，估计校准后网络状态矩阵 $Z_i^\star(k)$ 作为不可观当前状态 $X_i^h(k)$ 的近似，并据此构建供下游路由策略使用的输入特征矩阵 $H_i^\star(k)$。需要强调的是，本章并不直接求解星座尺度全局端到端路由，而是在生存时间（Time-to-Live，TTL）、激活星间链路、残余链路容量与带内遥测预算约束下，为星上下一跳选择提供可信的本地状态输入。$Z_i^\star(k)$ 中各表项由译码观测、时序先验或邻域空间证据等异质来源支撑。状态恢复需要判断数值估计是否接近当前物理网络状态，多跳聚合则需要判断该估计是否应影响其他节点的路由特征；二者面向的问题不同，若混入同一 GNN 聚合环节，校准残余不确定性将被当作等价路由证据继续传播。
 
-若将公平性修正优势直接代入单一策略网络，个体吞吐与长期公平两个目标容易相互牵制，导致价值估计波动并降低训练稳定性。为此，本章提出吞吐与公平分立（TOFO）结构，该结构由一个吞吐导向（Throughput-Oriented，TO）网络与一个公平导向（Fairness-Oriented，FO）网络组成，如图~\ref{fig:ch3_tofo}~所示。TO 网络给出速率优先的目标卫星和子信道候选，FO 网络在此基础上结合邻域累计接入效用修正，使终端策略由速率优先逐步过渡到公平性感知接入。两个网络同属一个终端，均包含策略网络与价值网络。
+为此，本章将本地感知分解为状态校准与置信度约束聚合两个环节。状态校准面向退化遥测本身，以 $\mathcal I_i(k)$ 为输入，联合译码观测、时序先验与邻域空间支撑，估计校准后网络状态矩阵 $Z_i^\star(k)$ 及校准后置信向量 $w_i(k)$，目标是在陈旧、缺失或含噪更新下恢复当前物理网络状态。置信度约束聚合面向路由特征构建，在 $w_i(k)$ 条件下对 $Z_i^\star(k)$ 进行多跳聚合，输出路由策略输入特征矩阵 $H_i^\star(k)$，目标是控制校准状态在多跳邻域中的传播强度。
 
-TOFO 的核心区别在于 TO 与 FO 的输入信令不同。TO 网络仅以终端本地观测为输入，不依赖邻居信息，用于保留由链路质量、可见时间和候选子信道占用决定的速率优先接入能力；FO 网络的输入除本地观测外，还包括 TO 网络输出的候选动作与邻居累计接入效用 $\mathbf{J}_e^t$，用于在速率优先候选之上进行公平性修正。需要注意的是，邻居优势估计只在训练更新阶段交换，不作为在线决策输入。TO 与 FO 独立训练且相互之间没有梯度传递，因此公平目标不会直接覆盖链路质量判断，而是通过 FO 网络对 TO 候选进行受限修正，使终端在维持基本链路吞吐能力的同时降低对长期弱服务用户的挤压。
+该分解将“当前状态应如何估计”与“该估计应在多大程度上影响其他节点的下一跳判断”解耦，使校准阶段得到的置信度 $w_i(k)$ 成为二者之间的显式接口，从而避免弱支撑状态在聚合阶段被视为等价路由证据，并为后续 CA-LDP 设计提供建模依据。
+
+
+\section{CA-LDP 框架设计}
+\label{sec:ch2_design}
+
+基于上述算子分解，CA-LDP 采用“先校准、再约束传播”的两级本地处理结构，如图~\ref{fig:ch2_framework} 所示。置信度自适应图信号修复（CaGSR）模块首先在监测视图内将退化遥测状态校准为当前网络状态估计，并输出校准后置信度；随后，置信度加权多跳传播模块以该置信度约束状态在邻域内的传播强度，构建供下一跳路由策略使用的输入特征。由此，置信度不再停留于状态恢复内部，而是随校准结果进入路由特征构建过程，限制弱支撑状态在多跳聚合中的影响。后续小节依次给出两个模块设计。
 
 \begin{figure}[!htp]
     \centering
-    \includegraphics[width=0.92\linewidth]{figures/chapter3/TOFO_architecture.png}
-    \caption{由吞吐导向网络与公平导向网络构成的 TOFO 结构}
-    \label{fig:ch3_tofo}
+    \includegraphics[width=0.95\linewidth]{figures/chapter2/framework}
+    \caption{CA-LDP 框架的整体结构}
+    \label{fig:ch2_framework}
 \end{figure}
 
-\subsection{低开销邻域协作机制}
-\label{subsec:ch3_comm}
+\subsection{置信度自适应图信号修复}
+\label{subsec:ch2_cagsr}
 
-FO 网络需要邻域服务质量指示来判断哪些终端长期处于弱服务状态，因此终端间低速信令不可或缺。在实际系统中，该信息交互可经 D2D 链路或星上中继实现：地理邻近终端优先采用 D2D 链路，距离较远或链路不可用时依赖卫星中继。考虑到全量状态交换会带来显著开销，本章将通信限定为 $N_n$ 个地理最近邻，且只交换标量信息。
+CaGSR 对应第~\ref{subsec:ch2_problem} 节定义的校准算子。式~\eqref{eq:ch2_degradation} 将由 $B_i(k)$ 引起的不可用表项与由 $E_i(k)$ 表示的陈旧失配分离，因此状态校准不能仅依赖单一观测拟合或无差别图平滑，而需同时处理两个层面：一是在译码观测与时序先验之间形成自适应参考，二是在端点可信且状态兼容的边上施加选择性图正则化。基于这一结构，CaGSR 构造自适应参考 $Y_i(k)$、拟合矩阵 $W_i(k)$ 与加权关联矩阵 $M_i^R(k)$，并将校准后网络状态矩阵写为如下优化问题：
+\begin{equation}
+\begin{aligned}
+Z_i^\star(k)
+=
+\arg\min_{Z_i(k)}
+\quad
+&
+\frac{1}{2}
+\left\|
+W_i(k)\odot
+\left(
+Z_i(k)-Y_i(k)
+\right)
+\right\|_F^2
+\\
+&
++
+\frac{\lambda_R}{2}
+\left\|
+M_i^R(k)Z_i(k)
+\right\|_F^2 .
+\end{aligned}
+\label{eq:ch2_cagsr_restoration}
+\end{equation}
+第一项按逐节点置信度将校准状态拟合至融合参考，第二项仅沿端点状态兼容的边施加图变差正则，其中 $\lambda_R>0$ 为全局图校准权重，用于控制参考拟合与图平滑的整体权衡。CA-LDP 进一步在边级调节平滑强度：全局系数 $\lambda_R$ 保持同一监测视图内的整体正则尺度，边级系数 $d_{i,uv}^R(k)$ 依据端点置信度与参考状态兼容性刻画不同星间链路上的相对平滑强度。以下分别给出 $Y_i(k)$、$W_i(k)$ 与 $M_i^R(k)$ 的构造。
 
-FG-MAPPO 在每个决策时隙前由终端向邻居广播累计接入效用 $J_{n_i}^t$，FO 网络据此感知邻域长期服务质量和潜在拥塞；在训练更新阶段，终端基于本地轨迹计算个体优势估计 $\hat{A}_{t,n_i}^{\mathrm{IND}}$，并向同一邻域内终端广播该标量，用于式~(\ref{eq:ch3_swfcorrect})~中的公平性修正。上述信令均为标量，不涉及全量观测、动作分布或全网状态汇聚。
+校准过程首先为每个监测节点确定参考状态与校准后置信度。在退化状态更新下，最新译码观测并不必然优于时序先验：当本地业务演化缓慢时，陈旧观测仍可提供有效信息；当新译码观测与近期时序动态相冲突时，其可信程度反而下降。因此，CaGSR 同时估计译码观测在观测与先验参考中的贡献，以及融合参考约束校准状态的强度。
 
-从接入信令角度看，在线阶段每个终端在一个切换周期内只需向 $N_n$ 个邻居发送一个累计接入效用标量。以 $4$ 字节浮点数编码该标量时，全区域每个切换周期的在线邻域信令量为 $4N_nE_u$ 字节；训练阶段优势估计只在离线训练或周期性策略更新时交换，不占用常规在线切换判决时隙。该设计不要求额外全网控制信道，也不交换完整观测、动作概率或全网子信道占用表。相比需要多轮信息扩散的去中心化 MARL 通信框架或训练阶段汇聚全局观测的 CTDE 方案，FG-MAPPO 在线开销主要由邻居数 $N_n$ 决定，更符合受限星地/终端间控制信令条件。
+参照门控循环单元（Gated Recurrent Unit，GRU）结构~\cite{cho-RNNEncoderDecoder-EMNLP14}，时序先验由缓存的校准轨迹生成：
+\begin{equation}
+\left[
+x_{i,u}^{\mathrm{pri}}(k),
+h_{i,u}^{\mathrm{pri}}(k)
+\right]
+=
+\mathrm{GRU}_{\theta_p}
+\left(
+Z_{i,u}^{\star}(k-L),\ldots,Z_{i,u}^{\star}(k-1)
+\right),
+\label{eq:ch2_cagsr_prior}
+\end{equation}
+其中 $x_{i,u}^{\mathrm{pri}}(k)$ 为预测状态候选，$h_{i,u}^{\mathrm{pri}}(k)$ 概括近期状态演化，$L$ 为状态历史长度。CaGSR 仅在译码观测可用时比较观测与时序先验，以评估新译码观测与近期动态兼容性。观测与先验不一致性定义为条件化的归一化失配度量
+\begin{equation}
+m_{i,u}(k)
+=
+\begin{cases}
+\dfrac{
+\left\|
+x_{i\leftarrow u}^{\mathrm{obs}}(k)
+-
+x_{i,u}^{\mathrm{pri}}(k)
+\right\|_2
+}{
+\left\|
+x_{i\leftarrow u}^{\mathrm{obs}}(k)
+\right\|_2
++
+\left\|
+x_{i,u}^{\mathrm{pri}}(k)
+\right\|_2
++
+\varepsilon_m
+},
+& b_{i,u}(k)=1,\\
+m_{\mathrm{neu}},
+& b_{i,u}(k)=0,
+\end{cases}
+\label{eq:ch2_cagsr_mismatch}
+\end{equation}
+其中 $\varepsilon_m$ 为避免零分母的极小常数，$m_{\mathrm{neu}}\in[0,1]$ 为缺失观测对应的中性失配常数。该定义使零占位缺失表项不参与观测与先验失配计算，而由可用性指示 $b_{i,u}(k)$ 单独表征缺失性并输入置信度估计器。时序先验本身也存在新鲜度差异：由近期校准状态生成的先验通常比由长期未更新缓存外推的先验更具信息量。令 $a_{i,u}^{\mathrm{pri}}(k)$ 表示自上次用于更新节点 $u$ 时序先验的可靠观测以来经过的时隙数，并定义归一化先验年龄 $\bar a_{i,u}^{\mathrm{pri}}(k)=\min\{a_{i,u}^{\mathrm{pri}}(k)/L,1\}$。
 
-为量化终端间通信对网络与用户的具体开销，考虑本文仿真中的最大规模 $100$ 终端场景。假设用户每 $5$ 秒进行一次切换决策，且在极端条件下每个用户与区域内所有其他用户通信，则每个用户在每次决策前需向其余 $99$ 个用户各发送一条标量消息，对应每用户平均发送速率约为 $79.2~\mathrm{B/s}$；若全部经卫星中继，则终端间消息引入的区域聚合网络开销约为 $7.73~\mathrm{kB/s}$。考虑到 LEO 卫星接入系统通常可提供与 4G 标准相当的接入容量~\cite{laniewski-MobileStarlink-OJCOMS25}，该开销可忽略。可见 FG-MAPPO 的通信方案在交换信息量与通信轮数两方面均保持较低开销。
+置信度估计器的逐节点输入为
+\begin{equation}
+\xi_{i,u}(k)
+=
+\left[
+m_{i,u}(k),
+b_{i,u}(k),
+\rho_{i,u}(k),
+\bar a_{i,u}^{\mathrm{pri}}(k),
+P_h\,h_{i,u}^{\mathrm{pri}}(k)
+\right],
+\label{eq:ch2_cagsr_feature}
+\end{equation}
+其中 $P_h$ 将 GRU 隐状态映射为紧凑时序描述子。该输入用于区分缺失更新、陈旧但仍与先验一致的更新，以及与时序上下文相冲突的新译码观测。估计器输出两个功能不同的隐权重：观测置信度 $c_{i,u}(k)$ 为混合权重，决定译码观测相对于时序先验在参考构建中的贡献；校准后置信度 $w_{i,u}(k)$ 为信任权重，刻画融合参考约束校准状态并参与图正则化的强度。二者由同一状态更新上下文预测，但进入不同计算路径并接收不同梯度：
+\begin{equation}
+\begin{aligned}
+\left[o_{i,u}^{c}(k),o_{i,u}^{w}(k)\right]
+&=
+g_{\mathrm{c}}\left(\xi_{i,u}(k)\right),\\
+c_{i,u}(k)
+&=
+b_{i,u}(k)\,\sigma\!\left(o_{i,u}^{c}(k)\right),\\
+w_{i,u}(k)
+&=
+\sigma\!\left(o_{i,u}^{w}(k)\right),
+\end{aligned}
+\label{eq:ch2_cagsr_weight}
+\end{equation}
+其中 $\sigma(\cdot)$ 为 Sigmoid 函数，可用性门控 $b_{i,u}(k)$ 确保缺失观测获得零观测置信度。两个权重不设置独立标签，而是作为可微隐变量，经其在参考融合、拟合约束与图正则化中的作用由状态校准目标学习。逐节点参考与拟合矩阵为
+\begin{equation}
+y_{i,u}(k)
+=
+c_{i,u}(k)x_{i\leftarrow u}^{\mathrm{obs}}(k)
++
+\left(1-c_{i,u}(k)\right)
+x_{i,u}^{\mathrm{pri}}(k),
+\label{eq:ch2_cagsr_reference}
+\end{equation}
+$Y_i(k)=[y_{i,u}(k)]_{u\in\mathcal V_i^h(k)}$，$W_i(k)=[w_{i,u}(k)]_{u\in\mathcal V_i^h(k)}\mathbf 1_d^\top$。由此，缺失观测由时序先验替代，一致的陈旧观测仍可获得较高观测置信度；当两类候选支撑均较弱时，$w_{i,u}(k)$ 可取较小值，使图结构空间支撑主导校准。
 
-\subsection{两阶段交替训练与同步分布式训练框架}
-\label{subsec:ch3_training}
+加权关联矩阵 $M_i^R(k)$ 通过强调端点参考可信且状态兼容的边，使图正则化具有选择性。对边 $(u,v)\in\mathcal E_i^h(k)$，归一化参考状态差定义为
+\begin{equation}
+\delta_{i,uv}^{y}(k)
+=
+\frac{
+\left\|
+y_{i,u}(k)-y_{i,v}(k)
+\right\|_2
+}{
+\left\|
+y_{i,u}(k)
+\right\|_2
++
+\left\|
+y_{i,v}(k)
+\right\|_2
+},
+\label{eq:ch2_cagsr_refdiff}
+\end{equation}
+边级平滑系数由端点权重与参考状态兼容性构造：
+\begin{equation}
+d_{i,uv}^{R}(k)
+=
+w_{i,u}(k)\,w_{i,v}(k)
+\left(
+1-\delta_{i,uv}^{y}(k)
+\right).
+\label{eq:ch2_cagsr_edgecoeff}
+\end{equation}
+因此，仅当两端点参考均可信且相互兼容时，边级平滑才保持较高强度。加权关联矩阵为
+\begin{equation}
+M_i^R(k)
+=
+\left(D_i^R(k)\right)^{1/2}M_i(k),
+\quad
+D_i^R(k)
+=
+\mathrm{diag}\!\left(
+d_{i,uv}^R(k)
+\right)_{(u,v)\in\mathcal E_i^h(k)} ,
+\label{eq:ch2_cagsr_incidence}
+\end{equation}
+相应的图变差正则项等价于
+\begin{equation}
+\frac{\lambda_R}{2}
+\sum_{(u,v)\in\mathcal E_i^h(k)}
+d_{i,uv}^{R}(k)
+\left\|
+Z_{i,u}(k)-Z_{i,v}(k)
+\right\|_2^2 ,
+\label{eq:ch2_cagsr_edgereg}
+\end{equation}
+即 $\lambda_R$ 给出全局图校准强度，$d_{i,uv}^{R}(k)$ 给出边级相对平滑强度。
 
-完全分布式训练可能加剧多终端并发接入下的环境非平稳性。为缓解该问题并实现由吞吐优先向公平性感知接入的过渡，本章引入交替训练：每个训练回合开始时，各终端以概率 $\beta$ 选择训练 TO 网络。公平性感知接入比单纯速率优先接入更难学习，应先训练 TO 网络、再训练 FO 网络，故 $\beta$ 在训练初期接近 $1$，并随训练进程线性衰减至下限 $\beta_{\min}$，使策略平滑过渡到以公平为主，同时保留对 TO 网络的少量更新以维持个体吞吐能力；某一网络一旦在回合开始时选定，便在整个回合内保持不变，以增强训练稳定性。
+当 $Y_i(k)$、$W_i(k)$ 与 $M_i^R(k)$ 固定后，式~\eqref{eq:ch2_cagsr_restoration} 为凸二次目标，具有闭式梯度。若在每个路由时隙精确求解该目标，则需调用线性方程组求解器或辅助变量迭代，在线开销难以预先确定。CA-LDP 因而以 $Y_i(k)$ 初始化，即 $Z_i^0(k)=Y_i(k)$，并执行 $L_c$ 步定步长梯度迭代，使每时隙校准开销固定。省略时隙索引 $k$，第 $\ell$ 步更新为
+\begin{equation}
+Z_i^{\ell+1}
+=
+Z_i^\ell
+-
+\eta
+\left[
+W_i^{\odot 2}\odot
+\left(
+Z_i^\ell-Y_i
+\right)
++
+\lambda_R (M_i^R)^\top M_i^R Z_i^\ell
+\right],
+\label{eq:ch2_cagsr_update}
+\end{equation}
+其中 $\eta$ 为固定步长，$W_i^{\odot 2}$ 表示逐元素平方，$\lambda_R$ 与式~\eqref{eq:ch2_cagsr_restoration} 中的全局图校准权重一致。$L_c$ 步后输出 $Z_i^\star(k)=Z_i^{L_c}(k)$。该有限步更新不引入额外原始变量或对偶变量，仅需对 $M_i^R(k)$ 及其转置执行稀疏乘法，在线开销由 $L_c$ 固定。校准步数 $L_c$ 取验证集校准损失改善趋于平缓时的最小步数。
 
-如图~\ref{fig:ch3_train_schedule}~所示，训练与推理流程如下。训练采样阶段，若终端选择训练 TO 网络，则 TO 网络只接收本地观测并输出速率优先动作；若选择训练 FO 网络，则终端先由 TO 网络生成候选动作，再由 FO 网络结合本地观测、候选动作和邻居累计接入效用 $\mathbf{J}_{n_i}^t$ 输出最终动作。无论训练哪个分支，各终端在每个时隙都更新并广播累计接入效用 $J_{n_i}^t$，以保证 FO 网络获得一致的邻域服务质量指示。训练更新阶段，各终端先基于本地轨迹和价值网络计算个体优势估计；TO 网络按式~(\ref{eq:ch3_pggrad})~使用本地优势更新，FO 网络则在回合结束后接收邻居优势估计，并按式~(\ref{eq:ch3_swfcorrect})~计算 SWF 修正优势后更新。推理阶段不交换优势估计，只交换累计接入效用：终端先由 TO 网络生成候选目标，再由 FO 网络结合邻域服务质量指示输出公平修正后的目标卫星和候选子信道。FG-MAPPO 的实现不设中心价值网络，各终端维护本地缓冲区以记录自身轨迹和邻居累计接入效用，并在整个回合结束后执行更新以降低优势估计方差；含 $n$ 个终端时，FG-MAPPO 共训练 $4n$ 个网络。完整流程如算法~\ref{algo:ch3_fgmappo}~所示。
+CaGSR 参数以当前物理状态为监督离线训练。训练时，仿真器记录退化前当前物理状态 $x_u(k)$，并仅将其用作校准目标。对小批量 $\mathcal B$，训练损失为
+\begin{equation}
+\begin{aligned}
+\mathcal L_{\mathrm C}
+&=
+\mathcal L_{\mathrm{cal}}
++
+\lambda_{\mathrm{pri}}\mathcal L_{\mathrm{pri}},
+\\
+\mathcal L_{\mathrm{cal}}
+&=
+\sum_{(i,k)\in\mathcal B}
+\sum_{u\in\mathcal V_i^h(k)}
+\left\|
+Z_{i,u}^{\star}(k)-x_u(k)
+\right\|_2^2,
+\\
+\mathcal L_{\mathrm{pri}}
+&=
+\sum_{(i,k)\in\mathcal B}
+\sum_{u\in\mathcal V_i^h(k)}
+\left\|
+x_{i,u}^{\mathrm{pri}}(k)-x_u(k)
+\right\|_2^2 ,
+\end{aligned}
+\label{eq:ch2_cagsr_loss}
+\end{equation}
+其中校准损失 $\mathcal L_{\mathrm{cal}}$ 驱动展开校准输出逼近当前物理状态，先验损失 $\mathcal L_{\mathrm{pri}}$ 直接监督 GRU 先验，$\lambda_{\mathrm{pri}}$ 平衡二者。置信权重 $c_{i,u}(k)$ 与 $w_{i,u}(k)$ 不设置独立标签，而是经其在参考融合、拟合约束与图正则化中的可微作用优化。在线推理时，已训练的 GRU 先验与置信度估计器保持固定，各卫星以相同 $L_c$ 步本地校准算子计算 $Z_i^\star(k)$。
 
-\begin{figure}[!htp]
-    \centering
-    \includegraphics[width=0.95\linewidth]{figures/chapter3/train_schedule.pdf}
-    \caption{FG-MAPPO 的训练与推理流程}
-    \label{fig:ch3_train_schedule}
-\end{figure}
+\subsection{置信度加权多跳传播}
+\label{subsec:ch2_propagation}
+
+传播模块作用于校准后网络状态矩阵 $Z_i^\star(k)$ 与校准后置信向量 $w_i(k)$。对每个节点 $v\in\mathcal V_i^h(k)$，先将校准物理状态与其置信度投影至路由策略隐特征空间：
+\begin{equation}
+H_{i,v}^{0}(k)
+=
+\phi_0
+\left(
+\left[
+Z_{i,v}^{\star}(k),
+w_{i,v}(k)
+\right]
+\right),
+\quad
+v\in\mathcal V_i^h(k),
+\label{eq:ch2_prop_input}
+\end{equation}
+其中 $\phi_0(\cdot)$ 为多跳聚合与下游路由共享的可训练输入投影。此处 $w_{i,v}(k)$ 作为特征级条件，使路由表征编码校准状态可信程度；其在后续扩散与锚定中的乘性使用，则用于在传播过程中门控信息流。
+
+$w_i(k)$ 的放置遵循信息流方向。邻居聚合时，节点 $u$ 为发送方，$w_{i,u}(k)$ 控制其状态向外扩散强度；自锚定时，节点 $v$ 保留自身校准特征，$w_{i,v}(k)$ 控制该特征保留强度。由此，传播步 $t$ 的邻居聚合项与自锚定项为
+\begin{align}
+D_{i,v}^{t}(k)
+&=
+\sum_{u\in\mathcal N_{i,v}(k)}
+w_{i,u}(k)\,
+\phi_d
+\left(
+H_{i,u}^{t}(k)-H_{i,v}^{t}(k)
+\right),
+\label{eq:ch2_prop_diffusion}
+\\
+R_{i,v}^{t}(k)
+&=
+w_{i,v}(k)
+\left[
+\phi_r
+\left(
+H_{i,v}^{0}(k)
+\right)
+-
+\phi_r
+\left(
+H_{i,v}^{t}(k)
+\right)
+\right],
+\label{eq:ch2_prop_reaction}
+\end{align}
+其中 $\phi_d(\cdot)$ 与 $\phi_r(\cdot)$ 分别为可训练的聚合映射与锚定映射，$\mathcal N_{i,v}(k)$ 为节点 $v$ 在监测视图内的邻居集。CA-LDP 随后采用定步长迭代更新，传播开销由步数 $T$ 控制：
+\begin{equation}
+H_{i,v}^{t+1}(k)
+=
+H_{i,v}^{t}(k)
++
+\alpha D_{i,v}^{t}(k)
++
+\beta R_{i,v}^{t}(k),
+\label{eq:ch2_prop_update}
+\end{equation}
+其中 $\alpha=\mathrm{softplus}(a_\alpha)$ 与 $\beta=\mathrm{softplus}(a_\beta)$ 为可学习正传播强度，并在训练与推理中裁剪至固定上界 $\alpha\le\alpha_{\max}$、$\beta\le\beta_{\max}$。
+
+式~\eqref{eq:ch2_prop_diffusion}--\eqref{eq:ch2_prop_update} 直接服务于退化遥测下的路由特征构建。发送端权重 $w_{i,u}(k)$ 控制节点 $u$ 的校准状态能否作为可靠路由证据向外传播，从而抑制弱支撑链路负载或队列状态污染邻居视图；接收端锚定项 $R_{i,v}^{t}(k)$ 则使高置信节点保留自身可靠的拥塞与链路质量证据，避免在多跳聚合中被远端不确定状态过度覆盖。当所有置信度均接近 $1$ 时，该传播形式退化为校准特征上的标准反应--扩散式图聚合；当某节点置信度较低时，其向外影响被削弱，但仍可利用邻居状态修正自身路由特征。
+
+经 $T$ 步传播后，模块输出路由策略输入特征矩阵 $H_i^\star(k)=H_i^T(k)$，将下游拥塞与链路状态信息融入校准状态 $Z_i^\star(k)$。训练上，CaGSR 先经当前状态监督校准并冻结，随后传播模块与下游近端策略优化（Proximal Policy Optimization，PPO）路由头联合训练。该分阶段安排使 $Z_i^\star(k)$ 保持为物理状态估计，$w_i(k)$ 仍与状态估计可信度绑定，而非退化为面向策略的注意力权重；PPO 路由头的奖励设计与训练配置将在第~\ref{subsec:ch2_training} 节一并给出。
+
+\subsection{工作流程与复杂度分析}
+\label{subsec:ch2_complexity}
+
+算法~\ref{alg:ch2_caldp_slot} 给出卫星 $i$ 在一个路由时隙内的执行流程。该流程在监测视图 $\mathcal G_i^h(k)$ 上运行，不依赖全局状态同步，依次完成自适应参考构建、图校准与置信度加权多跳传播。
 
 \begin{algorithm}[!htp]
-\caption{基于 FG-MAPPO 的条件切换决策流程}
-\label{algo:ch3_fgmappo}
-\KwIn{训练回合数 $E$，终端数 $n$，$\beta$ 衰减回合数 $e_\beta$，$\beta$ 下限 $\beta_{\min}$}
-\KwOut{TO/FO 策略网络 $\pi_{n_i},\pi_{n_i}'$ 与 TO/FO 价值网络 $v_{n_i},v_{n_i}'$}
-初始化 $n$ 个终端的本地轨迹缓冲区 $\mathcal{D}$\;
-以正交初始化方式初始化 $\pi_{n_i},\pi_{n_i}',v_{n_i},v_{n_i}'$\;
-\For{$e\leftarrow 1$ \KwTo $E$}{
-  $\beta=\max\big(1-(1-\beta_{\min})\,e/e_\beta,\;\beta_{\min}\big)$\;
-  \For{$n_i\leftarrow 1$ \KwTo $n$}{
-    $J_{n_i}\leftarrow 0$\;
-    以概率 $\beta$ 选择训练 TO 分支 $(\lambda_{n_i},\mu_{n_i})=(\pi_{n_i},v_{n_i})$，否则选择训练 FO 分支 $(\lambda_{n_i},\mu_{n_i})=(\pi_{n_i}',v_{n_i}')$\;
-  }
-  \While{回合 $e$ 未结束}{
-    \For{$n_i\leftarrow 1$ \KwTo $n$}{
-      向 $N_n$ 个邻居广播累计接入效用 $J_{n_i}^t$，并接收 $\mathbf{J}_{n_i}^t$\;
-      \eIf{$\lambda_{n_i}=\pi_{n_i}$}{
-        由 TO 策略 $\pi_{n_i}(o_{n_i}^t)$ 生成动作 $a_{n_i}^t$\;
-      }{
-        由 TO 策略生成候选动作 $\tilde{a}_{n_i}^t\sim\pi_{n_i}(o_{n_i}^t)$，再由 FO 策略 $\pi_{n_i}'(o_{n_i}^t,\mathbf{J}_{n_i}^t,\tilde{a}_{n_i}^t)$ 生成动作 $a_{n_i}^t$\;
-      }
-      执行动作并获得奖励 $r_{n_i}^t$，更新 $J_{n_i}^{t+1}\leftarrow J_{n_i}^{t}+r_{n_i}^t$\;
-      将 $\langle o_{n_i}^t,a_{n_i}^t,r_{n_i}^t,\mathbf{J}_{n_i}^t,\log\pi(a_{n_i}^t),\mu_{n_i}(\cdot)\rangle$ 存入缓冲区 $d_{n_i}$\;
-    }
-  }
-  各终端以 GAE 计算个体优势 $\hat{A}_{t,n_i}^{\mathrm{IND}}$，并将该标量优势估计广播至邻居\;
-  \For{$n_i\leftarrow 1$ \KwTo $n$}{
-    以 $d_{n_i}$ 中样本更新价值网络 $\mu_{n_i}$\;
-    \eIf{$\lambda_{n_i}=\pi_{n_i}$}{
-      以个体优势 $\hat{A}_{t,n_i}^{\mathrm{IND}}$ 更新 TO 策略 $\lambda_{n_i}$\;
-    }{
-      按式~(\ref{eq:ch3_swfcorrect}) 聚合邻居优势估计，得到 $\hat{A}_{t,n_i}^{\mathrm{SWF}}$，并据此更新 FO 策略 $\lambda_{n_i}$\;
-    }
-  }
+\caption{卫星 $i$ 处 CA-LDP 的单时隙推理}
+\label{alg:ch2_caldp_slot}
+\KwIn{本地状态处理上下文 $\mathcal I_i(k)$ 与校准状态缓存}
+\KwOut{路由策略输入特征矩阵 $H_i^\star(k)$}
+由校准状态缓存生成时序先验 $X_i^{\mathrm{pri}}(k)$\;
+估计 $c_i(k)$ 与 $w_i(k)$，在 $\mathcal V_i^h(k)$ 上构造 $Y_i(k)$ 与 $W_i(k)$\;
+在 $\mathcal E_i^h(k)$ 上计算 $d_{i,uv}^R(k)$，形成 $M_i^R(k)=(D_i^R(k))^{1/2}M_i(k)$，并初始化 $Z_i^0(k)=Y_i(k)$\;
+\For{$\ell=0$ \KwTo $L_c-1$}{
+  按式~\eqref{eq:ch2_cagsr_update} 执行一步图校准，更新 $Z_i^{\ell+1}(k)$\;
 }
+置 $Z_i^\star(k)=Z_i^{L_c}(k)$，按式~\eqref{eq:ch2_prop_input} 计算 $H_i^0(k)$\;
+\For{$t=0$ \KwTo $T-1$}{
+  按式~\eqref{eq:ch2_prop_update} 执行一步多跳传播，更新 $H_i^{t+1}(k)$\;
+}
+置 $H_i^\star(k)=H_i^T(k)$ 并送入路由策略\;
 \end{algorithm}
 
-上述训练流程用于离线获得可部署的切换策略，并不增加在线切换信令。由于 PPO 属于同策略更新方法，训练样本需要尽量来自当前或近当前策略；同时，卫星选择与子信道选择构成组合动作，若按终端串行采样，训练时间会随终端数快速增长。为提升离线训练效率，本章采用并行场景采样和终端并行推理：多个独立仿真环境使用不同随机种子生成用户位置、卫星可见关系和业务负载，每个环境内并行生成各终端动作，从而提升样本多样性并缩短采样时间。训练过程中控制样本滞后，避免模型更新使用过旧策略生成的轨迹，以维持 PPO 更新稳定性。该并行训练机制只影响离线训练吞吐，不改变推理阶段的终端观测、邻域信令或 CHO 执行流程。
+本小节分析单颗卫星单时隙推理开销随本地监测半径 $h$ 的增长。在四邻星间链路网格下，按网格近似，$h$ 跳监测视图含
+\begin{equation}
+n_i(h)=2h^2+2h+1,\qquad e_i(h)=\Theta(h^2)
+\label{eq:ch2_view_size}
+\end{equation}
+个节点与边。每时隙开销由三类本地操作主导：监测节点上的时序先验生成、定步长图正则化状态校准，以及定深置信度加权多跳聚合。令 $C_p$ 为先验生成与置信度估计的逐节点开销，$C_d$ 与 $C_r$ 分别为传播模块的逐边聚合映射与逐节点锚定映射开销，则卫星 $i$ 在线处理开销为
+\begin{equation}
+\begin{aligned}
+C_i^{\mathrm{on}}(h)
+=
+\mathcal{O}\big(
+&L\,n_i(h)C_p
++L_c\big(n_i(h)+e_i(h)\big)d \\
+&+T\big(e_i(h)C_d+n_i(h)C_r\big)
+\big).
+\end{aligned}
+\label{eq:ch2_complexity}
+\end{equation}
+在特征维度、模型宽度与部署参数 $L$、$L_c$、$T$ 固定时，式~\eqref{eq:ch2_complexity} 随 $C_i^{\mathrm{on}}(h)=\mathcal O(h^2)$ 增长。因此，在线计算仅随本地监测半径增长，而与全局星座规模无关。这一局部性使 CA-LDP 区别于开销随网络规模增长的全网状态同步，也区别于计算量随求解精度与图状态变化波动的自适应迭代图传播方法。校准与聚合均采用固定的本地步数，因而可在退化状态更新下提供可预测的星上计算开销。
 
-\subsection{FG-MAPPO 与 3GPP 条件切换协议的融合}
-\label{subsec:ch3_cho}
-
-CHO 允许终端在正式执行切换前持续监测一组候选卫星，并在条件满足时快速接入目标卫星，因而适合作为 LEO 高动态场景中的切换流程基础。如图~\ref{fig:ch3_cho}~所示，FG-MAPPO 不改变 CHO 的基本协议状态机，也不替代随机接入中的同步、前导码发送、随机接入响应（Random Access Response，RAR）和接入确认流程。其作用边界限定在条件切换辅助决策层：利用测量报告、候选卫星负载、子信道占用和邻域累计接入效用，在每个切换机会给出目标卫星排序、触发条件配置建议以及候选子信道预选择结果。由此，FG-MAPPO 可降低目标卫星和子信道的盲选概率，并为 CHO 条件配置提供公平性依据；终端在执行阶段仍按标准随机接入流程完成同步、前导码发送、RAR 接收和接入确认。二者的对比如图~\ref{fig:ch3_cho}~所示。
-
-\begin{figure}[!htp]
-    \centering
-    \begin{subfigure}[t]{0.48\textwidth}
-        \centering
-        \includegraphics[width=\linewidth]{figures/chapter3/CHO_process}
-        \caption{原始 CHO 流程}
-        \label{fig:ch3_cho_orig}
-    \end{subfigure}
-    \hfill
-    \begin{subfigure}[t]{0.48\textwidth}
-        \centering
-        \includegraphics[width=\linewidth]{figures/chapter3/RL_CHO}
-        \caption{FG-MAPPO 辅助的 CHO 流程}
-        \label{fig:ch3_cho_rl}
-    \end{subfigure}
-    \caption{原始 CHO 流程与 FG-MAPPO 辅助 CHO 流程对比}
-    \label{fig:ch3_cho}
-\end{figure}
 
 \section{仿真结果与分析}
-\label{sec:ch3_sim}
+\label{sec:ch2_experiments}
 
-本节在真实星座参数下开展大规模组网仿真，验证 FG-MAPPO 在分布式约束下接近集中式规划基线的能力，以及在不同用户规模、地理区域与星座构型下的泛化性。下文先给出仿真设置，再从收敛性、切换性能分布、多负载综合性能、纬度区域泛化与真实星座评估五个方面展开。
+本节在大规模 Starlink 壳层星座上对 CA-LDP 开展星座级仿真评估。首先给出实验参数设置与训练实现细节，随后在受控退化场景下评估端到端路由性能并开展模块消融，继而单独考察状态校准精度，最后分析遥测预算与本地感知半径的部署敏感性。本章将路由作为分布式星上决策的下游应用，因此路由性能可作为检验退化遥测条件下本地状态感知质量的指标。
 
-\subsection{仿真设置}
-\label{subsec:ch3_sim_setup}
+\subsection{实验参数设置}
+\label{subsec:ch2_exp_setup}
 
-仿真在 Python 3.7 与 PyTorch 平台上实现，训练运行于单块 Tesla V100 GPU。考虑一片 $200~\mathrm{km}\times200~\mathrm{km}$ 的服务区域，区域内若干终端均匀随机分布。为消除地理偏置，每个训练回合开始时随机重置全部终端位置。仿真分两阶段进行：首先在缩比的 Starlink V1 星座上与基线对比，验证 FG-MAPPO 作为分布式算法接近集中式参考性能的能力；随后在 Telesat、Amazon Kuiper 与 Starlink Gen2 三类星座上开展泛化性评估，检验其对不同星座规模与构型的适应性。各星座参数配置如表~\ref{tab:ch3_constellations}~所示~\cite{ji-SpaceGroundMM-TWC24}。其中，Starlink V1 采用从 CelesTrak 数据库~\cite{celestrak-db}~获取的真实两行根数（Two-Line Element，TLE）星历，并由天文计算库 Skyfield~\cite{skyfield-lib}~解算星地可见关系；由真实 TLE 构建的 Starlink V1 星座具有一个重要特征：卫星在各轨道面上分布不均，从而增强网络动态性。其余星座采用理想 Walker 构型。
+仿真采用含 $72$ 个轨道面、每面 $22$ 颗卫星、共 $1584$ 颗卫星的 Starlink 壳层星座，轨道高度为 $550$~km，倾角为 $53^\circ$~\cite{lai-StarryNet-NSDI23,chen-AnalysisISLLEO-TVT21}。星间链路采用 +Grid 式四邻网格，每颗卫星维护两条同轨链路与两条邻轨链路，并禁用跨缝邻轨链路，以避免反向相对运动引起的链路不稳定~\cite{chen-AnalysisISLLEO-TVT21,Bhattacherjee-Singla-NetworkTopologyDesign-CCS19}；每条激活星间链路标称容量为 $C_{\mathrm{ISL}}=1$~Gbps~\cite{Gioulis-OpticalISLModel-Photonics25}。仿真覆盖全星座范围：背景业务、遥测退化与前景路由回合均在全网生成，而每颗卫星仅观测其本地 $h$ 跳监测视图。
 
-\begin{table}[!htp]
-  \centering
-  \caption{LEO 卫星星座参数配置}
-  \label{tab:ch3_constellations}
-  \resizebox{\linewidth}{!}{
-  \begin{tabular}{c|c|c|c|c|c}
-    \toprule
-    星座 & 规模 & 轨道高度（km） & 轨道面数 & 每面卫星数 & 倾角（$^\circ$）\\
-    \midrule
-    Starlink V1 & 1395 & 553 & 24 & 58.125 & 53.05 \\
-    Telesat & 1671 & 1015/1325 & 27/40 & 13/33 & 98.98/50.88 \\
-    Kuiper & 3236 & 590/610/630 & 28/36/34 & 28/36/34 & 33/42/51.9 \\
-    Starlink Gen2 & 4368 & 540/550/560/560/570 & 72/72/6/4/34 & 22/22/58/43/20 & 53.2/53/97.6/97.6/70 \\
-    \bottomrule
-  \end{tabular}
-  }
-\end{table}
-
-仿真聚焦下行通信场景，每个终端每 $\tau$ 秒依据所采集的网络状态进行一次切换决策。考虑 $1$ 小时服务周期以评估 FG-MAPPO 的长期规划能力，该时长远长于现有工作常用的分钟级仿真~\cite{lee-HOProtocolLearning-TWC24,wang-SeamlessHO-TComm23}。系统容量由服务区域内可见卫星数决定；考虑到随机接入需冗余系统容量以规避子信道冲突，本节以 $20$、$40$、$60$、$100$ 四个终端数分别表征低负载、中负载、高负载与过载四类场景。切换场景的主要参数如表~\ref{tab:ch3_scenario_params}~所示。
+前景路由负载与背景拥塞分别生成。参照 SaTE 的区域级业务需求模型~\cite{wuhao-SaTE-SIGCOMM25}，背景业务建模为 $64$ 个地球固定区域间的流体需求；每回合包含 $F_{\mathrm{bg}}=1000$ 条背景流，其活动时长服从均值 $2$~s 的指数分布，活动需求沿定向星间链路累积形成时变背景负载。对轻、中、重三档业务负载，施加全局缩放因子使 $95$ 分位星间链路利用率分别匹配 $0.30$、$0.65$ 与 $0.85$。每个前景回合包含一条源宿需求：源卫星均匀采样，源宿跳距服从 $[12,30]$ 跳上形状参数为 $1.5$ 的截断离散 Pareto 分布，平均距离约 $18.7$ 跳；需求大小服从形状参数 $1.5$、尺度 $1$~MB、支撑 $[1,1024]$~MB 的截断 Pareto 分布，并划分为定长流。遥测退化由上述三档业务负载与三档误码率（BER）共同控制：好信道 $p_b\in[10^{-8},10^{-7}]$、中等信道 $p_b\in[10^{-7},10^{-6}]$、差信道 $p_b\in[10^{-6},10^{-5}]$，每回合各星间链路独立从对应对数均匀区间采样 BER。三档负载与三档 BER 组合成九类受控退化场景。其余固定参数列于表~\ref{tab:ch2_sim_params}。
 
 \begin{table}[!htp]
-  \centering
-  \caption{仿真场景与业务参数}
-  \label{tab:ch3_scenario_params}
-  \resizebox{\linewidth}{!}{
-  \begin{tabular}{l|c|l|c}
-    \toprule
-    参数 & 取值 & 参数 & 取值 \\
-    \midrule
-    终端数 $E_u$ & $[20,40,60,100]$ & 决策间隔 $\tau$ & $5$~s \\
-    服务区域~\cite{wang-SeamlessHO-TComm23} & $200\times200~\mathrm{km}$ & 单星总带宽 $\mathrm{BW}_{\mathrm{total}}$~\cite{3gpp-38101} & $20$~MHz \\
-    单星子信道数 $N_c$ & $25$ & 单子信道带宽 $B_c$ & $0.8$~MHz \\
-    天线增益 $g_S$~\cite{vasisht-L2D2-SIGCOMM21} & $20$~dBi & 高斯白噪声功率谱密度~\cite{zhang-InterferenceAwareHO-FCN23} & $-174$~dBm/Hz \\
-    单星发射功率 $p_S$~\cite{3gpp-38101} & $47$~dBm & 载频~\cite{lee-HOProtocolLearning-TWC24} & $2$~GHz（S 频段） \\
-    杂波损耗 $L_{cl}$~\cite{3gpp-38811} & $16.30$~dB（NLoS） & 阴影衰落 $L_{sf}$~\cite{lee-HOProtocolLearning-TWC24} & $3$~dB \\
-    \bottomrule
-  \end{tabular}
-  }
+\centering
+\caption{仿真场景与业务参数}
+\label{tab:ch2_sim_params}
+\footnotesize
+\setlength{\tabcolsep}{6pt}
+\renewcommand{\arraystretch}{1.3}
+\begin{tabular}{p{0.52\linewidth} p{0.32\linewidth}}
+\hline
+参数 & 取值 \\
+\hline
+星座规模 & $1584$ 颗卫星 \\
+时隙长度 / 回合时长 & $10$ ms / $10$ s \\
+评估随机种子 / 每种子回合数 & $5$ / $100$ \\
+生存时间 $H_{\max}$ & $50$ 跳 \\
+标称星间链路容量 $C_{\mathrm{ISL}}$ & $1$ Gbps \\
+每回合背景流数 & $1000$ \\
+源宿距离 & $[12,30]$ 跳 Pareto 分布 \\
+前景需求大小 & $[1,1024]$ MB Pareto 分布 \\
+前景流大小 & $512$ KB \\
+状态更新分组大小 $B_{\mathrm m}$ & $12000$ bit \\
+状态更新服务比例 $\zeta_{\mathrm{tel}}$ & $5\times10^{-4}$ \\
+\hline
+\end{tabular}
 \end{table}
 
-本节将 FG-MAPPO 与以下五种代表性切换方法对比。
+在相同网络条件、业务负载、遥测退化分布、动作空间、奖励函数与训练预算下，将 CA-LDP 与四种代表性本地状态处理方案进行对比。所有方法均采用相同的 PPO 下一跳路由策略，使对比集中于路由决策前对退化本地状态更新的处理方式。GRLR-GCN~\cite{zhang-GRLR-TVT25} 对退化观测直接施加残差 GCN 聚合；GAT-RL~\cite{rao-DGAIEDRL-IoTJ25} 在相同退化输入上采用边感知多头图注意力编码器；LSTM-GREAD 将 LSTM 预测器~\cite{Hochreiter-LongShortTermMemory-NC97} 与 GREAD 式反应扩散编码器~\cite{choi-GREAD-ICML23} 相结合，但其传播阶段不以校准后置信度为条件；NA-GSR-GCN~\cite{Yang-NodeAdaptiveRegularization-GSP25} 在 GCN 路由编码器前施加确定性 Laplacian 正则化状态补全，但缺少置信度自适应的观测与先验融合以及置信度加权多跳聚合。
 
-\begin{itemize}
-\item \textbf{LB-HG}（集中式）：由文献~\cite{lv-WeightedGraphHO-NetLett22}~的加权图切换策略改进而来，综合多因素匹配权重，利用匈牙利算法在就近接入与负载均衡约束下实现最大匹配，具备全局状态获取与集中式规划能力。
-\item \textbf{EG-DHO}（分布式）：基于演化博弈~\cite{zhou-EvolutionaryGameHO-WCNC23}，将每个终端视为理性自利的个体，仅依据自身效用函数（含 QoS 与拥塞概率）独立决策。
-\item \textbf{IDQN}（分布式、深度学习）：MARL 中深度 Q 网络的独立式扩展~\cite{liu-SuccessiveDQNHO-VTC22}，各终端无协作、无信息共享地分布式训练，并以卷积网络提取输入特征的局部关联。
-\item \textbf{I-SAC}（分布式）：以独立 Soft Actor-Critic~\cite{haarnoja-SAC-ICML18}~为基础，将动作熵作为正则项提升 Q 值估计稳定性，各终端独立决策、无信息交互。
-\item \textbf{MAPPO}（CTDE）：仅在训练阶段访问全局信息以获得更准确的价值估计~\cite{yu-MAPPO-NeurIPS22}，推理阶段各终端无通信地独立决策。
-\end{itemize}
+\subsection{训练实现细节与奖励设计}
+\label{subsec:ch2_training}
 
-所提 FG-MAPPO 集成邻域通信、基于广义 Gini 指标的公平性优势修正与同步分布式训练三个组件，对量纲各异的输入特征采用最小--最大归一化，并以动作掩码处理动作空间维度可变的问题。训练超参数经网格搜索整定，如表~\ref{tab:ch3_train_params}~所示；其中 $\beta$ 衰减回合数 $e_\beta=150$、下限 $\beta_{\min}=0.1$，即交替训练概率在 $150$ 个回合后衰减至 $0.1$ 并保持，以保证 TO 网络充分迭代收敛。
+CA-LDP 采用两阶段训练。阶段一在当前状态监督下优化 CaGSR 参数 $\Theta_{\mathrm C}$，包括 GRU 先验、时序投影 $P_h$ 与置信度估计器。仿真器记录退化前的物理状态 $x_u(k)$，并仅将其用作式~\eqref{eq:ch2_cagsr_loss} 的校准目标；置信权重 $c_{i,u}(k)$ 与 $w_{i,u}(k)$ 作为展开校准算子内部的可微隐变量优化，不设置独立标签。阶段二冻结 $\Theta_{\mathrm C}$，由 PPO 联合优化传播模块参数 $\Theta_{\mathrm R}$ 与路由头参数 $\Theta_\pi$。PPO 路由头仅作为统一下游决策器，用于在相同动作空间、奖励函数与训练预算下评估不同本地状态输入质量，不作为本章的独立算法贡献。为公平起见，LSTM-GREAD 的 LSTM 补全模块也在相同当前状态监督下预训练，NA-GSR-GCN 采用确定性图修复求解器，GRLR-GCN 与 GAT-RL 直接接收退化观测并经 PPO 优化。所有路由策略采用相同的五阶段课程式训练，由固定短跳路由逐步过渡至完整的 $12$--$30$ 跳随机设置。每种方法的路由策略训练预算均为 $2\times10^6$ 个环境步，并以末阶段验证得分最优的模型检查点用于评估。CA-LDP 的核心结构与优化超参数列于表~\ref{tab:ch2_hyperparams}。
 
 \begin{table}[!htp]
-  \centering
-  \caption{FG-MAPPO 模型与训练参数}
-  \label{tab:ch3_train_params}
-  \begin{tabular}{l|c|l|c}
-    \toprule
-    参数 & 取值 & 参数 & 取值 \\
-    \midrule
-    策略网络学习率 & $2.5\times10^{-4}$ & 价值网络学习率 & $1\times10^{-3}$ \\
-    广义 Gini 权重 & $1/2^i,~i=1,\dots,E_u$ & 熵系数 & $0.01$ \\
-    折扣因子 $\gamma$ & $0.98$ & 更新间隔 & $360$ \\
-    小批量大小 & $256$ & 并行环境数 & $32$ \\
-    训练轮数 & $2$ & 训练回合数 & $400$ \\
-    GAE 系数 $\lambda$ & $0.97$ & 邻居数 $N_n$ & $E_u/4$ \\
-    \bottomrule
-  \end{tabular}
+\centering
+\caption{CA-LDP 模型结构与训练参数}
+\label{tab:ch2_hyperparams}
+\footnotesize
+\setlength{\tabcolsep}{5pt}
+\renewcommand{\arraystretch}{1.3}
+\begin{tabular}{p{0.30\linewidth} p{0.16\linewidth} p{0.28\linewidth} p{0.14\linewidth}}
+\hline
+参数 & 取值 & 参数 & 取值 \\
+\hline
+本地监测半径 $h$ & $5$ & 新鲜度系数 $\mu_f$ & $0.1$ \\
+状态维度 / CaGSR 宽度 & $54$ & 状态历史长度 $L$ & $4$ \\
+校准展开步数 / 步长 & $3$ / $0.05$ & 全局图校准权重 $\lambda_R$ & $0.02$ \\
+置信度估计器 & 2 层 MLP，宽 $54$ & 阶段一学习率 & $5\times10^{-4}$ \\
+传播步数 $T$ & $3$ & 传播隐藏层宽度 & $64$ \\
+初始强度 $(\alpha_0,\beta_0)$ & $(0.2,0.3)$ & 强度上界 $(\alpha_{\max},\beta_{\max})$ & $(1.0,1.0)$ \\
+传播映射 & \multicolumn{3}{l}{$\phi_0,\phi_d$：2 层 MLP；$\phi_r$：1 层 MLP} \\
+\hline
+\end{tabular}
 \end{table}
 
-后续实验主要比较四项性能指标：切换接入成功率、平均链路速率（Data Rate，DR）、负载方差与广义 Gini 公平性（Generalized Gini Fairness，GGF）。切换接入成功率对全体终端统计；平均链路速率在服务周期与终端数上取平均；负载方差指可见卫星间所接入终端数的标准差，用以度量空间负载均衡度；GGF 按式~(\ref{eq:ch3_p3})~计算，并采用表~\ref{tab:ch3_train_params}~中的递减权重配置，综合反映平均速率与用户间公平性。
+阶段二中，PPO 的策略输入由路由特征矩阵 $H_i^\star(k)$、目的描述子与候选邻居状态构成，动作为所选下一跳。由于一个时隙可能包含多条活动流的路由决策，每条活动转发决策连同其流标识与时序决策索引存为一条 PPO 转移。统一奖励由本地转发反馈、流级终止反馈与回合级性能构成：
+\begin{equation}
+\hat r_m
+=
+\left(
+r_m^{\mathrm{ca}}
++
+\epsilon_p r_m^{\mathrm{prog}}
+-
+r_m^{\mathrm{safe}}
+\right)
++
+\lambda_f \frac{R_{f(m)}^{\mathrm{term}}}{N_{f(m)}}
++
+\lambda_{\mathrm{ep}} \omega_m R^{\mathrm{ep}} ,
+\label{eq:ch2_reward}
+\end{equation}
+其中 $r_m^{\mathrm{ca}}$、$r_m^{\mathrm{prog}}$ 与 $r_m^{\mathrm{safe}}$ 分别表示拥塞规避、目的进展和安全约束反馈；$R_{f(m)}^{\mathrm{term}}$ 与 $R^{\mathrm{ep}}$ 分别为流级终止奖励和回合级性能奖励。系数 $\omega_m$、$\epsilon_p$、$\lambda_f$ 与 $\lambda_{\mathrm{ep}}$ 用于统一各项反馈尺度。将延迟奖励分配至相应决策转移后，沿时序转移序列应用广义优势估计（Generalized Advantage Estimation，GAE），PPO 仅更新 $\Theta_{\mathrm R}$ 与 $\Theta_\pi$。
 
-\subsection{收敛性分析}
-\label{subsec:ch3_convergence}
+\subsection{路由性能与消融分析}
+\label{subsec:ch2_exp_routing}
 
-图~\ref{fig:ch3_converge}~给出 FG-MAPPO 的收敛性分析。图~\ref{fig:ch3_converge_env}~比较了在 $40$ 终端下单环境与 $32$ 环境并行训练时作为训练目标的 GGF 值演化。两种情形下 GGF 曲线均呈“双段上升”形态，且第二段上升后的取值高于第一段。该现象源于交替训练机制：训练初期 $\beta$ 较大，优先训练 TO 网络；随 $\beta$ 减小，训练由 TO 网络逐步过渡至 FO 网络；当回合数达到 $150$ 后 $\beta$ 保持下限 $0.1$、训练以 FO 网络为主，由于 FO 网络在结构上融入 TO 网络候选动作，GGF 出现快速提升。两种情形均在 $250$ 回合后开始收敛，后期因终端位置在不同回合间的固有差异而存在轻微波动。并行训练在稳定性与性能上均更优：表~\ref{tab:ch3_distri}~表明，仅用单一环境训练在切换成功率、负载方差与速率上易陷入局部最优；并行训练则因样本效率提升与场景多样化采样有效降低了训练方差，且训练时间不随环境数线性增长，表现出良好可扩展性。
+首先评估状态更新受拥塞排队与链路误码共同影响时的端到端路由性能。三档业务负载与三档 BER 形成 $3\times3$ 受控退化组合；为避免重复展示，主结果选取三档负载下的中等 BER，以及中等负载下的好、差 BER，共五个非重复工作点。在 $50$ 跳 TTL 预算下，所有方法均达到接近饱和的业务传输成功率，因此平均传输速率与端到端时延成为主要区分指标。如图~\ref{fig:ch2_exp1_rate} 所示，CA-LDP 在所有工作点上取得最高传输速率。相较各条件下的最优基线，随业务负载由轻到重，CA-LDP 将平均传输速率分别提升 $10.8\%$、$9.4\%$ 与 $4.8\%$；随信道质量由好到差，分别提升 $8.0\%$、$9.4\%$ 与 $9.7\%$。在五个非重复工作点上平均，CA-LDP 达到 $104.8$~Mbps，较最优基线 GAT-RL 高 $9.0\%$。上述结果表明，状态校准与置信度加权传播的结合能够改善退化状态更新下的多跳路由性能。
 
 \begin{figure}[!htp]
-    \centering
-    \begin{subfigure}[t]{0.32\textwidth}
-        \centering
-        \includegraphics[width=\linewidth]{figures/chapter3/converge-400episodes}
-        \caption{并行环境与单环境对比}
-        \label{fig:ch3_converge_env}
-    \end{subfigure}
-    \hfill
-    \begin{subfigure}[t]{0.32\textwidth}
-        \centering
-        \includegraphics[width=\linewidth]{figures/chapter3/converge-users}
-        \caption{随终端数的可扩展性}
-        \label{fig:ch3_converge_users}
-    \end{subfigure}
-    \hfill
-    \begin{subfigure}[t]{0.32\textwidth}
-        \centering
-        \includegraphics[width=\linewidth]{figures/chapter3/converge-algos}
-        \caption{强化学习算法对比}
-        \label{fig:ch3_converge_algos}
-    \end{subfigure}
-    \caption{FG-MAPPO 的收敛性分析}
-    \label{fig:ch3_converge}
+\centering
+\includegraphics[width=0.72\linewidth]{figures/chapter2/exp1_rate_overall.pdf}
+\caption{退化状态更新下的平均传输速率}
+\label{fig:ch2_exp1_rate}
 \end{figure}
+
+表~\ref{tab:ch2_exp1_delay} 给出与速率增益一致的时延下降。CA-LDP 在各条件下较最优基线降低端到端时延 $6.7\%$--$11.1\%$，平均降低 $8.9\%$（$89.6$~ms 对 $98.3$~ms）；其在所有条件下的最大时延为 $92.3$~ms（轻负载），仍低于任一基线的最小时延 $95.6$~ms（GAT-RL 中负载）。
 
 \begin{table}[!htp]
-  \centering
-  \caption{分布式训练框架的性能对比}
-  \label{tab:ch3_distri}
-  \begin{tabular}{l|c|c}
-    \toprule
-    指标 & 单环境（$n_{\mathrm{env}}=1$） & 并行（$n_{\mathrm{env}}=32$） \\
-    \midrule
-    切换接入成功率 & $79.87\%$ & $\mathbf{83.02\%}$ \\
-    平均链路速率 & $3.81$~Mbps & $\mathbf{4.08}$~Mbps \\
-    负载方差 & $2.08$ & $\mathbf{1.74}$ \\
-    训练时间 & $\mathbf{6.1}$~h & $6.4$~h \\
-    \bottomrule
-  \end{tabular}
+\centering
+\caption{端到端传输时延（ms）}
+\label{tab:ch2_exp1_delay}
+\footnotesize
+\setlength{\tabcolsep}{6pt}
+\renewcommand{\arraystretch}{1.3}
+\begin{tabular}{lccccc}
+\hline
+& \multicolumn{3}{c}{业务负载} & \multicolumn{2}{c}{误码率} \\
+方法 & 轻 & 中 & 重 & 好 & 差 \\
+\hline
+GRLR-GCN   & 105.3 & 97.4 & 99.6 & 98.5 & 101.3 \\
+GAT-RL     & 105.2 & 95.6 & 96.9 & 97.8 & 99.5 \\
+LSTM-GREAD & 103.8 & 96.1 & 96.0 & 96.8 & 99.6 \\
+NA-GSR-GCN & 105.6 & 96.0 & 98.5 & 97.8 & 100.0 \\
+CA-LDP     & $\mathbf{92.3}$ & $\mathbf{86.6}$ & $\mathbf{89.6}$ & $\mathbf{89.0}$ & $\mathbf{90.5}$ \\
+\hline
+\end{tabular}
 \end{table}
 
-如图~\ref{fig:ch3_converge_users}~所示，FG-MAPPO 在 LEO 星座的各类负载密度下均保持稳健收敛。鉴于每个终端的最小可见卫星数为 $4$、每颗卫星可用子信道数为 $25$，本节将终端数设为 $100$ 以模拟随机接入下的过载场景。在 TO 网络训练第一阶段，四类场景均在不足 $100$ 个回合内收敛至较稳定的速率优先策略；在 FO 网络训练阶段，终端规模越大、协作策略越难学习，所需回合数越多，但即便在过载条件下算法也在约 $320$ 个回合后呈渐近收敛，印证其在大规模用户场景下的可扩展性。图~\ref{fig:ch3_converge_algos}~进一步比较了 $40$ 终端下 FG-MAPPO 与基线算法的收敛行为：分布式的 I-SAC 与 IDQN 因高动态卫星环境固有的非平稳性，于训练早期收敛至次优解；FG-MAPPO 则借助终端间邻域信令缓解该问题。MAPPO 因具备全局价值估计网络而训练最为稳定，FG-MAPPO 虽因其分布式特性在训练中稳定性略逊，但收敛性能与之相当；得益于对公平性的建模，FG-MAPPO 收敛后的 GGF 指标较仅优化单终端回报的 MAPPO 提升约 $3.9\%$。
+进一步在重负载与中等 BER 下开展模块级消融，此时更新陈旧与分组不可用两类退化同时存在。在相同网络条件、业务负载、动作空间、奖励函数与 PPO 训练预算下，将完整 CA-LDP 与三个变体对比：去除状态校准变体禁用 CaGSR，并直接将 $X_i^{\mathrm{obs}}(k)$ 送入传播模块；去除置信加权变体保留 CaGSR 但固定 $w_{i,u}(k)=1$，使传播退化为无权 GREAD 式更新；去除多跳聚合变体移除传播模块，令 PPO 路由头直接作用于 $Z_i^\star(k)$。由于平均源宿距离约为 $18.7$ 跳，本实验以平均跳数评估策略能否维持高效路径选择。结果列于表~\ref{tab:ch2_ablation}。
 
-\subsection{切换性能分布对比}
-\label{subsec:ch3_dist}
+\begin{table}[!htp]
+\centering
+\caption{重负载与中等 BER 下的消融实验}
+\label{tab:ch2_ablation}
+\footnotesize
+\setlength{\tabcolsep}{8pt}
+\renewcommand{\arraystretch}{1.3}
+\begin{tabular}{lcccc}
+\hline
+变体 & 丢弃率（\%） & 平均跳数 & 时延（ms） & 有效传输速率（Mbps） \\
+\hline
+完整 CA-LDP & $\mathbf{0.0}$ & $\mathbf{18.67}$ & $\mathbf{89.67}$ & $\mathbf{90.66}$ \\
+去除状态校准 & 0.0 & 19.82 & 105.91 & 89.57 \\
+去除置信加权 & 0.0 & 19.09 & 99.42 & 87.05 \\
+去除多跳聚合 & 88.9 & 29.32 & -- & 7.32 \\
+\hline
+\end{tabular}
+\\[1mm]
+\begin{minipage}{0.92\linewidth}
+\footnotesize
+注：“--”表示成功传输样本过于稀疏、不足以提供有代表性的时延统计；有效传输速率将失败流计为零速率样本。
+\end{minipage}
+\end{table}
 
-本节在中负载（$40$ 终端）场景下比较四种算法下终端速率与切换成功率的分布。仿真区域取 $44^\circ$N--$46^\circ$N、$94^\circ$W--$96^\circ$W 以确保落入 Starlink 覆盖热点，每种算法在 $10$ 种不同用户分布下评估并以 $5$ 组随机种子重复，结果如图~\ref{fig:ch3_dist}~所示。LB-HG 作为集中式策略在决策前已掌握子信道可用性，故平均切换成功率最高且更集中于均值附近；EG-DHO 作为经典分布式算法因缺乏规避子信道冲突的全局信息，平均速率与切换成功率均显著下降；FG-MAPPO 与 IDQN 作为基于 DRL 的分布式算法，性能介于 LB-HG 与 EG-DHO 之间。由于 LB-HG 主要以最大连接数为目标，而 FG-MAPPO 与 IDQN 以速率回报为优化目标，二者在速率上均优于 LB-HG。借助终端间通信交换本地信息，FG-MAPPO 取得 $81.63\%$ 的切换成功率，逼近 LB-HG 的 $83.97\%$ 并超过 IDQN。少数离群点源于真实星座中可见卫星的非均匀分布，但 FG-MAPPO 的用户速率分布更集中，体现出对终端地理位置差异的适应性。
+表~\ref{tab:ch2_ablation} 进一步区分三个组件的作用。多跳聚合是维持长跳路径连贯转发的关键：移除后，业务流丢弃率升至 $88.9\%$。状态校准主要通过降低陈旧与缺失遥测对拥塞感知转发的影响来改善路径效率。置信加权则阻止弱支撑校准状态作为同等可靠的路由证据参与传播，从而进一步提升传输效率。上述结果说明，CA-LDP 的增益源于校准状态估计与置信度加权传播的耦合，而非任一组件的单独作用。
 
-\begin{figure}[!htp]
-    \centering
-    \begin{subfigure}[t]{0.48\textwidth}
-        \centering
-        \includegraphics[width=\linewidth]{figures/chapter3/dr_dist}
-        \caption{各终端链路速率分布}
-        \label{fig:ch3_dr_dist}
-    \end{subfigure}
-    \hfill
-    \begin{subfigure}[t]{0.48\textwidth}
-        \centering
-        \includegraphics[width=\linewidth]{figures/chapter3/ho_dist}
-        \caption{切换成功率分布}
-        \label{fig:ch3_ho_dist}
-    \end{subfigure}
-    \caption{各算法下终端切换性能的分布对比}
-    \label{fig:ch3_dist}
-\end{figure}
+\subsection{状态校准精度}
+\label{subsec:ch2_exp_calib}
 
-\subsection{多负载等级下综合性能对比}
-\label{subsec:ch3_metrics}
+消融结果表明状态校准直接影响转发效率。为隔离这一作用，本节在状态进入路由传播模块或 PPO 决策前评估 CaGSR 的状态校准质量。评价指标为校准估计 $Z_i^\star(k)$ 与不可观当前状态 $X_i^h(k)$ 之间的归一化均方根误差（NRMSE）。依据式~\eqref{eq:ch2_degradation} 的退化模型，分别报告陈旧表项与缺失表项误差。其中，原始观测直接使用 $X_i^{\mathrm{obs}}(k)$，仅时序方法使用不含图正则的时序先验，图修复方法采用固定 Laplacian 正则化补全求解器。
 
-本节在四个负载等级下综合比较 GGF 值、平均速率、切换成功率与负载方差，仿真区域与评估方式与第~\ref{subsec:ch3_dist}~节一致，结果如图~\ref{fig:ch3_metrics}~所示。随终端数增加，各算法 GGF 值均下降，这是因为 GGF 对低吞吐终端的长期接入效用赋予更高权重，负载升高会首先压缩弱服务终端的可用资源。FG-MAPPO 的 GGF 值在所有场景下均超过其余算法，同时保持较高平均速率：相较 LB-HG 与 EG-DHO，FG-MAPPO 的平均速率分别提升 $6.91\%$ 与 $12.88\%$。尽管 FG-MAPPO 因缺乏全局网络信息在切换成功率上略低于 LB-HG，但其在切换成功与负载均衡两项指标上均与 LB-HG 最接近；更重要的是，FG-MAPPO 在公平性指标上表现最优，其 GGF 值较 LB-HG 高出 $3.48\%$，体现了公平优化与个体速率最大化之间的有效权衡。
+\begin{table}[!htp]
+\centering
+\caption{路由特征聚合前的状态校准 NRMSE}
+\label{tab:ch2_calib}
+\footnotesize
+\setlength{\tabcolsep}{6pt}
+\renewcommand{\arraystretch}{1.3}
+\begin{tabular}{lccc}
+\hline
+方法 & 陈旧 & 缺失 & 整体 \\
+\hline
+原始观测 & $0.248\pm0.008$ & $2.740\pm0.005$ & $2.575\pm0.026$ \\
+仅时序 & $0.222\pm0.007$ & $0.302\pm0.044$ & $0.292\pm0.039$ \\
+图修复 & $0.248\pm0.008$ & $0.316\pm0.062$ & $0.307\pm0.056$ \\
+CaGSR & $\mathbf{0.202\pm0.006}$ & $\mathbf{0.270\pm0.044}$ & $\mathbf{0.261\pm0.039}$ \\
+\hline
+\end{tabular}
+\end{table}
 
-与三种强化学习基线（IDQN、I-SAC、MAPPO）相比，MAPPO 因训练时可访问全局状态而在低负载下取得最高的单用户平均速率，但三种基线均随用户密度上升而性能迅速退化。该现象说明，缺少邻域服务质量指示和公平性修正时，策略更易向局部高收益卫星和子信道集中，从而在高负载下加重随机接入竞争和负载倾斜。FG-MAPPO 在 GGF 值上取得最优性能：其切换成功率相对 IDQN、I-SAC、MAPPO 分别提升 $14.25\%$、$15.65\%$、$5.53\%$；按负载方差降低比例计算，FG-MAPPO 相对同组基线分别改善 $30.52\%$、$30.91\%$、$21.70\%$，印证其在公平性与速率最大化权衡上的能力。
-
-\begin{figure}[!htp]
-    \centering
-    \includegraphics[width=\linewidth]{figures/chapter3/metrics-heng}
-    \caption{不同负载等级下 GGF 值、切换成功率、平均速率与负载方差对比}
-    \label{fig:ch3_metrics}
-\end{figure}
-
-\subsection{不同纬度区域的泛化性}
-\label{subsec:ch3_zone}
-
-鉴于 Starlink V1 覆盖性能主要由纬度主导，本节在不同纬度区域评估算法，检验 FG-MAPPO 的泛化能力，终端数设为 $40$，模拟中负载。为表征低、中、高纬度区域，选取 $4^\circ$N--$6^\circ$N、$34^\circ$N--$36^\circ$N 与 $54^\circ$N--$56^\circ$N 三个纬度带，其可见卫星密度依次递增；由于覆盖模式沿经度方向近似不变，实验保持经度恒定。速率、切换成功率与负载方差结果如图~\ref{fig:ch3_zone}~所示。随纬度升高，各算法性能持续改善，因为高纬度区域可见卫星更多，区域聚合可用子信道随之增加。不同区域下，FG-MAPPO 的速率性能始终优于其余三种算法；其切换成功率与负载均衡性能在分布式算法中与 LB-HG 最接近。传统分布式算法存在明显局限：随最大可见卫星数减少，其性能迅速退化；相比之下，FG-MAPPO 的性能变化更平滑。可见，FG-MAPPO 在可见卫星密度差异显著的不同地理区域均具备良好泛化能力。
-
-\begin{figure}[!htp]
-    \centering
-    \includegraphics[width=\linewidth]{figures/chapter3/zone-line}
-    \caption{不同纬度区域下的性能对比}
-    \label{fig:ch3_zone}
-\end{figure}
-
-\subsection{真实星座下的性能评估}
-\label{subsec:ch3_realconstel}
-
-为验证 FG-MAPPO 在实际大规模星座中的性能，本节在 Telesat、Kuiper 与 Starlink Gen2 三类在建星座上评估，轨道配置严格遵循运营商公布参数。选取 $34^\circ$N--$36^\circ$N、$94^\circ$W--$96^\circ$W 的中纬度测试区域，模拟 $100$ 个随机分布终端竞争有限信道资源；该区域既位于三类星座共同覆盖区内，又避开极端轨道几何效应，可提供代表性链路动态。对该区域终端而言，Telesat 尽管星座规模仅为 Kuiper 与 Starlink Gen2 的 $50\%$ 与 $38\%$，却凭借约 $1000$~km 的较高轨道高度获得最多可见卫星数（$24$），而 Kuiper 与 Starlink Gen2 的最大可见卫星数分别仅为 $17$ 与 $16$。
-
-真实星座评估结果如图~\ref{fig:ch3_constel}~所示，揭示两点关键优势。其一，FG-MAPPO 的切换成功率与集中式 LB-HG 基准差距仅为 $5.68\%$，而在用户吞吐量上反超 LB-HG 达 $3.75\%$，且在网络边缘实现快速分布式决策。其二，在本组星座配置中，最大可见卫星数是影响切换可靠性的主要因素：可见卫星数按 Telesat、Kuiper、Starlink 依次递减，切换成功率亦随之顺序下降；当最大可见卫星数减少时，传统算法（I-SAC、MAPPO、IDQN 与 EG-DHO）的切换成功率迅速恶化，而 FG-MAPPO 优势显著：在 Telesat 上其用户吞吐量与切换成功率较 I-SAC 分别提升 $9.32\%$ 与 $9.16\%$，在可见卫星更少的 Starlink Gen2 上该优势进一步扩大至 $13.38\%$ 与 $23.05\%$。上述结果印证了 FG-MAPPO 对不同星座覆盖模式的适应性。
+表~\ref{tab:ch2_calib} 表明，原始观测误差由缺失表项主导，固定图修复主要改善缺失状态恢复但无法纠正陈旧译码状态。CaGSR 在所有类别上取得最低 NRMSE：相较最优基线“仅时序”，其将陈旧、缺失与整体误差分别降低 $9.2\%$、$10.4\%$ 与 $10.7\%$；相较图修复，整体误差降低 $15.1\%$。图~\ref{fig:ch2_exp3_calib} 还展示了该优势随退化强度的变化：CaGSR 在 BER 恶化时保持最低均值误差，并在重背景负载下更稳定；相比之下，图修复在重负载下方差更大，表明均匀平滑会将陈旧状态误差扩散至本地视图各处。
 
 \begin{figure}[!htp]
-    \centering
-    \includegraphics[width=\linewidth]{figures/chapter3/metrics-constel}
-    \caption{真实星座下的性能评估}
-    \label{fig:ch3_constel}
+\centering
+\includegraphics[width=\linewidth]{figures/chapter2/exp3_calib_combined_1x2.png}
+\caption{BER 与背景负载变化下的状态校准 NRMSE}
+\label{fig:ch2_exp3_calib}
 \end{figure}
+
+\subsection{敏感性分析}
+\label{subsec:ch2_exp_sensitivity}
+
+\begin{figure}[!htp]
+\centering
+\begin{subfigure}[t]{0.44\linewidth}
+    \centering
+    \includegraphics[width=\linewidth]{figures/chapter2/exp4_zeta_sensitivity.pdf}
+    \caption{遥测预算 $\zeta_{\mathrm{tel}}$}
+    \label{fig:ch2_exp4_zeta}
+\end{subfigure}
+\hfill
+\begin{subfigure}[t]{0.48\linewidth}
+    \centering
+    \includegraphics[width=\linewidth]{figures/chapter2/exp4_perception_radius.pdf}
+    \caption{本地感知半径 $h$}
+    \label{fig:ch2_exp4_radius}
+\end{subfigure}
+\caption{重负载与中等 BER 下的敏感性分析}
+\label{fig:ch2_exp4_sensitivity}
+\end{figure}
+
+本节考察 CA-LDP 在部署期遥测预算与监测半径变化下的稳定性。
+
+首先在重负载与中等 BER 下评估遥测服务比例 $\zeta_{\mathrm{tel}}$ 的影响，令 $\zeta_{\mathrm{tel}}\in\{2\times10^{-4},5\times10^{-4},10^{-3}\}$，并保持已训练的模块与路由预算不变。依据式~\eqref{eq:ch2_state_update_delay}，较小的 $\zeta_{\mathrm{tel}}$ 会降低状态更新分发速率，并加剧遥测陈旧。图~\ref{fig:ch2_exp4_zeta} 给出平均传输速率，并在受影响方法旁标注非零丢弃率。降低 $\zeta_{\mathrm{tel}}$ 会使所有方法性能下降，但 CA-LDP 对此更不敏感：在最小预算下，CA-LDP 达到 $86.08$~Mbps 且零丢弃，较最优基线高 $9.0\%$，而 GRLR-GCN、GAT-RL 与 NA-GSR-GCN 均出现非零丢弃率。相对默认预算，当 $\zeta_{\mathrm{tel}}$ 缩减 $2.5$ 倍时，CA-LDP 仅损失 $4.8\%$，小于 LSTM-GREAD 与 GRLR-GCN 的相应损失。这与表~\ref{tab:ch2_ablation} 的消融结论一致：校准后置信度能够在遥测变陈旧时限制弱支撑状态的路由影响。将 $\zeta_{\mathrm{tel}}$ 由 $5\times10^{-4}$ 增至 $10^{-3}$ 仅带来有限额外增益，因此默认值 $5\times10^{-4}$ 可在不向遥测分配更多带内容量的条件下提供实用工作点。
+
+随后针对 CA-LDP，在相同重负载与中等 BER 设置下评估本地感知半径 $h$ 的影响，令 $h\in\{1,3,5,7\}$，并保持已训练的 CaGSR、置信度加权传播模块与 PPO 路由头不变，从而在固定策略下评估部署期敏感性。由于平均源宿距离约为 $18.7$ 跳，较大的 $h$ 可向每次本地转发决策提供更多下游状态信息。本实验报告有效平均传输速率，即将失败流计为零速率样本；由于各半径下业务传输成功率均为 $100\%$，该指标主要反映转发效率。同时，以状态更新分发的分组跳量度量遥测开销：由 $\ell$ 跳节点生成的状态更新贡献 $\ell B_{\mathrm m}$ 比特带内传输，故开销正比于 $B_{\mathrm m}\sum_{\ell=1}^{h}\ell|\mathcal N_i^{(\ell)}|$，四邻网格下 $h=1,3,5,7$ 分别对应 $6$、$84$、$330$ 与 $840$~KB。
+
+图~\ref{fig:ch2_exp4_radius} 表明，增大 $h$ 能够改善路由效率，但增益在默认值附近趋于饱和。有效传输速率由 $h=1$ 的 $84.14$~Mbps 升至 $h=3$ 的 $88.65$~Mbps 与 $h=5$ 的 $90.42$~Mbps，较单跳视图提升 $7.5\%$。这说明直接邻居观测不足以支撑长跳分布式路由，原因在于单跳视图无法在业务流进入争用区域前暴露下游拥塞。然而，由 $h=5$ 扩展至 $h=7$ 仅带来 $0.80\%$ 的微弱增益（升至 $91.14$~Mbps），而时延却由 $h=5$ 的 $89.63$~ms 恶化至 $h=7$ 的 $94.39$~ms。更大视图纳入的远端状态需要经过更长分发路径，在时延与译码模型下更易陈旧或不可用；同时，置信度加权传播会抑制弱支撑状态，使这些额外状态提供的路由证据有限。开销趋势进一步表明扩大视图的增益递减：远端状态分组数由 $h=5$ 的 $60$ 增至 $h=7$ 的 $112$，分组跳遥测量由 $330$~KB 增至 $840$~KB，约 $2.5$ 倍。由于状态更新经带内分发并与数据业务共享星间链路资源，该开销直接影响分布式在线监测的可部署性。因此 $h=5$ 是实用的饱和点：以不足 $h=7$ 一半的遥测开销获取大部分有效路由增益，本章据此取 $h=5$ 为默认监测半径。
+
+上述实验仍基于若干受控建模假设。状态更新分发采用固定多点中继模型，具体中继选择与遥测调度不作为优化变量；分组完整性模型采用逐跳独立误码近似，未显式刻画光星间链路中的突发误码与相关衰落；CaGSR 在离线阶段利用仿真器记录的当前物理状态进行监督，在线部署时则不访问该真值；本章还固定 $h$、$L_c$ 与 $T$ 等部署参数，用于隔离本地状态感知质量对路由性能的影响。上述设定限定了本章结论适用范围，后续仍需结合遥测调度、在线校准和更细粒度链路误码模型进一步验证。
 
 \section{本章小结}
 
-本章针对大规模 LEO 卫星星座纯分布式管控范式下的海量用户切换问题，研究无中心协调条件下接入连续性、随机接入竞争、空间负载均衡和用户长期公平性的协同优化。在随机接入与多重覆盖场景中，孤立的个体切换决策容易造成卫星间负载失衡、随机接入碰撞和用户吞吐差异扩大，而受限星间链路难以支撑全网状态汇聚。为此，本章提出公平性引导的多智能体近端策略优化（FG-MAPPO）方法，通过广义 Gini 公平性指示引导终端切换策略，使终端在候选卫星链路质量、接入负载和长期吞吐公平之间联合权衡。该方法进一步利用有限邻域信令估计切换行为对邻域公平性的影响，并通过吞吐分支与公平分支分立的 TOFO 结构分别刻画速率优先选择和公平性感知修正；同时构建同步分布式训练框架，并以辅助决策方式嵌入 3GPP 条件切换协议。
+本章面向端到端传输过程中的感知环节，研究大规模 LEO 卫星星座纯分布式管控范式下退化遥测条件中的多源置信度调控的分布式网络状态感知问题。在此类网络中，带内遥测与数据业务共享星间链路，状态更新可能因排队时延与分组译码失败而陈旧、缺失或不可用；若不区分状态来源和可信程度，退化状态中的残余误差会在多跳聚合中作为等价路由证据传播。为此，本章提出置信度自适应局部分布式处理（CA-LDP）框架，以校准后置信度作为状态校准与多跳聚合之间的跨阶段接口。其中，置信度自适应图信号修复（CaGSR）模块通过自适应观测与先验融合以及置信度加权图正则化，将退化遥测校准为物理网络状态估计；置信度加权多跳传播模块则以校准后置信度在发送端抑制弱支撑状态，在接收端锚定可靠本地状态，从而控制校准状态在多跳路由特征中的影响力。两个模块均以定步长本地算子实现，使 CA-LDP 能够在不依赖全网状态同步的条件下保持可控星上处理开销。
 
-在 Starlink、Telesat 与 Kuiper 等真实星座参数下的仿真结果表明，FG-MAPPO 在仅依赖有限邻域信令的条件下，在长期公平性和平均速率上优于各类基线，并在切换成功率和空间负载均衡上接近集中式参考。不同负载、纬度区域和星座构型下的评估进一步说明，所提方法能够适应用户规模、覆盖密度和可见卫星数变化。收敛与并行训练结果表明，局部公平性信令能够缓解用户间服务分化，TOFO 分立结构有助于避免公平性修正过度牺牲个体速率，有限邻域协作则使分布式切换在不依赖全网状态汇聚的条件下接近集中式参考性能。
+在 Starlink 壳层星座的受控退化场景下，星座级仿真表明，CA-LDP 能够在保持接近饱和业务传输成功率的同时提升端到端传输速率并降低传输时延；CaGSR 也在陈旧与缺失状态并存时提升本地状态校准精度。消融结果进一步表明，状态校准、置信度加权传播与多跳聚合分别承担退化状态误差抑制、可信证据传播和远端拥塞感知功能，三者具有互补作用。敏感性分析显示，本地感知半径存在速率收益与遥测开销之间的饱和区间，而校准后置信度能够在遥测预算受限时抑制低可信状态对路由决策的干扰。
 
-上述分析表明，在缺乏全网协调的分布式切换中，用户长期公平性可通过可解释公平性效用和低开销邻域信令进入在线切换决策，而不必依赖集中式全局状态汇聚。现有方法或依赖集中式全局视图进行最优匹配但控制闭环较长，或仅依据自身效用独立决策而缺乏邻域协作，难以在接入效率与长期公平之间形成有效权衡。相比之下，FG-MAPPO 通过邻域累计接入效用感知长期弱服务状态，将系统级公平目标转化为可在邻域内估计的公平性收益，并通过吞吐与公平分立的策略结构在维持个体接入速率的同时降低对弱服务用户的挤压。本章在端到端传输链路的接入环节，为海量终端提供兼顾个体切换效率与长期接入公平性的分布式切换机制；在此可靠接入的基础上，第~\ref{chap:resource}~章将进一步推进至资源分配环节，研究受限无线资源下资源使用效率与用户级 QoS 保障之间的协同问题。
+上述分析表明，将置信度从状态校准阶段显式传递至多跳聚合阶段，是退化遥测条件下实现可靠分布式路由决策的关键。现有方法多将退化状态恢复与多跳图聚合作为相互解耦的独立阶段处理，或对退化观测直接施加图聚合，或采用确定性图正则化补全后再进行特征传播，难以利用校准阶段得到的状态可信度约束后续邻域聚合过程。相比之下，CA-LDP 通过先约束退化状态重建、再控制校准状态对路由特征的影响力，在发送端抑制弱支撑状态向外扩散，并在接收端保留可靠本地状态，避免将校准残余的不确定性当作等价路由证据继续传播，从感知侧支撑后续星上分布式管控。第~\ref{chap:handover}~章将在此基础上推进至接入环节，研究大规模 LEO 星座中个体切换效率与系统长期公平性之间的协同问题。
