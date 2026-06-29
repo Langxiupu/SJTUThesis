@@ -8,13 +8,15 @@
 \section{大规模LEO卫星星座管控架构}
 \subsection{分布式管控架构组成}
 
-大规模 LEO 卫星星座的端到端 QoS 保障依赖业务承载路径上的多个管控环节协同。图\ref{fig:intelligent-management-components}给出四项关键技术在端到端传输系统中的部署位置与功能关联。业务流从进入空间网络到送达目的节点，经历网络状态感知、用户接入与切换、无线资源调度与可靠传输等管控过程。核心网承担低频的拓扑管理、星历管理与全局参数配置；星上节点依托本地观测与有限邻域信息执行网络状态处理、路由转发、切片资源预留与 MAC 层调度；用户终端基于本地链路测量与邻域协作信令完成分布式接入切换；语义发送端、星间/星地传输链路与任务感知接收端共同构成可靠传输闭环。
+大规模 LEO 卫星星座的端到端 QoS 保障依赖业务承载路径上的多个管控环节协同。图\ref{fig:intelligent-management-components}给出分布式管控架构的系统功能组成与部署位置。业务流从进入空间网络到送达目的节点，经历网络状态感知、用户接入与切换、无线资源调度与可靠传输等管控过程。
+
+从控制平面的部署视角看，分布式管控架构采用集中式监控与分布式实时决策相结合的分层部署方式。实时性要求较高的资源分配与决策功能部署在接入卫星与用户终端上，包括星上节点依托本地观测与有限邻域信息执行的网络状态处理、路由转发、切片资源预留与 MAC 层调度，以及用户终端基于本地链路测量与邻域协作信令完成的分布式接入切换。非实时性的集中式管控功能部署在地面站、地面控制中心等集中式控制节点上，包括星座拓扑管理、星历管理、全局参数配置、会话管理与用户上下文维护等功能。语义发送端、星间/星地传输链路与任务感知接收端共同构成可靠传输闭环。这种分层部署方式使分布式管控架构能够在保障实时响应的同时维持必要的全局协调能力。
 
 \begin{figure}[!htp]
 \centering
 \includegraphics[width=0.9\textwidth]{figures/技术耦合.pdf}
-\bicaption{四项研究内容在 LEO 卫星端到端传输系统中的部署与功能关联}
-{Deployment and Functional Interrelation of the Four Research Components in the End-to-End LEO Satellite Transmission System}
+\bicaption{分布式管控的系统功能组成}
+{Functional Components of the Distributed Management and Control System}
 \label{fig:intelligent-management-components}
 \end{figure}
 
