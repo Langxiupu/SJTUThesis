@@ -5,22 +5,12 @@
 
 第~\ref{chap:perception}~章解决退化遥测条件下的本地状态获取问题，第~\ref{chap:handover}~章解决高动态覆盖下的分布式接入切换问题。已接入终端仍需在有限星上带宽与发射功率下获得持续服务，才能将连接优势转化为用户级 QoS 收益。本章从接入环节推进至无线资源分配环节，研究 LEO-sRAN 中切片层资源预留与 MAC 层流级调度之间的分层协作优化问题。
 
-在承载异构业务的 LEO 卫星接入网（LEO satellite Radio Access Network，LEO-sRAN）中，单颗卫星的下行带宽与发射功率受星上载荷约束，资源预算需要服务于用户级 QoS，而不能仅追求聚合吞吐。困难来自切片层预算与 MAC 层执行之间的时间尺度差异：一次切片层预算通常要经过后续多个媒体接入控制（MAC）时隙内的业务到达、信道起伏和流级竞争，才体现为业务流是否满足速率--时延需求。聚合吞吐与用户级 QoS 之间存在内在差异。如图~\ref{fig:ch4_pf_scheduling}~所示，即便总传输速率超过名义门限，业务流密度上升后仍会有部分应用流违背其速率--时延约束。吞吐导向调度可能将 RBG 与功率消耗在当前预算和信道下仍无法达标的业务流上，使原本可满足速率--时延门限的业务流被挤出调度集合。LEO-sRAN 调度器需要在分配 RBG 与功率前判断单个业务流的 QoS 可行性，而不是仅依据系统级吞吐量调度~\cite{sui-ConvexOptDLResAlloc-TCCN24}。
-
-\begin{figure}[!htp]
-    \centering
-    \includegraphics[width=0.82\linewidth]{figures/chapter4/Fig1_PF_scheduling.png}
-    \caption{业务流密度上升时聚合传输速率与用户级 QoS 满足之间的失配现象}
-    \label{fig:ch4_pf_scheduling}
-\end{figure}
-
-无线接入网切片（Radio Access Network Slicing，RAN Slicing）将 QoS 需求相近的业务归并为逻辑切片，并在切片层预留带宽与功率~\cite{li-HierarchicalSoftRANSlicing-WirelessComms20}，为差异化业务承载提供了清晰的资源组织方式。该分层结构也带来新的约束：切片层通常只能处理粗粒度业务统计，难以观察时隙级流竞争；MAC 层能够感知实时队列和信道，却受既定切片预算约束。若切片层仅依据业务预测或已实现性能调整预算，MAC 层仅按队列紧迫度尽力调度，二者便缺少从预算配置到流级 QoS 满足的映射关系。跨时间尺度资源协同问题由此形成：切片层的关键不是仅预测业务需求，而是预测给定预算对未来流级 QoS 可行域的支撑能力；MAC 层的关键也不是仅选择调度规则，而是在分配资源前先判定哪些业务流可满足门限。
-
-现有研究对这一跨时间尺度映射刻画仍不足。首先，切片层资源配置多以业务需求预测或历史性能反馈为依据~\cite{liu-reconfigurableRanSlicing-TCCN25,chen-InfoRanSlicing-JSAC24,Phyu-MultiSlicePrivacy-TNSM23}，难以判断候选预算对未来 QoS 可行域的影响。其次，MAC 层调度主要围绕聚合吞吐、队列稳定性或积压紧迫度展开~\cite{leng-SchedulingResourceSat-ChinaCom22,Villegas-OptimizingQoS-TNSM26}，难以区分当前预算和信道条件下 QoS 可满足与不可满足的业务流。两层缺少由 MAC 执行结果回流至切片预算的闭环，使预算配置与流级执行各自优化。对于业务到达和星地信道快速变化的 LEO-sRAN，仅依赖事后反馈的反应式调度难以形成稳定切片--MAC 协同机制。
+如第~\ref{subsec:ch2_challenge_resource}~节所述，切片层预算与 MAC 层执行之间的时间尺度差异使聚合吞吐与用户级 QoS 之间存在内在失配。切片层通常只能处理粗粒度业务统计，难以观察时隙级流竞争；MAC 层能够感知实时队列和信道，却受既定切片预算约束。若切片层仅依据业务预测或已实现性能调整预算，MAC 层仅按队列紧迫度尽力调度，二者便缺少从预算配置到流级 QoS 满足的映射关系。跨时间尺度资源协同问题由此形成：切片层的关键不是仅预测业务需求，而是预测给定预算对未来流级 QoS 可行域的支撑能力；MAC 层的关键也不是仅选择调度规则，而是在分配资源前先判定哪些业务流可满足门限。
 
 本章所述生成式网络态势感知指切片层基于历史业务统计、星地信道服务能力、邻星资源状态和 MAC 层执行反馈，学习候选带宽--功率预算下未来 QoS 违背率、服务速率、时延与资源占用的演化关系。本章提出面向 LEO-sRAN 的双时间尺度预测调度（Dual-Timescale Predictive Scheduling，DTPS）框架。DTPS 以带宽与功率预算作为切片层和 MAC 层之间的跨层接口，将长期 QoS 保障分解为慢时间尺度的预测式资源预留和快时间尺度的业务流调度。切片层通过反馈校正的业务--信道演化预测模型，在预算决策前评估不同资源配置对长期 QoS 满足率的支撑能力；MAC 层则估计候选业务流满足速率--时延门限所需的最小资源块组（Resource Block Group，RBG）和功率开销，仅将 QoS 可满足的业务流纳入调度，并依据 QCI/5QI 优先级在固定切片预算内完成流选择与资源映射。通过这一接口，切片层负责维持长期 QoS 支撑能力，MAC 层负责在当前时隙将有限带宽与功率转化为实际 QoS 收益。
 
 本章的主要贡献如下：建立随机业务到达与时变服务能力下的双时间尺度切片--MAC 资源分配模型，将原始多星流级资源优化分解为单星切片预算子问题和时隙级 QoS 可行流调度子问题并以带宽--功率预算作为两层间的跨层接口，提出生成式切片资源预留机制并构建反馈校正的业务--信道演化预测模型、预算条件 QoS 轨迹预测、长视野预算评估和在线 MAC 反馈校正模块，提出 QCI/5QI 优先级感知的 QoS 可行流调度器并将候选业务流的速率--时延需求映射为最小 RBG--功率开销并在固定切片预算内执行优先级加权的业务流选择与资源映射，在 Starlink 规模 LEO-sRAN 仿真场景中评估不同业务负载、突发业务增强、生成式资源预留消融和固定切片预算 MAC 调度对比下的用户级 QoS 满足率、资源消耗、平均传输速率与平均时延。本章相关成果已撰写成期刊论文``World-Model-Driven Cross-Layer Resource Allocation for Long-Term QoS Provisioning in LEO Satellite RANs''，投稿于Elsevier Computer Networks。
+
 
 \section{系统模型与问题建模}
 \label{sec:ch4_sysmodel}
