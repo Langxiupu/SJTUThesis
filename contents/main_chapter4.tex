@@ -5,7 +5,7 @@
 
 LEO 星座接入决策同时受到多重覆盖和高频可见卫星变化制约，相邻终端在同一时隙往往面临相近的候选卫星和子信道集合。若各终端仅追求自身瞬时链路增益或短期接入速率，切换请求将向少数卫星和子信道集中，引发随机接入碰撞、卫星间负载倾斜以及用户间长期吞吐差异扩大。现有移动性管理方法或依赖集中式全局视图但控制闭环较长，或仅依据自身效用独立决策而缺乏邻域协作，难以在接入效率与长期公平之间形成有效权衡。
 
-本章提出公平性引导的多智能体近端策略优化（Fairness-Guided Multi-Agent Proximal Policy Optimization，FG-MAPPO）方法，将系统级长期公平目标转化为终端可在邻域内估计的公平性收益。FG-MAPPO 采用广义 Gini 接入公平性指标刻画多用户长期吞吐分布，并将经公平性修正的邻域接入收益压缩为低开销可交换信令，使终端无需获取全网用户状态即可估计自身切换行为对邻域公平性的影响。在 Starlink、Telesat 与 Kuiper 等真实星座参数下，FG-MAPPO 在仅依赖有限邻域信令的条件下实现了接近集中式参考的切换成功率，公平性指标显著优于集中式基线，负载均衡性能相对强化学习基线大幅改善。本章相关成果已撰写成期刊论文``Incentivizing Cooperation for Handover Strategies in LEO Constellations via fairness-guaranteed MARL''，投稿于 ACM Transactions on Internet Technology (TOIT)。
+本章提出公平性引导的多智能体近端策略优化（Fairness-Guided Multi-Agent Proximal Policy Optimization，FG-MAPPO）方法，将系统级长期公平目标转化为终端可在邻域内估计的公平性收益。FG-MAPPO 采用广义 Gini 接入公平性指标刻画多用户长期吞吐分布，并将经公平性修正的邻域接入收益压缩为低开销可交换信令，使终端无需获取全网用户状态即可估计自身切换行为对邻域公平性的影响。在 Starlink、Telesat 与 Kuiper 等真实星座参数下，FG-MAPPO 在仅依赖有限邻域信令的条件下实现了接近集中式参考的切换成功率，公平性指标显著优于集中式基线，负载均衡性能相对强化学习基线大幅改善。本章相关成果已撰写成期刊论文``Incentivizing Cooperation for Handover Strategies in LEO Constellations via fairness-guaranteed MARL''，录用发表于 ACM Transactions on Internet Technology (TOIT)。
 
 \section{系统模型与问题建模}
 \label{sec:ch3_sysmodel}
