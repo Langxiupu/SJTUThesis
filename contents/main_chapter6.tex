@@ -10,7 +10,7 @@ LEO 卫星图像传输场景中，星上发送端保持轻量仅负责图像获�
 \section{系统模型与问题建模}
 \label{sec:ch5_sysmodel}
 
-本节在第~\ref{sec:ch2_arch_comparison}~节确立的星上分布式管控范式下，建模受限条件下的语义可靠传输过程。在所考虑的非对称 LEO 图像传输系统中，星上发送端采集源图像，经带宽受限的前向链路发送语义表征，地面接收端恢复表征后调用本地任务模型执行下游推理。整个传输过程采用协同增量语义 HARQ，初始轮先建立粗粒度语义状态，其后各精化轮再借助紧凑的接收端反馈，请求并累积任务尚缺的语义分块。本节建立非对称图像传输场景、多轮语义 HARQ 传输模型与前向/反馈链路模型，并将受限条件下的任务相关语义恢复形式化为多轮约束优化问题。本章符号含义参见文前的主要符号对照表。
+本节在第~\ref{sec:ch2_arch_comparison}~节确立的星上分布式管控范式下，建模受限条件下语义可靠传输过程。在该非对称 LEO 图像传输系统中，星上发送端采集源图像，经带宽受限前向链路发送语义表征，地面接收端恢复表征后调用本地任务模型执行下游推理。传输过程采用协同增量语义 HARQ，初始轮先建立粗粒度语义状态，其后各精化轮借助紧凑接收端反馈，请求并累积任务尚缺的语义分块。本节建立非对称图像传输场景、多轮语义 HARQ 传输模型与前向/反馈链路模型，并将受限条件下任务相关语义恢复形式化为多轮约束优化问题。本章符号含义参见文前的主要符号对照表。
 
 \subsection{非对称 LEO 图像传输场景}
 \label{subsec:ch5_scenario}
@@ -176,9 +176,7 @@ CIS-HARQ 采用空间特征变换（Spatial Feature Transform，SFT）：由紧�
 \begin{equation}\label{eq:ch5_loss}
 \mathcal L_{\mathrm{CIS}}=\sum_{r=1}^{R}\lambda_r\left(\mathcal L_{\mathrm{task}}^{(r)}+\lambda_{\mathrm{ent}}\mathcal H^{(r)}\right)+\lambda_{\mathrm{rate}}\sum_{r=1}^{R}\lambda_r\,\mathcal B_{\mathrm{inc}}^{(r)},
 \end{equation}
-其中 $\lambda_r$ 平衡各增量重传轮贡献，$\lambda_{\mathrm{ent}}$ 控制预测熵正则，$\lambda_{\mathrm{rate}}$ 控制增量速率惩罚。两个求和均自 $r=1$ 起，因为第二阶段冻结基础传输模块并优化增量重传环；实践中对后轮赋更大权重，使最终任务输出获得更强监督，中间轮为稳定多轮增量重传提供辅助引导。
-
-CIS-HARQ 的多轮收发流程概括于算法~\ref{algo:ch5_cis}。
+其中 $\lambda_r$ 平衡各增量重传轮贡献，$\lambda_{\mathrm{ent}}$ 控制预测熵正则，$\lambda_{\mathrm{rate}}$ 控制增量速率惩罚。两个求和均自 $r=1$ 起，因为第二阶段冻结基础传输模块并优化增量重传环；实践中对后轮赋更大权重，使最终任务输出获得更强监督，中间轮为稳定多轮增量重传提供辅助引导。CIS-HARQ 的多轮收发流程概括于算法~\ref{algo:ch5_cis}。
 
 \begin{algorithm}[!htp]
 \caption{协同增量语义 HARQ（CIS-HARQ）多轮收发流程}
@@ -219,14 +217,14 @@ CIS-HARQ 的多轮收发流程概括于算法~\ref{algo:ch5_cis}。
 \toprule
 参数 & 取值 \\
 \midrule
-数据集 & ImageNet-100、CIFAR-100、VeRi-776 \\
-下游任务 & 图像分类（ImageNet-100、CIFAR-100）；车辆颜色与车型分类（VeRi-776，多任务） \\
-输入图像尺寸 & $224\times224$ \\
-前向信道 & Rician 衰落（莱斯因子 $\kappa=10$） \\
-默认信噪比 SNR & $5$~dB \\
-最大增量重传轮数 $R$ & $3$ \\
-反馈预算 $K$ & $16$（分块） \\
-干净图像任务精度（ImageNet-100，参照上界） & $87.84\%$ \\
+数据集 & ImageNet-100；CIFAR-100；VeRi-776 \\
+任务类型 & 图像分类；车辆颜色/车型分类（多任务） \\
+输入尺寸 & $224\times224$ \\
+前向信道 & Rician 衰落，$\kappa=10$ \\
+默认 SNR & $5$~dB \\
+最大重传轮数 $R$ & $3$ \\
+反馈预算 $K$ & $16$ 个语义分块 \\
+参照上界精度 & $87.84\%$（ImageNet-100，干净图像） \\
 \bottomrule
 \end{tabular}
 \end{table}
@@ -251,7 +249,7 @@ JSCC 隐藏维度 & $512$ & $128$ \\
 \end{tabular}
 \end{table}
 
-对比基线为 SwinJSCC~\cite{SwinJSCC} 与 DiffJSCC~\cite{DiffJSCC}。SwinJSCC 作为对齐 CBR 设置下的静态开环 JSCC 基线；DiffJSCC 发布模型在本设置下仅提供 $\mathrm{CBR}=1/96$ 的单一工作点，且依赖 BLIP 与 Stable Diffusion、模型规模更大，故主要作为精度--复杂度参照而非完整 CBR 轨迹基线。评估指标包括分类精度、CBR、估计精化比特、模型参数量与端到端时延。前向链路按复基带建模，统计 CBR 时两个实维计为一次复信道使用：对静态基线，$\mathrm{CBR}=NC_{\mathrm s}/(2HWC_{\mathrm{img}})$，其中 $C_{\mathrm s}$ 为静态 JSCC 基线的传输符号维度；对 CIS-HARQ 第 $r$ 轮则由式~\eqref{eq:ch5_cbr} 给出。估计精化比特由基于熵的速率估计器得到，刻画学习到的增量负载而非名义信道维度。
+对比基线为 SwinJSCC~\cite{SwinJSCC} 与 DiffJSCC~\cite{DiffJSCC}。SwinJSCC 作为对齐 CBR 设置下的静态开环 JSCC 基线；DiffJSCC 发布模型在本设置下仅提供 $\mathrm{CBR}=1/96$ 的单一工作点，且依赖 BLIP 与 Stable Diffusion、模型规模更大，故主要作为精度--复杂度参照而非完整 CBR 轨迹基线。评估指标包括分类精度、CBR、估计精化比特、模型参数量与端到端时延。前向链路按复基带建模，统计 CBR 时两个实维计为一次复信道使用：对静态基线，$\mathrm{CBR}=NC_{\mathrm s}/(2HWC_{\mathrm{img}})$，其中 $C_{\mathrm s}$ 为静态 JSCC 基线的传输符号维度；对 CIS-HARQ 第 $r$ 轮则由式~\eqref{eq:ch5_cbr} 给出。估计精化比特由基于熵的速率估计器得到，刻画学习到的增量负载而非信道维度。
 
 \subsection{精度--CBR 主对比}
 \label{subsec:ch5_acc_cbr}
