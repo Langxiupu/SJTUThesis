@@ -114,12 +114,12 @@
 
 端到端传输质量是用户可感知的最终服务指标，前序环节提供的接入连接与资源配置最终需体现为业务数据的成功传输与任务相关信息的有效恢复。传统任务导向语义通信通常联合优化发送端编码器与特定下游任务，要求发送端预知任务模型或维护专用编解码器，这与星上载荷受限、任务在地面侧动态变化的运行方式不匹配。高性能语义传输中常用的大参数量 Transformer 编码或生成式复原模型，会造成较高的星上计算、存储与推理时延开销。
 
-如图~\ref{fig:ch6_motivation}~所示，现有语义传输方案在轻量化部署时存在两个突出瓶颈。首先，接收端采用生成式复原机制时，扩散模型去噪的多步迭代推理引入了难以承受的端到端时延开销，在星上功耗与算力严格受限时尤其明显。其次，复杂语义编解码器的参数规模不断增长以提升表达能力与保真度，但这使星上载荷难以部署高性能语义收发机。现有语义 HARQ 研究虽已从比特正确性扩展至语义可靠性，但在非对称图像传输场景下仍有不足：重传触发多基于整体失真、重建质量或语义相似度，难以定位与当前任务判决直接相关的语义缺口；发送端通常需要任务先验或较重的语义编码模型，不适合部署于算力和功耗受限的星上载荷；反馈与跨轮合并机制多为粗粒度指示或固定融合，难以在严格反馈预算下实现选择性增量精化。
+如图~\ref{fig:ch6_motivation}~所示，现有语义传输方案在轻量化部署时存在两个突出瓶颈。首先，接收端采用生成式复原机制时，扩散模型去噪的多步迭代推理引入了难以承受的端到端时延开销，在星上功耗与算力严格受限时尤其明显。其次，复杂语义编解码器的参数规模不断增长以提升表达能力与保真度，但这使星上载荷难以部署高性能语义收发机。现有语义 HARQ 研究虽已从比特正确性扩展至语义可靠性，但在非对称图像传输场景下仍有不足：重传触发多基于整体失真、重建质量或语义相似度，难以定位与当前任务判决直接相关的语义缺口；发送端通常需要任务先验或较重的语义编码模型，不适合部署于算力和功耗受限的星上载荷；反馈与跨轮合并机制多为粗粒度指示或固定融合，难以在严格反馈预算下实现选择性增量重传。
 
 \begin{figure}[!htp]
     \centering
     \includegraphics[width=0.85\linewidth]{figures/chapter5/chapter6_motivation_latency_params.png}
-    \caption{语义传输轻量化部署的双重瓶颈}
+    \bicaption{轻量化语义传输中的推理时延与模型复杂度瓶颈}{Inference latency and model complexity bottlenecks in lightweight semantic transmission}
     \label{fig:ch6_motivation}
 \end{figure}
 
@@ -154,7 +154,7 @@
         \caption{基于 AI 的纯分布式路由管控}
         \label{fig:routing_drl}
     \end{subfigure}
-    \caption{面向 LEO 卫星星座的典型星间路由管控架构}
+    \bicaption{LEO卫星星座路由管控架构分类}{Classification of routing control architectures for LEO satellite constellations}
     \label{fig:routing_architectures}
 \end{figure}
 

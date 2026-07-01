@@ -22,7 +22,7 @@ LEO 卫星接入网中，单颗卫星的下行带宽与发射功率受星上载�
 \begin{figure}[!htp]
     \centering
     \includegraphics[width=0.82\linewidth]{figures/chapter4/Fig3_system-model.pdf}
-    \caption{LEO 卫星接入网系统架构}
+    \bicaption{LEO-sRAN直连入网下行接入与星上本地资源管理场景}{Downlink direct-to-cell access and onboard local resource management scenario in LEO-sRAN}
     \label{fig:ch4_system_model}
 \end{figure}
 
@@ -274,7 +274,7 @@ R_s(k)=w_1\frac{1}{|\mathcal C|}\sum_{c\in\mathcal C}S_{s,c}^{\mathrm{slice}}(k)
 \begin{figure}[!htp]
     \centering
     \includegraphics[width=0.9\linewidth]{figures/chapter4/Fig4_wmArchitecture.png}
-    \caption{基于世界模型的生成式切片资源预留模块的神经网络结构与训练损失传播}
+    \bicaption{世界模型神经网络结构与损失反向传播路径}{World model neural network structure and loss backpropagation paths}
     \label{fig:ch4_wm_arch}
 \end{figure}
 
@@ -288,7 +288,7 @@ R_s(k)=w_1\frac{1}{|\mathcal C|}\sum_{c\in\mathcal C}S_{s,c}^{\mathrm{slice}}(k)
 \begin{figure}[!htp]
     \centering
     \includegraphics[width=0.92\linewidth]{figures/chapter4/Fig5_wmWorkflow.png}
-    \caption{世界模型在时间轴上的逐间隔推理流程}
+    \bicaption{世界模型在切片间隔时间轴上的递推推理流程}{Recursive inference procedure of the world model over slice intervals}
     \label{fig:ch4_wm_workflow}
 \end{figure}
 
@@ -417,7 +417,7 @@ F_i(n,p)=\max\left\{F_{i-1}(n,p),\,F_{i-1}\!\left(n-n_i^{\min},p-\bar p_i^{\min}
 \begin{figure}[!htp]
     \centering
     \includegraphics[width=0.86\linewidth]{figures/chapter4/Figure6_workflow.pdf}
-    \caption{DTPS 框架的整体工作流}
+    \bicaption{DTPS慢/快时间尺度资源管理工作流}{DTPS workflow for slow- and fast-timescale resource management}
     \label{fig:ch4_dtps_workflow}
 \end{figure}
 
@@ -491,7 +491,7 @@ DTPS 框架与若干代表性基线对比。TDRL-RSUA~\cite{liu-reconfigurableRa
 \begin{figure}[!htp]
     \centering
     \includegraphics[width=0.92\linewidth]{figures/chapter4/figure7_exp1_load_performance.png}
-    \caption{不同业务负载下的整体性能：(a) QoS 满足率，(b) 资源消耗，(c) 平均传输速率，(d) 平均时延}
+    \bicaption{不同业务负载下的整体性能：(a) QoS 满足率，(b) 资源消耗，(c) 平均传输速率，(d) 平均时延}{Overall performance under different service loads: (a) QoS satisfaction rate, (b) resource consumption, (c) average transmission rate, (d) average latency}
     \label{fig:ch4_exp_load}
 \end{figure}
 
@@ -505,7 +505,7 @@ DTPS 框架与若干代表性基线对比。TDRL-RSUA~\cite{liu-reconfigurableRa
 \begin{figure}[!htp]
     \centering
     \includegraphics[width=0.92\linewidth]{figures/chapter4/figure8_exp2_burst_robustness.png}
-    \caption{低、中、高突发概率下的鲁棒性：(a) QoS 满足率，(b) 资源消耗，(c) 平均传输速率，(d) 平均时延}
+    \bicaption{低、中、高突发概率下的算法鲁棒性：(a) QoS 满足率，(b) 资源消耗，(c) 平均传输速率，(d) 平均时延}{Algorithm robustness under low, medium, and high burst probabilities: (a) QoS satisfaction rate, (b) resource consumption, (c) average transmission rate, (d) average latency}
     \label{fig:ch4_exp_burst}
 \end{figure}
 
@@ -531,7 +531,7 @@ DTPS 框架与若干代表性基线对比。TDRL-RSUA~\cite{liu-reconfigurableRa
         \caption{突发敏感性}
         \label{fig:ch4_exp_ablation_burst}
     \end{subfigure}
-    \caption{DTPS 的消融研究}
+    \bicaption{DTPS关键组件消融}{Ablation of DTPS key components}
     \label{fig:ch4_exp_ablation}
 \end{figure}
 
@@ -545,7 +545,7 @@ DTPS 框架与若干代表性基线对比。TDRL-RSUA~\cite{liu-reconfigurableRa
 \begin{figure}[!htp]
     \centering
     \includegraphics[width=0.72\linewidth]{figures/chapter4/figure10_exp1.png}
-    \caption{整体 QoS 满足率}
+    \bicaption{中重负载下QCI-Knapsack与基线MAC调度策略QoS满足率对比}{Comparison of QoS satisfaction rate between QCI-Knapsack and baseline MAC scheduling policies under medium and heavy traffic loads}
     \label{fig:ch4_exp_mac}
 \end{figure}
 

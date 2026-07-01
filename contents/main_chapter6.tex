@@ -89,7 +89,7 @@ h_i^{(r)}=\sqrt{\frac{\kappa}{\kappa+1}}+\sqrt{\frac{1}{\kappa+1}}\,\tilde h_i^{
 \begin{figure}[!htp]
     \centering
     \includegraphics[width=\linewidth]{figures/chapter5/system_model.pdf}
-    \caption{CIS-HARQ 框架的总体结构}
+    \bicaption{CIS-HARQ闭环语义重传框架}{Closed-loop semantic retransmission framework of CIS-HARQ}
     \label{fig:ch5_system_model}
 \end{figure}
 
@@ -284,7 +284,7 @@ CIS-HARQ & $\epsilon=64$，R0$\to$R3 & $0.0417\to0.0519$ & $77.60\to78.44$ \\
 \begin{figure}[!htp]
     \centering
     \includegraphics[width=0.8\linewidth]{figures/chapter5/accuracy_cbr_tradeoff.png}
-    \caption{精度--CBR 折衷对比（ImageNet-100，SNR $=5$~dB）}
+    \bicaption{SNR为5 dB时CIS-HARQ的准确率与CBR权衡}{Accuracy-CBR tradeoff of CIS-HARQ at an SNR of 5 dB}
     \label{fig:ch5_acc_cbr}
 \end{figure}
 
@@ -322,7 +322,7 @@ CIS-HARQ & 基础编码器+MLP+融合 & $2.22$ & $2.17$ \\
 \begin{figure}[!htp]
     \centering
     \includegraphics[width=0.7\linewidth]{figures/chapter5/round_wise_ablation.png}
-    \caption{消融实验（ImageNet-100，$\epsilon=32$、$K=16$、SNR $=5$~dB）}
+    \bicaption{ImageNet-100下语义状态累积、反馈生成与码率约束消融结果}{Ablation results of semantic state accumulation, feedback generation, and rate constraint on ImageNet-100}
     \label{fig:ch5_ablation}
 \end{figure}
 
@@ -336,21 +336,21 @@ CIS-HARQ & 基础编码器+MLP+融合 & $2.22$ & $2.17$ \\
 \begin{figure}[!htp]
     \centering
     \includegraphics[width=\linewidth]{figures/chapter5/feedback_mask_vis_paper.png}
-    \caption{任务驱动反馈掩码可视化}
+    \bicaption{CIS-HARQ任务驱动反馈掩码可视化}{Visualization of task-driven feedback masks in CIS-HARQ}
     \label{fig:ch5_maskvis}
 \end{figure}
 
 该示例中所选分块与目标区域及判别性局部结构重叠，且其位置随轮次演化，印证了所设计机制的互补增量重传行为。
 
-\subsection{符号维度敏感性}
+\subsection{特征维度敏感性}
 \label{subsec:ch5_epsilon}
 
-进一步评估符号维度 $\epsilon$ 在 ImageNet-100、SNR $=5$~dB、$K=16$ 下的影响。图~\ref{fig:ch5_epsilon} 同时报告逐轮精度与估计精化负载。当 $\epsilon$ 较小时基础表征较弱：$\epsilon=8$ 时精度在各轮间仅由约 $5\%$ 微升至 $10\%$，难以挽救；$\epsilon=16$ 时由 $19.76\%$ 升至 $38.40\%$，$\epsilon=32$ 时达 $65.0\%$，精化增益显著。随着 $\epsilon$ 增大至 $64$ 与 $128$，基础表征已较强（分别约 $77.6\%$ 与 $83\%$），初始状态已含更多任务相关信息，精化的边际收益随之减小。估计精化比特遵循相同规律，在 $\epsilon=16$--$32$ 附近达峰（约 $2.6$~k 比特），并在 $\epsilon=64$ 与 $128$ 跌至约 $190$ 与 $80$ 比特。这里所绘比特度量学习到的精化分支熵估计负载，而非名义信道维度，说明 CIS-HARQ 在当前任务状态已足够可靠时会抑制冗余增量。$\epsilon$ 增大可改善初始表征，而当前状态已含足够任务信息时估计增量重传负载随之下降。
+进一步评估特征维度 $\epsilon$ 在 ImageNet-100、SNR $=5$~dB、$K=16$ 下的影响。图~\ref{fig:ch5_epsilon} 同时报告逐轮精度与估计精化负载。当 $\epsilon$ 较小时基础表征较弱：$\epsilon=8$ 时精度在各轮间仅由约 $5\%$ 微升至 $10\%$，难以挽救；$\epsilon=16$ 时由 $19.76\%$ 升至 $38.40\%$，$\epsilon=32$ 时达 $65.0\%$，精化增益显著。随着 $\epsilon$ 增大至 $64$ 与 $128$，基础表征已较强（分别约 $77.6\%$ 与 $83\%$），初始状态已含更多任务相关信息，精化的边际收益随之减小。估计精化比特遵循相同规律，在 $\epsilon=16$--$32$ 附近达峰（约 $2.6$~k 比特），并在 $\epsilon=64$ 与 $128$ 跌至约 $190$ 与 $80$ 比特。这里所绘比特度量学习到的精化分支熵估计负载，而非名义信道维度，说明 CIS-HARQ 在当前任务状态已足够可靠时会抑制冗余增量。$\epsilon$ 增大可改善初始表征，而当前状态已含足够任务信息时估计增量重传负载随之下降。
 
 \begin{figure}[!htp]
     \centering
     \includegraphics[width=0.8\linewidth]{figures/chapter5/epsilon_sensitivity.png}
-    \caption{符号维度 $\epsilon$ 敏感性分析（ImageNet-100，SNR $=5$~dB）}
+    \bicaption{ImageNet-100下特征维度对CIS-HARQ增量重传的影响}{Impact of feature dimension on CIS-HARQ incremental retransmission on ImageNet-100}
     \label{fig:ch5_epsilon}
 \end{figure}
 
@@ -362,7 +362,7 @@ CIS-HARQ & 基础编码器+MLP+融合 & $2.22$ & $2.17$ \\
 \begin{figure}[!htp]
     \centering
     \includegraphics[width=0.8\linewidth]{figures/chapter5/snr_robustness.png}
-    \caption{信道 SNR 鲁棒性评估（ImageNet-100）}
+    \bicaption{ImageNet-100下SNR对CIS-HARQ精度与增量重传负载的影响}{Impact of SNR on CIS-HARQ accuracy and incremental retransmission payload on ImageNet-100}
     \label{fig:ch5_snr}
 \end{figure}
 
@@ -374,7 +374,7 @@ CIS-HARQ & 基础编码器+MLP+融合 & $2.22$ & $2.17$ \\
 \begin{figure}[!htp]
     \centering
     \includegraphics[width=0.8\linewidth]{figures/chapter5/generalization_multitask.png}
-    \caption{跨数据集与任务的泛化性能}
+    \bicaption{不同数据集与任务下CIS-HARQ任务驱动反馈的泛化性能}{Generalization performance of task-driven feedback in CIS-HARQ across datasets and tasks}
     \label{fig:ch5_generalization}
 \end{figure}
 

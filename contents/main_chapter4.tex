@@ -20,7 +20,7 @@ LEO 星座接入决策同时受到多重覆盖和高频可见卫星变化制约�
 \begin{figure}[!htp]
     \centering
     \includegraphics[width=0.9\linewidth]{figures/chapter3/system_model.pdf}
-    \caption{大规模 LEO 卫星星座中的用户分布式条件切换场景}
+    \bicaption{LEO星座直连入网下的分布式条件切换场景}{Distributed conditional handover scenario for direct-to-cell access in LEO satellite constellations}
     \label{fig:ch3_system_model}
 \end{figure}
 
@@ -232,14 +232,12 @@ R_e^t, & \text{若成功接入且未发生同星同子信道碰撞或卫星过�
 \subsection{吞吐与公平分立的 TOFO 网络结构}
 \label{subsec:ch3_tofo}
 
-若将公平性修正优势直接代入单一策略网络，效率与公平性这对冲突的目标将产生较高的值估计方差。为降低该方差，本章提出吞吐与公平分立（TOFO）结构，该结构由一个吞吐导向（Throughput-Oriented，TO）网络与一个公平导向（Fairness-Oriented，FO）网络组成，如图~\ref{fig:ch3_tofo}~所示。TO 网络给出速率优先的目标卫星和子信道候选，FO 网络在此基础上结合邻域累计接入效用修正，使终端策略由速率优先逐步过渡到公平性感知接入。两个网络同属一个终端，均包含策略网络与价值网络。
-
-TOFO 的核心区别在于 TO 与 FO 的输入信令不同。TO 网络仅以终端本地观测为输入，不依赖邻居信息，用于保留由链路质量、可见时间和候选子信道占用决定的速率优先接入能力；FO 网络的输入除本地观测外，还包括 TO 网络输出的候选动作与邻居累计接入效用 $\mathbf{J}_e^t$，用于在速率优先候选之上进行公平性修正。需要注意的是，邻居优势估计只在训练更新阶段交换，不作为在线决策输入。TO 与 FO 独立训练且相互之间没有梯度传递，因此公平目标不会直接覆盖链路质量判断，而是通过 FO 网络对 TO 候选进行受限修正，使终端在维持基本链路吞吐能力的同时降低对长期弱服务用户的挤压。
+若将公平性修正优势直接代入单一策略网络，效率与公平性这对冲突的目标将产生较高的值估计方差。为降低该方差，本章提出吞吐与公平分立（TOFO）结构，该结构由一个吞吐导向（Throughput-Oriented，TO）网络与一个公平导向（Fairness-Oriented，FO）网络组成，如图~\ref{fig:ch3_tofo}~所示。TO 网络给出速率优先的目标卫星和子信道候选，FO 网络在此基础上结合邻域累计接入效用修正，使终端策略由速率优先逐步过渡到公平性感知接入。两个网络同属一个终端，均包含策略网络与价值网络。TOFO 的核心区别在于 TO 与 FO 的输入信令不同。TO 网络仅以终端本地观测为输入，不依赖邻居信息，用于保留由链路质量、可见时间和候选子信道占用决定的速率优先接入能力；FO 网络的输入除本地观测外，还包括 TO 网络输出的候选动作与邻居累计接入效用 $\mathbf{J}_e^t$，用于在速率优先候选之上进行公平性修正。需要注意的是，邻居优势估计只在训练更新阶段交换，不作为在线决策输入。TO 与 FO 独立训练且相互之间没有梯度传递，因此公平目标不会直接覆盖链路质量判断，而是通过 FO 网络对 TO 候选进行受限修正，使终端在维持基本链路吞吐能力的同时降低对长期弱服务用户的挤压。
 
 \begin{figure}[!htp]
     \centering
     \includegraphics[width=0.92\linewidth]{figures/chapter3/TOFO_architecture.png}
-    \caption{由吞吐导向网络与公平导向网络构成的 TOFO 结构}
+    \bicaption{TOFO吞吐与公平分立接入策略网络结构}{TOFO network structure with separate throughput-oriented and fairness-oriented access policies}
     \label{fig:ch3_tofo}
 \end{figure}
 
@@ -264,7 +262,7 @@ FG-MAPPO 在每个决策时隙前由终端向邻居广播累计接入效用 $J_{
 \begin{figure}[!htp]
     \centering
     \includegraphics[width=0.95\linewidth]{figures/chapter3/train_schedule.pdf}
-    \caption{FG-MAPPO 的训练与推理流程}
+    \bicaption{FG-MAPPO 的训练与推理流程流程}{Training and inference procedure of FG-MAPPO}
     \label{fig:ch3_train_schedule}
 \end{figure}
 
@@ -327,7 +325,7 @@ CHO 允许终端在正式执行切换前持续监测一组候选卫星，并在�
         \caption{FG-MAPPO 辅助的 CHO 流程}
         \label{fig:ch3_cho_rl}
     \end{subfigure}
-    \caption{原始 CHO 流程与 FG-MAPPO 辅助 CHO 流程对比}
+    \bicaption{原始 CHO 流程与 FG-MAPPO 辅助 CHO 流程对比}{Comparison between original CHO and FG-MAPPO-assisted CHO procedures}
     \label{fig:ch3_cho}
 \end{figure}
 
@@ -440,7 +438,7 @@ CHO 允许终端在正式执行切换前持续监测一组候选卫星，并在�
         \caption{强化学习算法对比}
         \label{fig:ch3_converge_algos}
     \end{subfigure}
-    \caption{FG-MAPPO 的收敛性分析}
+    \bicaption{FG-MAPPO收敛性、可扩展性与强化学习算法对比}{Convergence, scalability, and reinforcement learning algorithm comparison of FG-MAPPO}
     \label{fig:ch3_converge}
 \end{figure}
 
@@ -482,7 +480,7 @@ CHO 允许终端在正式执行切换前持续监测一组候选卫星，并在�
         \caption{切换成功率分布}
         \label{fig:ch3_ho_dist}
     \end{subfigure}
-    \caption{各算法下终端切换性能的分布对比}
+    \bicaption{中负载场景下终端速率与切换成功率分布}{Distribution of user rate and handover success rate under medium traffic load}
     \label{fig:ch3_dist}
 \end{figure}
 
@@ -496,7 +494,7 @@ CHO 允许终端在正式执行切换前持续监测一组候选卫星，并在�
 \begin{figure}[!htp]
     \centering
     \includegraphics[width=\linewidth]{figures/chapter3/metrics-heng}
-    \caption{不同负载等级下 GGF 值、切换成功率、平均速率与负载方差对比}
+    \bicaption{不同负载下FG-MAPPO接入性能与公平性对比}{Comparison of FG-MAPPO access performance and fairness under different traffic loads}
     \label{fig:ch3_metrics}
 \end{figure}
 
@@ -508,7 +506,7 @@ CHO 允许终端在正式执行切换前持续监测一组候选卫星，并在�
 \begin{figure}[!htp]
     \centering
     \includegraphics[width=\linewidth]{figures/chapter3/zone-line}
-    \caption{不同纬度区域下的性能对比}
+    \bicaption{不同纬度区域下FG-MAPPO接入性能与泛化能力}{Access performance and generalization of FG-MAPPO across different latitude regions}
     \label{fig:ch3_zone}
 \end{figure}
 
@@ -522,7 +520,7 @@ CHO 允许终端在正式执行切换前持续监测一组候选卫星，并在�
 \begin{figure}[!htp]
     \centering
     \includegraphics[width=\linewidth]{figures/chapter3/metrics-constel}
-    \caption{真实星座下的性能评估}
+    \bicaption{真实LEO星座下FG-MAPPO接入性能对比}{Comparison of FG-MAPPO access performance in real LEO constellations}
     \label{fig:ch3_constel}
 \end{figure}
 
