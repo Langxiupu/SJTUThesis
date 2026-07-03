@@ -4,9 +4,41 @@
 \label{chap:symb}
 
 \begin{longtable}{rl}
-  \multicolumn{2}{l}{\textbf{第 2 章\quad 置信度自适应局部分布式处理（CA-LDP）}} \\[2pt]
-  $\mathcal G_i^h(k)$                  & 卫星 $i$ 的 $h$ 跳监测拓扑视图 \\
-  $h$                                  & 本地监测半径 \\
+  \multicolumn{2}{l}{\textbf{第 2 章\quad 大规模 LEO 卫星网络分布式管控架构及关键技术}} \\[2pt]
+  $k,\ i,\ h$                          & 时隙索引、管控节点索引与 $h$ 跳邻域半径 \\
+  $\mathcal G_i^h(k)$                  & 以管控节点 $i$ 为中心的 $h$ 跳局部邻域图 \\
+  $\mathcal V_i^h(k),\ \mathcal E_i^h(k)$ & 局部邻域内的节点集合与边集合 \\
+  $\mathbf X_i^h(k),\ \mathbf E_i^h(k)$ & 节点状态特征集合与边状态特征集合 \\
+  $\mathbf x_v(k),\ \mathbf e_{uv}(k)$ & 节点 $v$ 的状态特征与边 $(u,v)$ 的状态特征 \\
+  $\mathbf h_v^{(\ell)}(k),\ \mathbf g_{uv}(k)$ & 第 $\ell$ 层节点表征与边表征 \\
+  $\rho_x(\cdot),\ \rho_e(\cdot),\ \ell$ & 节点特征映射、边特征映射与图传播层索引 \\
+  $\mathbf m_{u\rightarrow v}^{(\ell)}(k),\ \mathcal N_v(k)$ & 邻居消息与节点 $v$ 的一跳邻居集合 \\
+  $\psi_\ell(\cdot),\ \phi_\ell(\cdot),\ \mathrm{AGG}_\ell(\cdot)$ & 消息生成、节点状态更新与邻居消息聚合函数 \\
+  $\mathbf A(k),\ \widetilde{\mathbf A}(k),\ \widetilde{\mathbf D}(k)$ & 邻接矩阵、加自环邻接矩阵与度矩阵 \\
+  $\widehat{\mathbf A}(k),\ \mathbf I$ & 归一化邻接矩阵与单位矩阵 \\
+  $\mathbf H^{(\ell)}(k),\ \mathbf W^{(\ell)},\ \sigma(\cdot)$ & 第 $\ell$ 层节点表征矩阵、共享参数矩阵与非线性变换 \\
+  $L,\ \mathbf X(k),\ \mathbf W$       & 图聚合层数、节点特征矩阵与共享参数矩阵 \\
+  $D_v^{\mathrm{raw}}(k),\ \mathcal B_L(v,k),\ \mathcal E_L(v,k)$ & 原始遥测输入维度、$L$ 跳节点集合与边集合 \\
+  $F_x,\ F_e,\ F_z$                    & 节点特征维度、边特征维度与压缩表征维度 \\
+  $\bar{\mathbf h}_v(k),\ \mathrm{GNN}_{\theta}$ & 空间邻域状态表征与图神经网络映射 \\
+  $T_o,\ \Gamma_{\theta}(\cdot),\ \mathbf z_v(k)$ & 历史观测窗口长度、时间状态聚合算子与时空节点表征 \\
+  $\widehat{\mathbf y}_v(k),\ \widehat{\mathbf y}_{uv}(k)$ & 节点级输出与边级输出 \\
+  $\mathbf z_{\mathcal S}(k),\ \widehat{\mathbf y}_{\mathcal S}(k)$ & 区域级状态表征与图级/子图级输出 \\
+  $f_{\mathrm N},\ f_{\mathrm E},\ f_{\mathrm G}$ & 节点级、边级与图级任务映射函数 \\
+  $\mathcal V_{\mathcal S}(k)$         & 区域 $\mathcal S$ 内的节点集合 \\
+  $\mathcal M,\ \mathcal I,\ \mathcal S$ & 多智能体决策过程、智能体集合与全局网络状态空间 \\
+  $\mathcal O_i,\ \mathcal A_i,\ P,\ \gamma$ & 局部观测空间、动作空间、状态转移关系与折扣因子 \\
+  $N,\ r_i,\ s(k)$                     & 智能体数量、调度反馈与网络状态 \\
+  $\mathbf o_i(k),\ a_i(k),\ \mathbf a(k),\ \pi_i$ & 局部观测、单智能体动作、联合动作与策略 \\
+  $\mathbf o_i^{\mathrm{loc}}(k),\ \mathbf o_i^{\mathrm{nei}}(k)$ & 本地资源/业务状态与有限跳邻域状态 \\
+  $\mathbf o_i^{\mathrm{qos}}(k),\ \mathbf o_i^{\mathrm{msg}}(k)$ & 业务服务状态与邻居协作信息 \\
+  $a_i^{\mathrm d}(k),\ \mathcal A_i^{\mathrm d}(k)$ & 离散动作与离散动作空间 \\
+  $\mathbf a_i^{\mathrm c}(k),\ \mathcal A_i^{\mathrm c}(k)$ & 连续动作与连续动作空间 \\
+  $u_i^{\mathrm{svc}}(k),\ u_i^{\mathrm{coop}}(k)$ & 业务服务收益与邻域协作收益 \\
+  $c_i^{\mathrm{qos}}(k),\ c_i^{\mathrm{res}}(k),\ c_i^{\mathrm{conf}}(k)$ & QoS、资源消耗与决策冲突代价 \\
+  $\mathcal N_i^{\mathrm c}(k),\ \mathbf m_{j\rightarrow i}(k)$ & 可交换信息的邻居智能体集合与协作消息 \\
+  \\[2pt]
+  \multicolumn{2}{l}{\textbf{第 3 章\quad 多源置信度调控的分布式网络状态感知方法（CA-LDP）}} \\[2pt]
   $H_{\max},\ C_{\mathrm{ISL}}$         & 路由生存时间预算与标称星间链路容量 \\
   $x_i(k)$                             & 卫星 $i$ 的本地状态向量 \\
   $X_i^{\mathrm{obs}}(k)$              & 退化遥测矩阵 \\
@@ -31,7 +63,7 @@
   $\alpha,\ \beta$                     & 多跳传播的扩散强度与锚定强度 \\
   $\alpha_0,\ \beta_0,\ \alpha_{\max},\ \beta_{\max}$ & 传播强度初值与裁剪上界 \\
   \\[2pt]
-  \multicolumn{2}{l}{\textbf{第 3 章\quad 公平性引导的多智能体近端策略优化（FG-MAPPO）}} \\[2pt]
+  \multicolumn{2}{l}{\textbf{第 4 章\quad 基于局部公平性估计的分布式协作接入切换机制（FG-MAPPO）}} \\[2pt]
   $\mathcal{U},\ E_u$                  & 地面终端集合与终端数 \\
   $\mathcal{S},\ L_s$                  & 可见卫星集合与卫星数 \\
   $T,\ \tau,\ N_t$                     & 服务周期、切换时隙长度与时隙数 \\
@@ -67,7 +99,7 @@
   $g,\ \hat{k}$                        & FEN 流言传播轮数与广播对象数 \\
   $E,\ \mathcal{D}$                    & 训练回合数与经验回放缓冲区集合 \\
   \\[2pt]
-  \multicolumn{2}{l}{\textbf{第 4 章\quad 双时间尺度预测调度（DTPS）}} \\[2pt]
+  \multicolumn{2}{l}{\textbf{第 5 章\quad 基于生成式网络态势感知的切片--MAC 分层协作优化框架（DTPS）}} \\[2pt]
   $\mathcal S,\ \mathcal U$            & 卫星集合与地面终端集合 \\
   $\mathcal S_u,\ \mathcal C$          & 用户可见卫星集合与切片类别集合 \\
   $\mathcal M,\ m_i,\ c_i$             & 业务类型集合、业务流的业务类型与切片类别 \\
@@ -104,7 +136,7 @@
   $r_i^{\mathrm{req}}(t),\ n_i^{\min}(t),\ p_i^{\min}(t)$ & 满足 QoS 所需最小速率、最小 RBG 数与最小发射功率 \\
   $\Delta P,\ \bar P_{s,c}(k),\ F_i(n,p)$ & 功率量化粒度、量化功率容量与背包动态规划值函数 \\
   \\[2pt]
-  \multicolumn{2}{l}{\textbf{第 5 章\quad 协同增量语义 HARQ（CIS-HARQ）}} \\[2pt]
+  \multicolumn{2}{l}{\textbf{第 6 章\quad 基于任务反馈与协同增量重传的轻量化语义传输机制（CIS-HARQ）}} \\[2pt]
   $\mathbf X,\ H,\ W,\ C_{\mathrm{img}}$ & 源图像、图像高、图像宽与图像通道数 \\
   $f_{\mathrm{pat}},\ f_{\mathrm{unpat}}$ & 分块映射与反分块映射 \\
   $\mathbf P,\ \mathbf p_n,\ N,\ D$     & 语义分块特征、单分块特征、分块数与分块维度 \\

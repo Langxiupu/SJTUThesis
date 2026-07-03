@@ -288,6 +288,8 @@ CIS-HARQ & $\epsilon=64$，R0$\to$R3 & $0.0417\to0.0519$ & $77.60\to78.44$ \\
 
 表~\ref{tab:ch5_complexity} 给出不同传输流程的模型规模与推理时延。此处时延为对应通信流程处理单幅图像的模型推理时间，不含传播时延与下游任务头推理；对 CIS-HARQ，时延涵盖 HARQ 流程中完整的收发推理管线。DiffJSCC 在其发布的 CBR 设置下达到 $85.60\%$ 精度，但依赖 BLIP 与 Stable Diffusion，模型规模与时延显著偏高；SwinJSCC 较 DiffJSCC 更轻，但仍采用 Transformer 骨干。相比之下，CIS-HARQ 仅使用轻量基础编码器、基于多层感知机（Multilayer Perceptron，MLP）的增量重传模块与门控融合，参数量与时延分别低至 $2.22$~M 与 $2.17$~ms，更适于资源受限的星上部署。
 
+综合表~\ref{tab:ch5_acc_cbr} 与表~\ref{tab:ch5_complexity}，CIS-HARQ 以约为 SwinJSCC $1/15$、DiffJSCC $1/2500$ 的参数规模，在紧带宽下部分弥合与高复杂度模型的任务精度差距。在其最强配置（$\epsilon=64$、R3）下达到 $78.44\%$ 精度，与重生成式 DiffJSCC（$85.60\%$）相差约 $7\%$，而参数量与时延分别约为后者的 $1/2500$ 与 $1/1800$，体现了轻量收发机经多轮协同逼近高复杂度模型性能的设计目标。
+
 \begin{table}[!htp]
 \centering
 \bicaption{不同传输流程的模型规模与推理时延}{Model size and inference latency of different transmission schemes}
@@ -304,8 +306,6 @@ CIS-HARQ & 基础编码器+MLP+融合 & $2.22$ & $2.17$ \\
 \bottomrule
 \end{tabular}
 \end{table}
-
-综合表~\ref{tab:ch5_acc_cbr} 与表~\ref{tab:ch5_complexity}，CIS-HARQ 以约为 SwinJSCC $1/15$、DiffJSCC $1/2500$ 的参数规模，在紧带宽下部分弥合与高复杂度模型的任务精度差距。在其最强配置（$\epsilon=64$、R3）下达到 $78.44\%$ 精度，与重生成式 DiffJSCC（$85.60\%$）相差约 $7\%$，而参数量与时延分别约为后者的 $1/2500$ 与 $1/1800$，体现了轻量收发机经多轮协同逼近高复杂度模型性能的设计目标。
 
 就 LEO 部署而言，端到端时延可分解为星上计算与往返传播两部分。生成式接收端需秒级星上去噪，无论链路质量如何均难以掩盖，且受星上功率预算制约难以承受；CIS-HARQ 则将星上计算保持在毫秒级，其代价主要来自传播：每个增量重传轮约增加一次 LEO 往返（数十毫秒量级），在至多三轮下总时延仍远低于秒级单次推理。因此在 LEO 算力预算下，以少数重传轮次替代模型容量扩展更有利；传播时延取决于轨道几何而非编解码器，故单独计列而不并入星上推理时延。
 
@@ -357,7 +357,7 @@ CIS-HARQ & 基础编码器+MLP+融合 & $2.22$ & $2.17$ \\
 \begin{figure}[!htp]
     \centering
     \includegraphics[width=0.8\linewidth]{figures/chapter5/snr_robustness.png}
-    \bicaption{ImageNet-100下SNR对CIS-HARQ精度与增量重传负载的影响}{Impact of SNR on CIS-HARQ accuracy and incremental retransmission payload on ImageNet-100}
+    \bicaption{ImageNet-100下SNR对CIS-HARQ分类准确度的影响}{Impact of SNR on CIS-HARQ accuracy on ImageNet-100}
     \label{fig:ch5_snr}
 \end{figure}
 
