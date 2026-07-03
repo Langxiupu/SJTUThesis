@@ -372,7 +372,7 @@ CIS-HARQ & 基础编码器+MLP+融合 & $2.22$ & $2.17$ \\
 \subsection{不同数据集、多任务与跨任务泛化}
 \label{subsec:ch5_generalization}
 
- 图~\ref{fig:ch5_generalization} 比较初始 R0 精度、随机反馈下的 R3 精度和任务驱动反馈下的 R3 精度。各数据集与任务设置均采用独立训练的 CIS-HARQ 模型，因此该实验不用于证明跨数据集迁移或零样本泛化，而用于检验反馈辅助增量重传在不同数据分布与任务接收端下是否持续有效。对单任务分类数据集，任务驱动反馈均优于随机反馈。CIFAR-100 上，随机反馈仅将精度由 $70.7\%$ 提升至 $70.8\%$，增益为 $0.1$ 个百分点；任务驱动反馈达到 $74.9\%$，较 R0 提高 $4.2$ 个百分点，较随机反馈高 $4.1$ 个百分点。ImageNet-100 上，随机反馈的 R3 精度为 $61.0\%$，任务驱动反馈达到 $65.0\%$，相对 R0 的增益分别为 $4.1$ 和 $8.1$ 个百分点。该对比说明，接收端任务输出提供的分块选择信息可在不同单任务数据集上稳定改善增量重传，而不是简单依赖随机追加前向链路开销。
+ 图~\ref{fig:ch5_generalization}(a) 比较初始 R0 精度、随机反馈下的 R3 精度和任务驱动反馈下的 R3 精度。各数据集与任务设置均采用独立训练的 CIS-HARQ 模型，因此该实验不用于证明跨数据集迁移或零样本泛化，而用于检验反馈辅助增量重传在不同数据分布与任务接收端下是否持续有效。对单任务分类数据集，任务驱动反馈均优于随机反馈。CIFAR-100 上，随机反馈仅将精度由 $70.7\%$ 提升至 $70.8\%$，增益为 $0.1$ 个百分点；任务驱动反馈达到 $74.9\%$，较 R0 提高 $4.2$ 个百分点，较随机反馈高 $4.1$ 个百分点。ImageNet-100 上，随机反馈的 R3 精度为 $61.0\%$，任务驱动反馈达到 $65.0\%$，相对 R0 的增益分别为 $4.1$ 和 $8.1$ 个百分点。该对比说明，接收端任务输出提供的分块选择信息可在不同单任务数据集上稳定改善增量重传，而不是简单依赖随机追加前向链路开销。
 
  在 VeRi-776 多任务设置中，颜色与车型分类的 R0 精度分别为 $75.1\%$ 和 $35.4\%$。随机反馈已将两项任务的 R3 精度提升至 $88.1\%$ 和 $77.6\%$，说明当初始语义状态较弱时，多轮增量传输本身也能补充大量可判别信息。任务驱动反馈进一步达到 $89.0\%$ 和 $79.5\%$，较随机反馈分别增加 $0.9$ 和 $1.9$ 个百分点。该结果给出的结论更克制：CIS-HARQ 的闭环反馈在单任务与多任务接收端上均保持有效，但多任务场景中的主要增益同时来自增量传输轮次和任务相关分块选择，两者不能简单混为同一来源。
 
@@ -381,23 +381,25 @@ CIS-HARQ & 基础编码器+MLP+融合 & $2.22$ & $2.17$ \\
 
 \begin{figure}[!htp]
     \centering
-    \begin{minipage}[t]{0.49\linewidth}
+    \begin{subfigure}[t]{0.49\linewidth}
         \centering
         \includegraphics[width=\linewidth]{figures/chapter5/generalization_multitask.png}
-        \bicaption{不同数据集与任务设置下CIS-HARQ任务驱动反馈的有效性}{Feedback effectiveness of CIS-HARQ under different dataset/task settings}
-        \label{fig:ch5_generalization}
-    \end{minipage}
+        \caption{不同数据集与任务设置}
+        \label{fig:ch5_generalization_datasets}
+    \end{subfigure}
     \hfill
-    \begin{minipage}[t]{0.49\linewidth}
+    \begin{subfigure}[t]{0.49\linewidth}
         \centering
         \includegraphics[width=\linewidth]{figures/chapter5/frozen_tx_transfer.png}
-        \bicaption{冻结ImageNet-100发送端在CIFAR-100上的跨数据集任务迁移性能}{Transfer performance on CIFAR-100 with a frozen ImageNet-100 transmitter}
+        \caption{冻结发送端跨任务迁移}
         \label{fig:ch5_frozen_tx_transfer}
-    \end{minipage}
+    \end{subfigure}
+    \bicaption{CIS-HARQ在不同数据集、多任务与跨任务迁移设置下的反馈有效性}{Feedback effectiveness of CIS-HARQ under different datasets, multiple tasks, and cross-task transfer}
+    \label{fig:ch5_generalization}
 \end{figure}
 
 
- 图~\ref{fig:ch5_frozen_tx_transfer} 给出了两种接收端适配设置下的结果。在 \texttt{receiver\_all} 中，CIFAR-100 接收端的 decoder、unpatchify 与 fusion gate 均参与适配，精度由 R0 的 $73.15\%$ 提升到 R3 的 $77.27\%$。该结果说明冻结的 ImageNet-100 发送端能够提供可被 CIFAR-100 接收端解释的基础语义表征，但由于接收端适配自由度较大，它不适合作为最严格的迁移证据。
+ 图~\ref{fig:ch5_generalization}(b) 给出了两种接收端适配设置下的结果。在 \texttt{receiver\_all} 中，CIFAR-100 接收端的 decoder、unpatchify 与 fusion gate 均参与适配，精度由 R0 的 $73.15\%$ 提升到 R3 的 $77.27\%$。该结果说明冻结的 ImageNet-100 发送端能够提供可被 CIFAR-100 接收端解释的基础语义表征，但由于接收端适配自由度较大，它不适合作为最严格的迁移证据。
 
 更有说服力的是 \texttt{fusion\_only} 设置。Stage 1 只训练 CIFAR-100 接收端的 decoder 与 unpatchify，以解释冻结发送端输出的基础表征；Stage 2 只训练 fusion gate，发送端始终不更新参数。在这一限制下，CIS-HARQ 仍由 R0 的 $70.64\%$ 提升到 R3 的 $75.20\%$，与 CIFAR-100 原生 scaled 配置的 R3 精度 $75.36\%$ 仅相差 $0.16$ 个百分点。两组迁移实验的增量比特也处于相同量级，\texttt{fusion\_only} 在 R1、R2 和 R3 的估计比特数分别为 $1007.05$、$991.23$ 与 $64.79$。因此，性能接近原生训练并不是由额外前向负载换来的，而是来自接收端硬掩码对已有发送端表征的定向调用。该结果表明，所提 CIS-HARQ 的发送端具备目标任务零样本迁移能力：在目标数据集上不重新训练发送端，接收端仍可利用目标任务反馈驱动多轮增量重传。这一点将发送端训练从每个目标任务中解耦出来，是本文相对重训练式语义收发机的一个重要区别。
 
