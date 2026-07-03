@@ -5,12 +5,12 @@
 
 LEO 卫星图像传输场景中，星上发送端保持轻量仅负责图像获取与编码，地面接收端具备更强计算能力执行场景分类、目标识别等异构视觉任务。传统任务导向语义通信要求发送端预知任务模型或维护专用编解码器，这与星上载荷受限、任务在地面侧动态变化的运行方式不匹配。高性能语义传输中常用的大参数量 Transformer 编码或生成式复原模型会造成较高的星上计算、存储与推理时延开销。现有语义 HARQ 研究在重传触发、发送端任务先验需求和反馈粒度上仍有不足：重传触发多基于整体失真，难以定位与当前任务判决直接相关的语义缺口；发送端通常需要任务先验或较重的语义编码模型；反馈与跨轮合并机制多为粗粒度指示或固定融合。
 
-本章提出协同增量语义混合自动重传请求（Coordinated Incremental Semantic Hybrid Automatic Repeat Request，CIS-HARQ）机制，将重传从既有语义表征的重复发送重构为接收端反馈辅助的选择性语义精化。接收端依据当前任务输出定位任务相关语义缺口，并将其压缩为低开销硬掩码反馈；发送端利用该反馈生成速率受约束的选择性语义增量；接收端通过跨轮语义累积保留有效历史语义并吸收当前增量。仿真结果表明，CIS-HARQ 以远小于高复杂度模型的参数规模，在紧带宽条件下通过多轮精化显著提升任务精度，星上推理时延保持在毫秒级，验证了以通信轮次缓解星上计算扩展的设计目标。本章相关成果已撰写成期刊论文``Incremental Semantic HARQ for Heterogeneous Tasks on Resource-Constrained LEO Satellites''，投稿于IEEE International Conference on Computer Communications (INFOCOM) 2027。
+本章提出协同增量语义混合自动重传请求（Coordinated Incremental Semantic Hybrid Automatic Repeat Request，CIS-HARQ）机制，将重传从既有语义表征的重复发送重构为接收端反馈辅助的选择性语义增量重传。接收端依据当前任务输出定位任务相关语义缺口，并将其压缩为低开销硬掩码反馈；发送端利用该反馈生成面向请求分块的选择性语义增量；接收端通过跨轮语义累积保留有效历史语义并吸收当前增量。仿真结果表明，CIS-HARQ 以远小于高复杂度模型的参数规模，在紧带宽条件下通过多轮增量重传显著提升任务精度，星上推理时延保持在毫秒级，验证了以通信轮次缓解星上计算扩展的设计目标。本章相关成果已撰写成期刊论文``Incremental Semantic HARQ for Heterogeneous Tasks on Resource-Constrained LEO Satellites''，投稿于IEEE International Conference on Computer Communications (INFOCOM) 2027。
 
 \section{系统模型与问题建模}
 \label{sec:ch5_sysmodel}
 
-本节在第~\ref{sec:ch2_arch_comparison}~节确立的星上分布式管控范式下，建模受限条件下语义可靠传输过程。在该非对称 LEO 图像传输系统中，星上发送端采集源图像，经带宽受限前向链路发送语义表征，地面接收端恢复表征后调用本地任务模型执行下游推理。传输过程采用协同增量语义 HARQ，初始轮先建立粗粒度语义状态，其后各精化轮借助紧凑接收端反馈，请求并累积任务尚缺的语义分块。本节建立非对称图像传输场景、多轮语义 HARQ 传输模型与前向/反馈链路模型，并将受限条件下任务相关语义恢复形式化为多轮约束优化问题。本章符号含义参见文前的主要符号对照表。
+本节在第~\ref{sec:ch2_arch_comparison}~节确立的星上分布式管控范式下，建模受限条件下语义可靠传输过程。在该非对称 LEO 图像传输系统中，星上发送端采集源图像，经带宽受限前向链路发送语义表征，地面接收端恢复表征后调用本地任务模型执行下游推理。传输过程采用协同增量语义 HARQ，初始轮先建立粗粒度语义状态，其后各增量重传轮借助紧凑接收端反馈，请求并累积任务尚缺的语义分块。本节建立非对称图像传输场景、多轮语义 HARQ 传输模型与前向/反馈链路模型，并将受限条件下任务相关语义恢复形式化为多轮约束优化问题。本章符号含义参见文前的主要符号对照表。
 
 \subsection{非对称 LEO 图像传输场景}
 \label{subsec:ch5_scenario}
@@ -79,12 +79,12 @@ h_i^{(r)}=\sqrt{\frac{\kappa}{\kappa+1}}+\sqrt{\frac{1}{\kappa+1}}\,\tilde h_i^{
 \end{equation}
 其中 $\mathcal F_{\mathrm{mask}}$、$\mathcal F_{\mathrm{tx}}$、$\mathcal F_{\mathrm{rx}}$ 分别为接收端反馈生成、发送端增量编码与接收端语义累积的待设计映射，$\lambda_r$ 为各轮任务效用权重，$\Omega_{\mathrm{tx/rx}}$ 与 $\Omega^{\max}$ 分别为收发机复杂度及其在受限载荷下的可部署上限。约束 C1 限定每轮反馈仅请求 $K$ 个分块；C2 约束累积前向开销不超过带宽预算；C3 要求反向链路仅承载硬掩码、且收发机须为可部署于受限星上载荷的轻量结构。
 
-问题 $\mathbf{P1}$ 难以直接求解，原因有三。其一，发送端任务无关，无法获知任务模型 $\mathcal T_\phi$ 与标签，因此无法在发送端直接评估 $\mathcal Q(\cdot)$ 并据此优化增量编码。其二，目标为多轮序贯耦合：第 $r$ 轮的精化结果改变接收端状态 $\mathbf Y^{(r)}$，影响后续各轮的反馈与增量，使各轮决策无法独立求解。其三，约束 C1--C3 将选择性反馈、前向带宽与模型复杂度相互耦合，需在严格反馈预算下以紧凑信令传递任务相关的语义缺口。本章不直接求解 $\mathbf{P1}$，而将其分解为接收端任务缺口定位与紧凑反馈（$\mathcal F_{\mathrm{mask}}$）、发送端反馈条件化增量编码（$\mathcal F_{\mathrm{tx}}$）与接收端状态累积（$\mathcal F_{\mathrm{rx}}$）三个相互衔接的环节，并由两阶段训练协同优化，闭环逼近其目标，相应的框架设计见下一节。
+问题 $\mathbf{P1}$ 难以直接求解，原因有三。其一，发送端任务无关，无法获知任务模型 $\mathcal T_\phi$ 与标签，因此无法在发送端直接评估 $\mathcal Q(\cdot)$ 并据此优化增量编码。其二，目标为多轮序贯耦合：第 $r$ 轮的增量更新改变接收端状态 $\mathbf Y^{(r)}$，影响后续各轮的反馈与增量，使各轮决策无法独立求解。其三，约束 C1--C3 将选择性反馈、前向带宽与模型复杂度相互耦合，需在严格反馈预算下以紧凑信令传递任务相关的语义缺口。本章不直接求解 $\mathbf{P1}$，而将其分解为接收端任务缺口定位与紧凑反馈（$\mathcal F_{\mathrm{mask}}$）、发送端反馈条件化增量编码（$\mathcal F_{\mathrm{tx}}$）与接收端状态累积（$\mathcal F_{\mathrm{rx}}$）三个相互衔接的环节，并由两阶段训练协同优化，闭环逼近其目标，相应的框架设计见下一节。
 
 \section{协同增量语义 HARQ 框架设计}
 \label{sec:ch5_framework}
 
-本节将受限语义传输问题 $\mathbf{P1}$ 的闭环求解具体化为 CIS-HARQ 框架，其总体结构如图~\ref{fig:ch5_system_model}~所示。该框架由三个功能模块构成闭环：接收端的任务驱动硬掩码反馈生成模块实现映射 $\mathcal F_{\mathrm{mask}}$，依据当前语义状态的任务输出裕量及其梯度定位任务相关语义缺口，并将其压缩为 Top-$K$ 硬掩码经反向链路回传；发送端的反馈条件化语义精化编码模块实现映射 $\mathcal F_{\mathrm{tx}}$，以硬掩码与 HARQ 轮次嵌入为条件生成选择性语义增量，仅精化接收端请求分块；接收端的掩码引导语义累积模块实现映射 $\mathcal F_{\mathrm{rx}}$，对被请求分块门控融合历史语义与当前增量，对未请求分块保持历史语义不变。三个模块由两阶段训练协同优化。下文先给出单轮协议流程，再依次阐述各模块与训练方法的设计。
+本节将受限语义传输问题 $\mathbf{P1}$ 的闭环求解具体化为 CIS-HARQ 框架，其总体结构如图~\ref{fig:ch5_system_model}~所示。该框架由三个功能模块构成闭环：接收端的任务驱动硬掩码反馈生成模块实现映射 $\mathcal F_{\mathrm{mask}}$，依据当前语义状态的任务输出裕量及其梯度定位任务相关语义缺口，并将其压缩为 Top-$K$ 硬掩码经反向链路回传；发送端的反馈条件化语义增量编码模块实现映射 $\mathcal F_{\mathrm{tx}}$，以硬掩码与 HARQ 轮次嵌入为条件生成选择性语义增量，仅面向接收端请求分块生成增量重传负载；接收端的掩码引导语义累积模块实现映射 $\mathcal F_{\mathrm{rx}}$，对被请求分块门控融合历史语义与当前增量，对未请求分块保持历史语义不变。三个模块由两阶段训练协同优化。下文先给出单轮协议流程，再依次阐述各模块与训练方法的设计。
 
 \begin{figure}[!htp]
     \centering
@@ -144,11 +144,7 @@ CIS-HARQ 采用空间特征变换（Spatial Feature Transform，SFT）：由紧�
 \end{equation}
 其中 $f_{\mathrm{SFT}}(\cdot)$ 为 SFT 参数生成网络，$\boldsymbol\gamma_n^{(r)}$ 与 $\boldsymbol\beta_n^{(r)}$ 为分块级缩放与平移参数。调制特征再经残差增量网络得到 $\tilde{\mathbf z}_n^{(r)}=f_{\mathrm{res}}(\mathbf p_{n,\mathrm{mod}}^{(r)})$。随后按式~\eqref{eq:ch5_maskinc} 以硬掩码抑制未选分块，仅使受请求分块进入增量重传负载。
 
-硬掩码控制了分块的空间选择，却未约束所选分块特征的信息密度。若缺少显式速率约束，精化编码器可能为所选分块生成高熵增量，使实际精化负载超出带宽预算。为此，CIS-HARQ 引入基于熵的速率估计器，正则化附加 HARQ 负载的信息密度。除 SFT 参数外，条件向量 $\mathbf c_n^{(r)}$ 还用于预测正尺度参数 $\boldsymbol\sigma_n^{(r)}=f_\sigma(\mathbf c_n^{(r)})$；训练时以加性均匀噪声近似量化，推理时以取整量化。估计的增量码长为
-\begin{equation}\label{eq:ch5_bits}
-\mathcal B_{\mathrm{inc}}^{(r)}=-\sum_{n,d}M_{\mathrm{hard},n}^{(r)}\log_2 p\!\left(\tilde z_{n,d}^{(r)}\mid\sigma_{n,d}^{(r)}\right),\quad r\ge1,
-\end{equation}
-其中 $p(\tilde z_{n,d}^{(r)}\mid\sigma_{n,d}^{(r)})$ 为量化值的概率质量，由估计密度在对应量化区间上积分得到。掩码项计入空间选择，负对数似然估计所选特征值的编码代价，因此 $\mathcal B_{\mathrm{inc}}^{(r)}$ 是速率感知增量重传优化的可微替代目标。
+硬掩码将每轮增量重传限制在 $K$ 个分块，单分块符号维度 $\epsilon$ 则限定每个分块的前向链路占用。由此，CIS-HARQ 的附加重传开销由分块选择、固定符号维度与重传轮数共同决定，并通过 CBR 统一刻画。该设计使发送端只为接收端请求分块生成语义增量，避免冗余分块占用前向链路资源。
 
 \subsection{掩码引导的语义累积}
 \label{subsec:ch5_accum}
@@ -172,11 +168,11 @@ CIS-HARQ 采用空间特征变换（Spatial Feature Transform，SFT）：由紧�
 
 第一阶段联合优化分块、基础编码、JSCC 解码与反分块模块，最小化重建损失 $\mathcal L_{\mathrm{rec}}=\lVert f_{\mathrm{unpat}}(g_{\mathrm{dec}}(\hat{\mathbf Z}^{(0)}))-\mathbf X\rVert_2^2$，建立稳定的任务无关基础表征。
 
-第二阶段冻结基础传输模块，仅优化精化模块。训练目标权衡任务性能、判决置信度与增量速率三项。对分类任务，接收端以 logits $\mathbf l^{(r)}$ 与真值标签 $y$ 计算交叉熵损失 $\mathcal L_{\mathrm{task}}^{(r)}=\mathrm{CE}(\mathbf l^{(r)},y)$。仅优化任务损失可能得到正确但低置信预测，削弱用于后续反馈生成的裕量梯度信号；为此引入预测熵正则 $\mathcal H^{(r)}=-\sum_c p_c^{(r)}\log(p_c^{(r)}+\varepsilon)$ 以鼓励高置信预测，其中 $p_c^{(r)}=\mathrm{softmax}(\mathbf l^{(r)})_c$，$\varepsilon$ 为保证数值稳定的小常数。此外，仅靠分块选择并不约束增量信息密度，因此以熵估计的精化比特惩罚附加 HARQ 负载。对其他下游任务，可在保持相同反馈条件化精化协议下，替换任务损失与反馈评分函数。语义 HARQ 总训练损失为
+第二阶段冻结基础传输模块，仅优化增量重传模块。训练目标直接面向下游任务性能。对分类任务，接收端以 logits $\mathbf l^{(r)}$ 与真值标签 $y$ 计算交叉熵损失 $\mathcal L_{\mathrm{task}}^{(r)}=\mathrm{CE}(\mathbf l^{(r)},y)$。对其他下游任务，可在保持相同反馈条件化增量重传协议下，替换任务损失与反馈评分函数。语义 HARQ 总训练损失为
 \begin{equation}\label{eq:ch5_loss}
-\mathcal L_{\mathrm{CIS}}=\sum_{r=1}^{R}\lambda_r\left(\mathcal L_{\mathrm{task}}^{(r)}+\lambda_{\mathrm{ent}}\mathcal H^{(r)}\right)+\lambda_{\mathrm{rate}}\sum_{r=1}^{R}\lambda_r\,\mathcal B_{\mathrm{inc}}^{(r)},
+\mathcal L_{\mathrm{CIS}}=\sum_{r=1}^{R}\lambda_r\mathcal L_{\mathrm{task}}^{(r)},
 \end{equation}
-其中 $\lambda_r$ 平衡各增量重传轮贡献，$\lambda_{\mathrm{ent}}$ 控制预测熵正则，$\lambda_{\mathrm{rate}}$ 控制增量速率惩罚。两个求和均自 $r=1$ 起，因为第二阶段冻结基础传输模块并优化增量重传环；实践中对后轮赋更大权重，使最终任务输出获得更强监督，中间轮为稳定多轮增量重传提供辅助引导。CIS-HARQ 的多轮收发流程概括于算法~\ref{algo:ch5_cis}。
+其中 $\lambda_r$ 平衡各增量重传轮贡献。求和自 $r=1$ 起，因为第二阶段冻结基础传输模块并优化增量重传环；实践中对后轮赋更大权重，使最终任务输出获得更强监督，中间轮为稳定多轮增量重传提供辅助引导。CIS-HARQ 的多轮收发流程概括于算法~\ref{algo:ch5_cis}。
 
 \begin{algorithm}[!htp]
 \caption{协同增量语义 HARQ（CIS-HARQ）多轮收发流程}
@@ -205,7 +201,7 @@ CIS-HARQ 采用空间特征变换（Spatial Feature Transform，SFT）：由紧�
 \subsection{仿真设置}
 \label{subsec:ch5_setup}
 
-在三个公开数据集上评估 CIS-HARQ：ImageNet-100~\cite{deng-ImageNet-CVPR09} 与 CIFAR-100~\cite{krizhevsky-CIFAR-TR09} 用于单任务图像分类，VeRi-776~\cite{liu-VeRi776-ECCV16} 用于评估多任务接收端，其重建图像分别送入车辆颜色与车型两个任务头。除特别说明外，输入图像在传输前统一缩放或裁剪为 $224\times224$。前向链路建模为莱斯因子 $\kappa=10$ 的 Rician 衰落信道，以反映 LEO 链路 LoS 主导的几何特性；默认信噪比（Signal-to-Noise Ratio，SNR）为 $5$~dB，最大精化轮数为三轮，每个硬掩码反馈选取 $K=16$ 个分块。接收端任务模型采用视觉 Transformer（Vision Transformer，ViT）~\cite{dosovitskiy-ViT-ICLR21}。ImageNet-100 采用 ViT 特征维度与 JSCC 隐藏维度均为 $512$ 的配置，CIFAR-100 与 VeRi-776 采用维度分别为 $256$ 与 $128$ 的轻量配置，以检验受限配置下的反馈有效性。在 ImageNet-100 上，冻结任务模型对干净图像的精度为 $87.84\%$，作为相应图中的参照上界。主要仿真场景与模型超参数分别列于表~\ref{tab:ch5_scenario} 与表~\ref{tab:ch5_model}。
+在三个公开数据集上评估 CIS-HARQ：ImageNet-100~\cite{deng-ImageNet-CVPR09} 与 CIFAR-100~\cite{krizhevsky-CIFAR-TR09} 用于单任务图像分类，VeRi-776~\cite{liu-VeRi776-ECCV16} 用于评估多任务接收端，其重建图像分别送入车辆颜色与车型两个任务头。除特别说明外，输入图像在传输前统一缩放或裁剪为 $224\times224$。前向链路建模为莱斯因子 $\kappa=10$ 的 Rician 衰落信道，以反映 LEO 链路 LoS 主导的几何特性；默认信噪比（Signal-to-Noise Ratio，SNR）为 $5$~dB，最大增量重传轮数为三轮，每个硬掩码反馈选取 $K=16$ 个分块。接收端任务模型采用视觉 Transformer（Vision Transformer，ViT）~\cite{dosovitskiy-ViT-ICLR21}。ImageNet-100 采用 ViT 特征维度与 JSCC 隐藏维度均为 $512$ 的配置，CIFAR-100 与 VeRi-776 采用维度分别为 $256$ 与 $128$ 的轻量配置，以检验受限配置下的反馈有效性。在 ImageNet-100 上，冻结任务模型对干净图像的精度为 $87.84\%$，作为相应图中的参照上界。主要仿真场景与模型超参数分别列于表~\ref{tab:ch5_scenario} 与表~\ref{tab:ch5_model}。
 
 \begin{table}[!htp]
 \centering
@@ -244,12 +240,11 @@ ViT 特征维度 $D$ & $512$ & $256$ \\
 JSCC 隐藏维度 & $512$ & $128$ \\
 单分块符号维度 $\epsilon$ & $\{16,32,64\}$ & 轻量固定配置 \\
 反馈预算 $K$ & $16$ & $16$ \\
-量化（训练/推理） & 加性均匀噪声 / 取整 & 加性均匀噪声 / 取整 \\
 \bottomrule
 \end{tabular}
 \end{table}
 
-对比基线为 SwinJSCC~\cite{SwinJSCC} 与 DiffJSCC~\cite{DiffJSCC}。SwinJSCC 作为对齐 CBR 设置下的静态开环 JSCC 基线；DiffJSCC 发布模型在本设置下仅提供 $\mathrm{CBR}=1/96$ 的单一工作点，且依赖 BLIP 与 Stable Diffusion、模型规模更大，故主要作为精度--复杂度参照而非完整 CBR 轨迹基线。评估指标包括分类精度、CBR、估计精化比特、模型参数量与端到端时延。前向链路按复基带建模，统计 CBR 时两个实维计为一次复信道使用：对静态基线，$\mathrm{CBR}=NC_{\mathrm s}/(2HWC_{\mathrm{img}})$，其中 $C_{\mathrm s}$ 为静态 JSCC 基线的传输符号维度；对 CIS-HARQ 第 $r$ 轮则由式~\eqref{eq:ch5_cbr} 给出。估计精化比特由基于熵的速率估计器得到，刻画学习到的增量负载而非信道维度。
+对比基线为 SwinJSCC~\cite{SwinJSCC} 与 DiffJSCC~\cite{DiffJSCC}。SwinJSCC 作为对齐 CBR 设置下的静态开环 JSCC 基线；DiffJSCC 发布模型在本设置下仅提供 $\mathrm{CBR}=1/96$ 的单一工作点，且依赖 BLIP 与 Stable Diffusion、模型规模更大，故主要作为精度--复杂度参照而非完整 CBR 轨迹基线。评估指标包括分类精度、CBR、模型参数量与端到端时延。前向链路按复基带建模，统计 CBR 时两个实维计为一次复信道使用：对静态基线，$\mathrm{CBR}=NC_{\mathrm s}/(2HWC_{\mathrm{img}})$，其中 $C_{\mathrm s}$ 为静态 JSCC 基线的传输符号维度；对 CIS-HARQ 第 $r$ 轮则由式~\eqref{eq:ch5_cbr} 给出。CIS-HARQ 的附加传输开销由每轮请求分块数 $K$、单分块符号维度 $\epsilon$ 与重传轮数共同决定，并统一反映在 CBR 中。
 
 \subsection{精度--CBR 主对比}
 \label{subsec:ch5_acc_cbr}
@@ -291,7 +286,7 @@ CIS-HARQ & $\epsilon=64$，R0$\to$R3 & $0.0417\to0.0519$ & $77.60\to78.44$ \\
 \subsection{计算复杂度与时延}
 \label{subsec:ch5_complexity}
 
-表~\ref{tab:ch5_complexity} 给出不同传输流程的模型规模与推理时延。此处时延为对应通信流程处理单幅图像的模型推理时间，不含传播时延与下游任务头推理；对 CIS-HARQ，时延涵盖 HARQ 流程中完整的收发推理管线。DiffJSCC 在其发布的 CBR 设置下达到 $85.60\%$ 精度，但依赖 BLIP 与 Stable Diffusion，模型规模与时延显著偏高；SwinJSCC 较 DiffJSCC 更轻，但仍采用 Transformer 骨干。相比之下，CIS-HARQ 仅使用轻量基础编码器、基于多层感知机（Multilayer Perceptron，MLP）的精化模块与门控融合，参数量与时延分别低至 $2.22$~M 与 $2.17$~ms，更适于资源受限的星上部署。
+表~\ref{tab:ch5_complexity} 给出不同传输流程的模型规模与推理时延。此处时延为对应通信流程处理单幅图像的模型推理时间，不含传播时延与下游任务头推理；对 CIS-HARQ，时延涵盖 HARQ 流程中完整的收发推理管线。DiffJSCC 在其发布的 CBR 设置下达到 $85.60\%$ 精度，但依赖 BLIP 与 Stable Diffusion，模型规模与时延显著偏高；SwinJSCC 较 DiffJSCC 更轻，但仍采用 Transformer 骨干。相比之下，CIS-HARQ 仅使用轻量基础编码器、基于多层感知机（Multilayer Perceptron，MLP）的增量重传模块与门控融合，参数量与时延分别低至 $2.22$~M 与 $2.17$~ms，更适于资源受限的星上部署。
 
 \begin{table}[!htp]
 \centering
@@ -312,21 +307,21 @@ CIS-HARQ & 基础编码器+MLP+融合 & $2.22$ & $2.17$ \\
 
 综合表~\ref{tab:ch5_acc_cbr} 与表~\ref{tab:ch5_complexity}，CIS-HARQ 以约为 SwinJSCC $1/15$、DiffJSCC $1/2500$ 的参数规模，在紧带宽下部分弥合与高复杂度模型的任务精度差距。在其最强配置（$\epsilon=64$、R3）下达到 $78.44\%$ 精度，与重生成式 DiffJSCC（$85.60\%$）相差约 $7\%$，而参数量与时延分别约为后者的 $1/2500$ 与 $1/1800$，体现了轻量收发机经多轮协同逼近高复杂度模型性能的设计目标。
 
-就 LEO 部署而言，端到端时延可分解为星上计算与往返传播两部分。生成式接收端需秒级星上去噪，无论链路质量如何均难以掩盖，且受星上功率预算制约难以承受；CIS-HARQ 则将星上计算保持在毫秒级，其代价主要来自传播：每个精化轮约增加一次 LEO 往返（数十毫秒量级），在至多三轮下总时延仍远低于秒级单次推理。因此在 LEO 算力预算下，以少数重传轮次替代模型容量扩展更有利；传播时延取决于轨道几何而非编解码器，故单独计列而不并入星上推理时延。
+就 LEO 部署而言，端到端时延可分解为星上计算与往返传播两部分。生成式接收端需秒级星上去噪，无论链路质量如何均难以掩盖，且受星上功率预算制约难以承受；CIS-HARQ 则将星上计算保持在毫秒级，其代价主要来自传播：每个增量重传轮约增加一次 LEO 往返（数十毫秒量级），在至多三轮下总时延仍远低于秒级单次推理。因此在 LEO 算力预算下，以少数重传轮次替代模型容量扩展更有利；传播时延取决于轨道几何而非编解码器，故单独计列而不并入星上推理时延。
 
 \subsection{消融实验}
 \label{subsec:ch5_ablation}
 
-在 ImageNet-100、$\epsilon=32$、$K=16$、SNR $=5$~dB 下开展消融实验。图~\ref{fig:ch5_ablation} 汇总融合策略、反馈策略与速率正则三组消融，分别报告最终第三轮（R3）精度与 R1--R3 的总估计增量重传比特，给出不同设计选择下精度--速率折衷的紧凑比较。结果验证了自适应融合、任务驱动反馈与速率正则的作用。
+在 ImageNet-100、$\epsilon=32$、$K=16$、SNR $=5$~dB 下开展消融实验。图~\ref{fig:ch5_ablation} 汇总语义累积与反馈生成两组设计选择，报告最终第三轮（R3）精度。结果验证了自适应融合和任务驱动反馈的作用。
 
 \begin{figure}[!htp]
     \centering
     \includegraphics[width=0.7\linewidth]{figures/chapter5/round_wise_ablation.png}
-    \bicaption{ImageNet-100下语义状态累积、反馈生成与码率约束消融结果}{Ablation results of semantic state accumulation, feedback generation, and rate constraint on ImageNet-100}
+    \bicaption{ImageNet-100下语义状态累积与反馈生成消融结果}{Ablation results of semantic state accumulation and feedback generation on ImageNet-100}
     \label{fig:ch5_ablation}
 \end{figure}
 
-消融结果验证了三个核心组件。对语义累积，自适应融合门达到 $65.0\%$，优于直接替换的 $57.2\%$ 与简单平均的 $64.7\%$：门控在与平均相当的精度下以更少比特（$2.6$~k 对 $3.2$~k）完成累积，且二者均明显优于覆盖历史状态的直接替换，说明新解码增量不应不加区分地覆盖历史状态。对反馈生成，基于裕量的硬掩码达到 $65.0\%$，较随机分块选择的 $61.0\%$ 高 $4.0\%$，证实增益源于任务相关的分块选择而非单纯的额外传输。对速率正则，移除比特惩罚虽将精度提升至 $69.5\%$，却使估计精化负载由 $2.6$~k 膨胀至 $45.8$~k 比特（约 $18\times$）；该惩罚以约 $4.5\%$ 换取近一个数量级的负载下降，对应所设计的带宽高效工作点。
+消融结果验证了语义累积与任务驱动反馈两个组件。对语义累积，自适应融合门达到 $65.0\%$，优于直接替换的 $57.2\%$ 与简单平均的 $64.7\%$，说明新解码增量不应不加区分地覆盖历史状态。对反馈生成，基于裕量的硬掩码达到 $65.0\%$，较随机分块选择的 $61.0\%$ 高 $4.0\%$，证实增益源于任务相关的分块选择而非单纯的额外传输。上述结果表明，CIS-HARQ 的性能提升主要来自接收端任务反馈、发送端选择性增量编码与跨轮语义累积的闭环配合。
 
 \subsection{反馈掩码可视化}
 \label{subsec:ch5_maskvis}
@@ -345,7 +340,7 @@ CIS-HARQ & 基础编码器+MLP+融合 & $2.22$ & $2.17$ \\
 \subsection{特征维度敏感性}
 \label{subsec:ch5_epsilon}
 
-进一步评估特征维度 $\epsilon$ 在 ImageNet-100、SNR $=5$~dB、$K=16$ 下的影响。图~\ref{fig:ch5_epsilon} 同时报告逐轮精度与估计精化负载。当 $\epsilon$ 较小时基础表征较弱：$\epsilon=8$ 时精度在各轮间仅由约 $5\%$ 微升至 $10\%$，难以挽救；$\epsilon=16$ 时由 $19.76\%$ 升至 $38.40\%$，$\epsilon=32$ 时达 $65.0\%$，精化增益显著。随着 $\epsilon$ 增大至 $64$ 与 $128$，基础表征已较强（分别约 $77.6\%$ 与 $83\%$），初始状态已含更多任务相关信息，精化的边际收益随之减小。估计精化比特遵循相同规律，在 $\epsilon=16$--$32$ 附近达峰（约 $2.6$~k 比特），并在 $\epsilon=64$ 与 $128$ 跌至约 $190$ 与 $80$ 比特。这里所绘比特度量学习到的精化分支熵估计负载，而非名义信道维度，说明 CIS-HARQ 在当前任务状态已足够可靠时会抑制冗余增量。$\epsilon$ 增大可改善初始表征，而当前状态已含足够任务信息时估计增量重传负载随之下降。
+进一步评估特征维度 $\epsilon$ 在 ImageNet-100、SNR $=5$~dB、$K=16$ 下的影响。图~\ref{fig:ch5_epsilon} 报告不同特征维度下的逐轮精度。当 $\epsilon$ 较小时基础表征较弱：$\epsilon=8$ 时精度在各轮间仅由约 $5\%$ 微升至 $10\%$，难以挽救；$\epsilon=16$ 时由 $19.76\%$ 升至 $38.40\%$，$\epsilon=32$ 时达 $65.0\%$，增量重传增益显著。随着 $\epsilon$ 增大至 $64$ 与 $128$，基础表征已较强（分别约 $77.6\%$ 与 $83\%$），初始状态已含更多任务相关信息，增量重传的边际收益随之减小。该结果说明，$\epsilon$ 增大可改善初始表征；当前状态已含足够任务信息时，继续重传带来的性能提升会自然下降。
 
 \begin{figure}[!htp]
     \centering
@@ -357,7 +352,7 @@ CIS-HARQ & 基础编码器+MLP+融合 & $2.22$ & $2.17$ \\
 \subsection{信道信噪比鲁棒性}
 \label{subsec:ch5_snr}
 
-图~\ref{fig:ch5_snr} 评估 CIS-HARQ 在不同 SNR 下、ImageNet-100 上 $\epsilon=32$ 与 $\epsilon=64$（$K=16$）的表现。精化在信道较差时最具收益：对 $\epsilon=32$，R0$\to$R3 在 $2$~dB 提升约 $+18\%$（$30\%\to48\%$）、$5$~dB 约 $+8\%$（$57\%\to65\%$）、$8$~dB 仅约 $+1\%$（$70\%\to71\%$），更强的 $\epsilon=64$ 基础增益更小。估计精化负载随 SNR 同向变化，$\epsilon=32$ 时由 $2$~dB 的约 $3450$ 比特降至 $8$~dB 的约 $200$ 比特：信道更可靠，所需纠正更少，精化增益与估计精化负载也随之同步下降。图中左侧报告 $\epsilon=32$ 与 $\epsilon=64$ 时的 R0 与 R3 精度，右侧报告 R1--R3 的总估计增量重传负载。信道退化时增量重传更具收益，信道更可靠时估计负载随之下降。
+图~\ref{fig:ch5_snr} 评估 CIS-HARQ 在不同 SNR 下、ImageNet-100 上 $\epsilon=32$ 与 $\epsilon=64$（$K=16$）的表现。增量重传在信道较差时最具收益：对 $\epsilon=32$，R0$\to$R3 在 $2$~dB 提升约 $+18\%$（$30\%\to48\%$）、$5$~dB 约 $+8\%$（$57\%\to65\%$）、$8$~dB 仅约 $+1\%$（$70\%\to71\%$），更强的 $\epsilon=64$ 基础增益更小。该结果表明，信道退化时初始语义状态更不完整，任务反馈引导的增量重传更容易带来可观收益；当信道较可靠时，基础轮已保留较多任务相关信息，后续重传的边际增益随之下降。
 
 \begin{figure}[!htp]
     \centering
@@ -380,6 +375,6 @@ CIS-HARQ & 基础编码器+MLP+融合 & $2.22$ & $2.17$ \\
 
 \section{本章小结}
 
-本章针对星上轻量发送端为地面异构下游任务传输图像的非对称场景，提出协同增量语义 HARQ（CIS-HARQ）机制，采用以通信轮次缓解星上计算扩展的设计思路。接收端依据当前任务输出定位任务相关语义缺口并压缩为低开销硬掩码反馈，发送端利用该反馈生成速率受约束的选择性语义增量，接收端通过跨轮语义累积保留有效历史语义并吸收当前增量。与现有方法需要大参数量编码器或生成式复原模型不同，本章方法将 HARQ 重传从重复发送已有表征转变为由接收端任务需求驱动的增量语义精化过程，在受限链路与星上载荷下通过反馈协作替代模型复杂度扩展，在前向链路带宽、反馈链路开销、重传轮次与星上发送端复杂度之间建立可调折中。
+本章针对星上轻量发送端为地面异构下游任务传输图像的非对称场景，提出协同增量语义 HARQ（CIS-HARQ）机制，采用以通信轮次缓解星上计算扩展的设计思路。接收端依据当前任务输出定位任务相关语义缺口并压缩为低开销硬掩码反馈，发送端利用该反馈生成面向请求分块的选择性语义增量，接收端通过跨轮语义累积保留有效历史语义并吸收当前增量。与现有方法需要大参数量编码器或生成式复原模型不同，本章方法将 HARQ 重传从重复发送已有表征转变为由接收端任务需求驱动的选择性增量重传过程，在受限链路与星上载荷下通过反馈协作替代模型复杂度扩展，在前向链路带宽、反馈链路开销、重传轮次与星上发送端复杂度之间建立可调折中。
 
-ImageNet-100、CIFAR-100 与 VeRi-776 数据集仿真表明，在 Rician 衰落信道、信噪比 $5$~dB 与信道带宽比约 $0.02$ 的紧带宽条件下，CIS-HARQ 经三轮增量传输将下游任务精度由同带宽基线的 $35.7\%$ 提升至 $65.0\%$；其以约 $2.2$~M 参数与毫秒级星上推理时延，较生成式扩散接收端减少约 $2500$ 倍参数量，任务精度差距控制在约 $7\%$ 以内，并在不同数据分布与多任务接收端上保持一致的增量传输增益。任务驱动反馈相对随机重传在 CIFAR-100 与 VeRi-776 多任务场景中分别提升最终精度 $4.2\%$ 与 $1.4\%$。信道鲁棒性分析表明，在低信噪比（$2$~dB）与紧带宽（$\epsilon=32$）条件下精化增益最显著（$+18\%$），且估计精化比特随信道改善自适应降低（由 $3450$ 比特降至 $200$ 比特）。
+ImageNet-100、CIFAR-100 与 VeRi-776 数据集仿真表明，在 Rician 衰落信道、信噪比 $5$~dB 与信道带宽比约 $0.02$ 的紧带宽条件下，CIS-HARQ 经三轮增量传输将下游任务精度由同带宽基线的 $35.7\%$ 提升至 $65.0\%$；其以约 $2.2$~M 参数与毫秒级星上推理时延，较生成式扩散接收端减少约 $2500$ 倍参数量，任务精度差距控制在约 $7\%$ 以内，并在不同数据分布与多任务接收端上保持一致的增量传输增益。任务驱动反馈相对随机重传在 CIFAR-100 与 VeRi-776 多任务场景中分别提升最终精度 $4.2\%$ 与 $1.4\%$。信道鲁棒性分析表明，在低信噪比（$2$~dB）与紧带宽（$\epsilon=32$）条件下增量重传增益最显著（$+18\%$）。
