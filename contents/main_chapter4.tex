@@ -372,7 +372,7 @@ CHO 允许终端在正式执行切换前持续监测一组候选卫星，并在�
     终端数 $E_u$ & $[20,40,60,100]$ & 决策间隔 $\tau$ & $5$~s \\
     服务区域~\cite{wang-SeamlessHO-TComm23} & $200\times200~\mathrm{km}$ & 单星总带宽 $\mathrm{BW}_{\mathrm{total}}$~\cite{3gpp-38101} & $20$~MHz \\
     单星子信道数 $N_c$ & $25$ & 单子信道带宽 $B_c$ & $0.8$~MHz \\
-    天线增益 $g_S$~\cite{vasisht-L2D2-SIGCOMM21} & $20$~dBi & 高斯白噪声功率谱密度~\cite{zhang-InterferenceAwareHO-FCN23} & $-174$~dBm/Hz \\
+    天线增益 $g_S$~\cite{vasisht-L2D2-SIGCOMM21} & $20$~dBi & 高斯白噪声功率谱密度~\cite{zhang-interferenceHOSTN-FCN23} & $-174$~dBm/Hz \\
     单星发射功率 $p_S$~\cite{3gpp-38101} & $47$~dBm & 载频~\cite{lee-HOProtocolLearning-TWC24} & $2$~GHz（S 频段） \\
     杂波损耗 $L_{cl}$~\cite{3gpp-38811} & $16.30$~dB（NLoS） & 阴影衰落 $L_{sf}$~\cite{lee-HOProtocolLearning-TWC24} & $3$~dB \\
     \bottomrule
@@ -385,7 +385,7 @@ CHO 允许终端在正式执行切换前持续监测一组候选卫星，并在�
 \begin{itemize}
 \item \textbf{LB-HG}（集中式）：由文献~\cite{lv-WeightedGraphHO-NetLett22}~的加权图切换策略改进而来，综合多因素匹配权重，利用匈牙利算法在就近接入与负载均衡约束下实现最大匹配，具备全局状态获取与集中式规划能力。
 \item \textbf{EG-DHO}（分布式）：基于演化博弈~\cite{zhou-EvolutionaryGameHO-WCNC23}，将每个终端视为理性自利的个体，仅依据自身效用函数（含 QoS 与拥塞概率）独立决策。
-\item \textbf{IDQN}（分布式、深度学习）：MARL 中深度 Q 网络的独立式扩展~\cite{liu-SuccessiveDQNHO-VTC22}，各终端无协作、无信息共享地分布式训练，并以卷积网络提取输入特征的局部关联。
+\item \textbf{IDQN}（分布式、深度学习）：MARL 中深度 Q 网络的独立式扩展~\cite{liu-HO4LargeSat-VTC2022}，各终端无协作、无信息共享地分布式训练，并以卷积网络提取输入特征的局部关联。
 \item \textbf{I-SAC}（分布式）：以独立 Soft Actor-Critic~\cite{haarnoja-SAC-ICML18}~为基础，将动作熵作为正则项提升 Q 值估计稳定性，各终端独立决策、无信息交互。
 \item \textbf{MAPPO}（CTDE）：仅在训练阶段访问全局信息以获得更准确的价值估计~\cite{yu-MAPPO-NeurIPS22}，推理阶段各终端无通信地独立决策。
 \end{itemize}

@@ -39,7 +39,7 @@ LEO 卫星接入网中，单颗卫星的下行带宽与发射功率受星上载�
 \subsection{无线资源分配模型}
 \label{subsec:ch4_radio}
 
-带宽与发射功率是 LEO-sRAN 的主要无线资源~\cite{Balasingam-RANSlicing-NSDI24}：发射功率用于补偿大尺度传播损耗，带宽决定传输速率并直接影响时延。在每个时隙 $t\in\mathcal T$ 内，每颗卫星向其服务的业务流分配带宽与功率。下行传输采用正交频分多址（Orthogonal Frequency-Division Multiple Access，OFDMA）结构，与 Starlink 等现代 LEO 星座一致~\cite{Neinavaie-StarlinkSignal-TAES24}。记 $W_s$ 为卫星 $s$ 可用的下行总带宽，划分为若干正交资源块（RB）。实际调度器将连续 RB 聚合为资源块组（RBG）以降低调度复杂度，记卫星 $s$ 的 RBG 集合为 $\mathcal G_s=\{1,\dots,N_s^\text{RBG}\}$。引入 RBG 分配变量 $x_{i,s,g}(t)\in\{0,1\}$，$x_{i,s,g}(t)=1$ 表示卫星 $s$ 的 RBG $g\in\mathcal G_s$ 在时隙 $t$ 分配给业务流 $i$。由于每个 RBG 每时隙至多服务一条业务流，有
+带宽与发射功率是 LEO-sRAN 的主要无线资源~\cite{Balasingam-RANSlicing-NSDI24}：发射功率用于补偿大尺度传播损耗，带宽决定传输速率并直接影响时延。在每个时隙 $t\in\mathcal T$ 内，每颗卫星向其服务的业务流分配带宽与功率。下行传输采用正交频分多址（Orthogonal Frequency-Division Multiple Access，OFDMA）结构，与 Starlink 等现代 LEO 星座一致~\cite{neinavaie-StarlinkOFDM-TAES24}。记 $W_s$ 为卫星 $s$ 可用的下行总带宽，划分为若干正交资源块（RB）。实际调度器将连续 RB 聚合为资源块组（RBG）以降低调度复杂度，记卫星 $s$ 的 RBG 集合为 $\mathcal G_s=\{1,\dots,N_s^\text{RBG}\}$。引入 RBG 分配变量 $x_{i,s,g}(t)\in\{0,1\}$，$x_{i,s,g}(t)=1$ 表示卫星 $s$ 的 RBG $g\in\mathcal G_s$ 在时隙 $t$ 分配给业务流 $i$。由于每个 RBG 每时隙至多服务一条业务流，有
 \begin{equation}\label{eq:ch4_rbg}
 \sum_{i\in\mathcal I_s(k)}x_{i,s,g}(t)\le1,\quad \forall s\in\mathcal S,\ g\in\mathcal G_s,\ k\ge1,\ t\in\mathcal T_k.
 \end{equation}
@@ -86,7 +86,7 @@ L_{u,s}^\text{dB}(t)=20\log_{10}(f_c)+20\log_{10}(\delta_{u,s}(t))+32.5,
 \end{equation}
 其中 $f_c$ 与 $\delta_{u,s}(t)$ 分别以 MHz 与 km 为单位，对应信道增益为 $h_{u,s}(t)=10^{-L_{u,s}^\text{dB}(t)/10}$。由于业务流经其载体终端的星地链路传输，流 $i$ 的等效链路参数记为 $h_{i,s}(t)\triangleq h_{u(i),s}(t)$ 与 $\delta_{i,s}(t)\triangleq\delta_{u(i),s}(t)$。
 
-下行信道为噪声受限~\cite{liu-reconfigurableRanSlicing-TCCN25}，由于正交 RB 分配与波束赋形调度，用户间干扰可忽略。记 $G_s$ 与 $G_u$ 分别为卫星与终端天线增益，则卫星 $s$ 在时隙 $t$ 服务业务流 $i$ 的接收信噪比为
+下行信道为噪声受限~\cite{liu-reconfigurableRAN-TCCN25}，由于正交 RB 分配与波束赋形调度，用户间干扰可忽略。记 $G_s$ 与 $G_u$ 分别为卫星与终端天线增益，则卫星 $s$ 在时隙 $t$ 服务业务流 $i$ 的接收信噪比为
 \begin{equation}\label{eq:ch4_snr}
 \gamma_{i,s}(t)=\frac{p_{i,s}(t)G_sG_uh_{i,s}(t)}{N_0B_i(t)},
 \end{equation}
@@ -437,7 +437,7 @@ F_i(n,p)=\max\left\{F_{i-1}(n,p),\,F_{i-1}\!\left(n-n_i^{\min},p-\bar p_i^{\min}
 
 仿真设置围绕四组验证目标展开：负载实验检验 DTPS 在不同业务强度下能否维持整体 QoS 满足；突发实验检验反馈校正与预测式预算对服务状态波动的鲁棒性；消融实验分离服务状态预测、长视野预算评估和在线反馈校正的贡献；固定预算 MAC 实验隔离切片层影响，验证 QoS 可行性筛选与优先级加权资源选择的独立增益。
 
-大规模 LEO 星座按 Starlink Phase~1 Shell~1 单层架构建模~\cite{Bhattacherjee-NetworkTopology-Conext19}，含 72 个轨道面、每面 22 颗卫星。为在时变服务条件下评估长期资源预留，仿真以回合（episode）组织：每个回合时长 $200$~s，对应 400 个切片间隔，并对应第~\ref{subsec:ch4_network}~节中可见关系保持不变的一个调度区间；共运行 5 个回合，合计 2000 个切片间隔、总时长 $1000$~s。每个切片间隔取 $0.5$~s，以兼顾星上计算约束、星上服务状态预测时延与 LEO 信令开销~\cite{yao-LEOEdge-JSAC25}；每个切片周期内 MAC 调度器运行 50 个时隙，每时隙时长 $10$~ms，与标准 4G LTE 无线帧对齐~\cite{3gpp_ts_36_211}。目标仿真区域为美国东海岸附近的矩形区域~\cite{liu-reconfigurableRanSlicing-TCCN25}，纬度 $31.5^\circ$N 至 $33^\circ$N、经度 $79.5^\circ$W 至 $81^\circ$W，在 $40^\circ$ 最小仰角约束下选取每个回合内对目标区域可见关系保持不变的卫星集合，回合之间按星历更新可见卫星集合。在缺乏公开 LEO 业务轨迹的情况下，依据 3GPP 5G 系统架构的业务类别生成合成业务负载~\cite{etsi_3gpp_5g_system_architecture_2018}，考虑视频会议、视频流、车联网（Vehicle-to-Everything，V2X）与虚拟现实（Virtual Reality，VR）卸载四类业务。切片归属由各业务的主导 QoS 需求决定，而非由 QCI/5QI 标识直接决定：速率需求较高的业务归入带宽密集型切片，时延需求严格的业务归入时延敏感型切片，因而视频会议与视频流归为带宽密集型，V2X 与 VR 卸载归为时延敏感型；表~\ref{tab:ch4_traffic} 中的 QCI/5QI 标识仅用于导出 MAC 层业务优先级值 $\pi_i$。
+大规模 LEO 星座按 Starlink Phase~1 Shell~1 单层架构建模~\cite{Bhattacherjee-NetworkTopology-Conext19}，含 72 个轨道面、每面 22 颗卫星。为在时变服务条件下评估长期资源预留，仿真以回合（episode）组织：每个回合时长 $200$~s，对应 400 个切片间隔，并对应第~\ref{subsec:ch4_network}~节中可见关系保持不变的一个调度区间；共运行 5 个回合，合计 2000 个切片间隔、总时长 $1000$~s。每个切片间隔取 $0.5$~s，以兼顾星上计算约束、星上服务状态预测时延与 LEO 信令开销~\cite{yao-LEOEdge-JSAC25}；每个切片周期内 MAC 调度器运行 50 个时隙，每时隙时长 $10$~ms，与标准 4G LTE 无线帧对齐~\cite{3gpp_ts_36_211}。目标仿真区域为美国东海岸附近的矩形区域~\cite{liu-reconfigurableRAN-TCCN25}，纬度 $31.5^\circ$N 至 $33^\circ$N、经度 $79.5^\circ$W 至 $81^\circ$W，在 $40^\circ$ 最小仰角约束下选取每个回合内对目标区域可见关系保持不变的卫星集合，回合之间按星历更新可见卫星集合。在缺乏公开 LEO 业务轨迹的情况下，依据 3GPP 5G 系统架构的业务类别生成合成业务负载~\cite{etsi_3gpp_5g_system_architecture_2018}，考虑视频会议、视频流、车联网（Vehicle-to-Everything，V2X）与虚拟现实（Virtual Reality，VR）卸载四类业务。切片归属由各业务的主导 QoS 需求决定，而非由 QCI/5QI 标识直接决定：速率需求较高的业务归入带宽密集型切片，时延需求严格的业务归入时延敏感型切片，因而视频会议与视频流归为带宽密集型，V2X 与 VR 卸载归为时延敏感型；表~\ref{tab:ch4_traffic} 中的 QCI/5QI 标识仅用于导出 MAC 层业务优先级值 $\pi_i$。
 
 \begin{table}[!htp]
 \centering
@@ -481,7 +481,7 @@ VR 卸载 & $10$~Mbps & $30$~ms & $68$ \\
 
 其余为效用与算法参数。QoS 效用经 sigmoid 函数评估，平滑系数 $b_r=14$、$b_d=18$，满足门限 $S_i^{\min}=0.9$。式~\eqref{eq:ch4_avgcost} 与式~\eqref{eq:ch4_predcost} 中带宽消耗权重 $\eta_W$ 高于功率消耗权重 $\eta_P$（取值见表~\ref{tab:ch4_params}），以体现 QoS 受限卫星接入场景中速率--时延满足优先于节省功率的取向：较小的功率权重允许调度器在必要时增用发射功率以满足业务需求，同时仍抑制不必要的功率消耗。其余参数汇总于表~\ref{tab:ch4_params}~\cite{zhang-JointBeamformingResAlloc-SAGIN-TCOM20,wang-UserSelectionMIMO-TVT21,cybertwin-ModeSelection-LEO-IoTJ22,zhang-RISMIMO-LEO-IoTJ25,hua-GANDRL-ResourceSlicing-JSAC20}。
 
-DTPS 框架与若干代表性基线对比。TDRL-RSUA~\cite{liu-reconfigurableRanSlicing-TCCN25} 经带动作掩蔽的 PPO 优化切片级带宽与功率预算，因其不含原生 MAC 层调度器，故与文献~\cite{chai-ResAllocRANSlicing-Lyapunov-TVT25} 的时延感知李雅普诺夫资源分配方法结合以执行时隙级调度。由于用户--卫星关联不在上述基线的设计范围内，各基线在运行期间统一采用文献~\cite{Nguyen-JointAssocResAlloc-TWC24} 的负载自适应关联方案，在切片间隔间联合考虑链路质量与卫星负载更新用户--卫星关联；DTPS 不依赖该外部关联方案，而是经 $\mathbf{P2}$ 中的本地关联调整 $\mathbf m_s(k)$ 在可见邻星间迁移过载业务流。RL-JRSS~\cite{wu-LearnSlicing-JCIN21} 经问题分解协调切片预留与用户调度，由 PPO 处理切片级资源分配、背包匹配执行用户调度。TDRL-RSUA 与 RL-JRSS 均增设切片级功率分配动作头，以保证多维资源控制下的公平对比。为比较世界模型与传统序列建模，另实现一个 LSTM 增强基线，在强化学习切片策略前编码历史观测。LACO~\cite{zaozi-laco-5G-TWC21} 以 QoS 违背驱动的多臂赌博机更新切片带宽份额，同样与文献~\cite{chai-ResAllocRANSlicing-Lyapunov-TVT25} 的李雅普诺夫调度器结合执行 MAC 层。DQN-MAC~\cite{AlQwider-DQN5GNR-ICC22} 作为非切片基线，以深度 Q 网络直接将用户映射至资源块，发射功率在活跃资源块上均匀分配。所有数值结果均在 10 次独立随机种子运行上平均。
+DTPS 框架与若干代表性基线对比。TDRL-RSUA~\cite{liu-reconfigurableRAN-TCCN25} 经带动作掩蔽的 PPO 优化切片级带宽与功率预算，因其不含原生 MAC 层调度器，故与文献~\cite{chai-ResAllocRANSlicing-Lyapunov-TVT25} 的时延感知李雅普诺夫资源分配方法结合以执行时隙级调度。由于用户--卫星关联不在上述基线的设计范围内，各基线在运行期间统一采用文献~\cite{Nguyen-JointAssocResAlloc-TWC24} 的负载自适应关联方案，在切片间隔间联合考虑链路质量与卫星负载更新用户--卫星关联；DTPS 不依赖该外部关联方案，而是经 $\mathbf{P2}$ 中的本地关联调整 $\mathbf m_s(k)$ 在可见邻星间迁移过载业务流。RL-JRSS~\cite{wu-LearnSlicing-JCIN21} 经问题分解协调切片预留与用户调度，由 PPO 处理切片级资源分配、背包匹配执行用户调度。TDRL-RSUA 与 RL-JRSS 均增设切片级功率分配动作头，以保证多维资源控制下的公平对比。为比较世界模型与传统序列建模，另实现一个 LSTM 增强基线，在强化学习切片策略前编码历史观测。LACO~\cite{zaozi-laco-5G-TWC21} 以 QoS 违背驱动的多臂赌博机更新切片带宽份额，同样与文献~\cite{chai-ResAllocRANSlicing-Lyapunov-TVT25} 的李雅普诺夫调度器结合执行 MAC 层。DQN-MAC~\cite{AlQwider-DQN5GNR-ICC22} 作为非切片基线，以深度 Q 网络直接将用户映射至资源块，发射功率在活跃资源块上均匀分配。所有数值结果均在 10 次独立随机种子运行上平均。
 
 \subsection{不同业务负载下的整体性能}
 \label{subsec:ch4_exp_load}
