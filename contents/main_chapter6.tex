@@ -10,7 +10,41 @@ LEO 卫星图像传输场景中，星上发送端保持轻量仅负责图像获�
 \section{系统模型与问题建模}
 \label{sec:ch5_sysmodel}
 
-本节在第~\ref{sec:ch2_arch_comparison}~节确立的星上分布式管控范式下，建模受限条件下语义可靠传输过程。在该非对称 LEO 图像传输系统中，星上发送端采集源图像，经带宽受限前向链路发送语义表征，地面接收端恢复表征后调用本地任务模型执行下游推理。传输过程采用协同增量语义 HARQ，初始轮先建立粗粒度语义状态，其后各增量重传轮借助紧凑接收端反馈，请求并累积任务尚缺的语义分块。本节建立非对称图像传输场景、多轮语义 HARQ 传输模型与前向/反馈链路模型，并将受限条件下任务相关语义恢复形式化为多轮约束优化问题。本章符号含义参见文前的主要符号对照表。
+本节在第~\ref{sec:ch2_arch_comparison}~节确立的星上分布式管控范式下，建模受限条件下语义可靠传输过程。在该非对称 LEO 图像传输系统中，星上发送端采集源图像，经带宽受限前向链路发送语义表征，地面接收端恢复表征后调用本地任务模型执行下游推理。传输过程采用协同增量语义 HARQ，初始轮先建立粗粒度语义状态，其后各增量重传轮借助紧凑接收端反馈，请求并累积任务尚缺的语义分块。本节建立非对称图像传输场景、多轮语义 HARQ 传输模型与前向/反馈链路模型，并将受限条件下任务相关语义恢复形式化为多轮约束优化问题。
+
+本章核心符号汇总如表~\ref{tab:ch5_symbols} 所示。
+
+\begin{longtable}[c]{@{}p{0.23\textwidth}p{0.25\textwidth}p{0.23\textwidth}p{0.25\textwidth}@{}}
+\bicaption{CIS-HARQ 主要符号汇总}{Main notation used for CIS-HARQ}
+\label{tab:ch5_symbols} \\
+\toprule
+符号 & 含义 & 符号 & 含义 \\
+\midrule
+\endfirsthead
+\multicolumn{4}{l}{\textbf{续表~\thetable}} \\
+\toprule
+符号 & 含义 & 符号 & 含义 \\
+\midrule
+\endhead
+\midrule
+\multicolumn{4}{r}{续下页} \\
+\endfoot
+\bottomrule
+\endlastfoot
+  $\mathbf X,\ H,\ W,\ C_{\mathrm{img}}$ & 源图像、图像高、图像宽与图像通道数 & $f_{\mathrm{pat}},\ f_{\mathrm{unpat}}$ & 分块映射与反分块映射 \\
+  $\mathbf P,\ \mathbf p_n,\ N,\ D$ & 语义分块特征、单分块特征、分块数与分块维度 & $\mathcal T_\phi,\ \hat{\mathbf X}^{(r)},\ \mathbf l^{(r)}$ & 接收端任务模型、重建图像与任务 logits \\
+  $r,\ R,\ \mathbf e_r$ & HARQ 轮次索引、最大增量重传轮数与轮次嵌入 & $f_{\mathrm{base}},\ \mathrm{Norm},\ g_{\mathrm{dec}}$ & 基础编码器、平均功率归一化与 JSCC 解码器 \\
+  $\mathbf Z^{(0)},\ \mathbf Y^{(r)}$ & 任务无关基础表征与接收端语义状态 & $\mathbf M_{\mathrm{hard}}^{(r)},\ K$ & top-$K$ 硬掩码反馈与反馈预算 \\
+  $f_{\mathrm{ref}},\ \tilde{\mathbf Z}^{(r)},\ \mathbf Z^{(r)}$ & 增量编码器、候选增量与掩码截断增量 & $\hat{\mathbf Z}^{(r)},\ \mathbf N^{(r)},\ \sigma_{\mathrm{ch}}^2$ & 接收表征、信道噪声与噪声方差 \\
+  $\mathbf h^{(r)},\ \kappa,\ N_{\mathrm s}$ & Rician 衰落向量、莱斯因子与复信道使用次数 & $\mathrm{SNR}$ & 平均接收信噪比 \\
+  $\epsilon,\ \mathrm{CBR}^{(r)}$ & 单分块传输符号维度与累积信道带宽比 & $C_{\mathrm s}$ & 静态 JSCC 基线的传输符号维度 \\
+  $\mathcal Q(\cdot),\ \lambda_r$ & 下游任务效用与各轮任务效用权重 & $\mathcal F_{\mathrm{mask}},\ \mathcal F_{\mathrm{tx}},\ \mathcal F_{\mathrm{rx}}$ & 反馈生成、增量编码与语义累积映射 \\
+  $\Omega_{\mathrm{tx/rx}},\ \Omega^{\max},\ \mathbf{P1}$ & 收发机复杂度、可部署复杂度上限与受限语义传输问题 & $O^{(r-1)},\ l_{(1)},\ l_{(2)}$ & 任务输出裕量、最大与次大 logit \\
+  $C_n^{(r)},\ V_n^{(r)},\ \bar V_n^{(r)}$ & 梯度—激活归因评分、归一化评分与惩罚后评分 & $\eta$ & 上一轮掩码惩罚因子 \\
+  $\mathbf c_n^{(r)},\ f_{\mathrm{SFT}},\ \boldsymbol\gamma_n^{(r)},\ \boldsymbol\beta_n^{(r)}$ & 条件向量、SFT 网络与分块级缩放/平移参数 & $f_{\mathrm{res}}$ & 残差增量网络 \\
+  $\mathbf U^{(r)},\ \mathbf G^{(r)},\ \tilde{\mathbf Y}^{(r)},\ f_g$ & 解码增量特征、自适应融合门、门控融合候选与融合网络 & $\mathcal L_{\mathrm{rec}},\ \mathcal L_{\mathrm{task}}^{(r)},\ \mathcal L_{\mathrm{CIS}}$ & 重建损失、任务损失与总训练损失 \\
+  $y$ & 真值标签 & $\lambda_r$ & 各轮损失权重 \\
+\end{longtable}
 
 \subsection{非对称 LEO 图像传输场景}
 \label{subsec:ch5_scenario}

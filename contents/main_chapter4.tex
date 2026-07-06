@@ -10,7 +10,45 @@ LEO 星座接入决策同时受到多重覆盖和高频可见卫星变化制约�
 \section{系统模型与问题建模}
 \label{sec:ch3_sysmodel}
 
-本节在第~\ref{sec:ch2_arch_comparison}~节确立的纯分布式管控范式下，建立海量终端在大规模 LEO 卫星星座中的自主切换模型。在该范式中，用户终端不依赖核心网集中协调，而是在每个切换时隙依据本地观测与有限邻域信息自主选择接入卫星和子信道。模型依次刻画切换场景、卫星可见关系、连接约束、信道损耗以及链路速率，并将海量终端公平切换形式化为最大化最小用户吞吐量的优化问题。该问题计算难度主要来自二进制接入、子信道竞争和同信道干扰之间的耦合，由此引出后续面向分布式接入的序列决策建模。全章符号含义参见文前的主要符号对照表。
+本节在第~\ref{sec:ch2_arch_comparison}~节确立的纯分布式管控范式下，建立海量终端在大规模 LEO 卫星星座中的自主切换模型。在该范式中，用户终端不依赖核心网集中协调，而是在每个切换时隙依据本地观测与有限邻域信息自主选择接入卫星和子信道。模型依次刻画切换场景、卫星可见关系、连接约束、信道损耗以及链路速率，并将海量终端公平切换形式化为最大化最小用户吞吐量的优化问题。该问题计算难度主要来自二进制接入、子信道竞争和同信道干扰之间的耦合，由此引出后续面向分布式接入的序列决策建模。
+
+本章核心符号汇总如表~\ref{tab:ch3_symbols} 所示。
+
+\begin{longtable}[c]{@{}p{0.23\textwidth}p{0.25\textwidth}p{0.23\textwidth}p{0.25\textwidth}@{}}
+\bicaption{FG-MAPPO 主要符号汇总}{Main notation used for FG-MAPPO}
+\label{tab:ch3_symbols} \\
+\toprule
+符号 & 含义 & 符号 & 含义 \\
+\midrule
+\endfirsthead
+\multicolumn{4}{l}{\textbf{续表~\thetable}} \\
+\toprule
+符号 & 含义 & 符号 & 含义 \\
+\midrule
+\endhead
+\midrule
+\multicolumn{4}{r}{续下页} \\
+\endfoot
+\bottomrule
+\endlastfoot
+  $\mathcal{U},\ E_u$ & 地面终端集合与终端数 & $\mathcal{S},\ L_s$ & 可见卫星集合与卫星数 \\
+  $T,\ \tau,\ N_t$ & 服务周期、切换时隙长度与时隙数 & $\Gamma_t,\ \gamma_{l,e}^t$ & 可见性矩阵与可见性指示 \\
+  $\theta_{l,e}^t,\ \theta_{th}$ & 星地仰角与可见性仰角门限 & $\mathcal{V}_e^t$ & 终端 $U_e$ 的可见卫星集合 \\
+  $\mathcal{X}^t,\ x_{l,e}^t$ & 卫星连接矩阵与连接指示 & $\mathcal{C},\ N_c$ & 子信道集合与子信道数 \\
+  $\mathcal{Y}^{t,e},\ y_{l,m}^{t,e}$ & 子信道分配矩阵与分配指示 & $|h_{l,e}^t|^2$ & $S_l$ 至 $U_e$ 的总路径损耗 \\
+  $L_{fp},L_{sf},L_{cl},L_a$ & 自由空间、阴影、杂波与大气损耗 & $p_S,\ g_S$ & 卫星发射功率与天线增益 \\
+  $p_e^{t,r},\ N_e,\ I_{l,e,m}^t$ & 接收功率、高斯白噪声功率与同信道干扰 & $B_c,\ R_e^t$ & 子信道带宽与链路吞吐量 \\
+  $\mathrm{BW}_{\mathrm{total}},\ f$ & 单星总带宽与星地链路载频 & $\mathcal{P}_1$ & 最大化最小用户吞吐量优化问题 \\
+  $\mathcal{P}_2,\ \mathcal{P}_3$ & 多目标联合优化问题与标量化后优化问题 & $\mathcal{S}^{MDP},\ \mathcal{A}^{MDP}$ & 全局状态与共享动作空间 \\
+  $o_{n_i},\ \pi_\theta^{n_i}$ & 智能体 $n_i$ 的本地观测与策略 & $n,\ \gamma$ & 智能体数与折扣因子 \\
+  $r_{n_i},\ R_t^{\mathrm{loc}}$ & 本地奖励与本地奖励向量 & $J_{n_i}(\theta_{n_i}),\ V_{\pi_{n_i}}$ & 智能体价值函数 \\
+  $\mathcal{J}(\theta)$ & MOMDP 多目标向量 & $\phi(\cdot),\ \mathbf{w}$ & 广义 Gini 社会福利函数与权重向量 \\
+  $\mathbb{S}_n,\ \sigma$ & $n$ 阶对称群与置换 & $\hat{A}_t^{\mathrm{IND}},\ \hat{A}_{t,n_i}^{\mathrm{SWF}}$ & 个体优势与社会福利修正优势 \\
+  $R_{t,n_i}^{\mathrm{SWF}},\ \rho_t^{n_i}$ & 社会福利聚合回报与重要性采样比 & $t_H,\ N_n$ & 历史时隙数与最近邻终端数 \\
+  $\pi_{n_i},\ \pi_{n_i}'$ & TO 网络与 FO 网络策略 & $v_{n_i},\ v_{n_i}'$ & TO 网络与 FO 网络评论家 \\
+  $\beta,\ \beta_{\min},\ e_\beta$ & 交替训练中选择 TO 网络的概率、概率下限与衰减回合数 & $\lambda$ & GAE 系数 \\
+  $g,\ \hat{k}$ & FEN 流言传播轮数与广播对象数 & $E,\ \mathcal{D}$ & 训练回合数与经验回放缓冲区集合 \\
+\end{longtable}
 
 \subsection{切换场景与网络模型}
 \label{subsec:ch3_scenario}

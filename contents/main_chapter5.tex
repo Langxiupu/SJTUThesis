@@ -10,7 +10,46 @@ LEO 卫星接入网中，单颗卫星的下行带宽与发射功率受星上载�
 \section{系统模型与问题建模}
 \label{sec:ch4_sysmodel}
 
-本节在第~\ref{sec:dist-arch}~节确立的分布式管控范式下，对单颗 LEO 卫星的下行无线资源管理过程建模。卫星不依赖核心网实时集中调度，而是依据本地切片级业务统计与有限邻星上下文，在慢时间尺度上完成切片资源预留，并在快时间尺度上执行时隙级用户调度。本节建立网络与切片架构、无线资源分配、业务与 QoS 效用、星地链路与时延模型，并据此将用户级 QoS 保障下的无线资源管理形式化为长期资源消耗最小化问题。全章符号含义参见文前的主要符号对照表。
+本节在第~\ref{sec:dist-arch}~节确立的分布式管控范式下，对单颗 LEO 卫星的下行无线资源管理过程建模。卫星不依赖核心网实时集中调度，而是依据本地切片级业务统计与有限邻星上下文，在慢时间尺度上完成切片资源预留，并在快时间尺度上执行时隙级用户调度。本节建立网络与切片架构、无线资源分配、业务与 QoS 效用、星地链路与时延模型，并据此将用户级 QoS 保障下的无线资源管理形式化为长期资源消耗最小化问题。
+
+本章核心符号汇总如表~\ref{tab:ch4_symbols} 所示。
+
+\begin{longtable}[c]{@{}p{0.23\textwidth}p{0.25\textwidth}p{0.23\textwidth}p{0.25\textwidth}@{}}
+\bicaption{DTPS 主要符号汇总}{Main notation used for DTPS}
+\label{tab:ch4_symbols} \\
+\toprule
+符号 & 含义 & 符号 & 含义 \\
+\midrule
+\endfirsthead
+\multicolumn{4}{l}{\textbf{续表~\thetable}} \\
+\toprule
+符号 & 含义 & 符号 & 含义 \\
+\midrule
+\endhead
+\midrule
+\multicolumn{4}{r}{续下页} \\
+\endfoot
+\bottomrule
+\endlastfoot
+  $\mathcal S,\ \mathcal U$ & 卫星集合与地面终端集合 & $\mathcal S_u,\ \mathcal C$ & 用户可见卫星集合与切片类别集合 \\
+  $\mathcal M,\ m_i,\ c_i$ & 业务类型集合、业务流的业务类型与切片类别 & $\mathcal G_s,\ N_s^{\mathrm{RBG}}$ & 卫星 RBG 集合与 RBG 数 \\
+  $k,\ t,\ H,\ H_p$ & 切片间隔索引、MAC 时隙索引、调度区间长度与预测视野 & $T_s,\ T_{\mathrm{MAC}},\ \mathcal T_k$ & 切片间隔时长、MAC 时隙时长与间隔内时隙集合 \\
+  $a_{u,s}(k),\ \mathcal U_s(k)$ & 关联指示与卫星服务终端集合 & $\mathcal I,\ \mathcal I_s(k),\ u(i)$ & 应用流集合、卫星服务流集合与流 $i$ 的载体终端 \\
+  $x_{i,s,g}(t),\ B_g,\ B_i(t)$ & RBG 分配指示、单 RBG 带宽与流级总带宽 & $W_s,\ P_s^{\max},\ p_{i,s}(t)$ & 卫星总带宽、最大发射功率与流级发射功率 \\
+  $W_{s,c}(k),\ P_{s,c}(k),\ N_{s,c}^{\mathrm{RBG}}(k)$ & 切片带宽预算、功率预算与 RBG 预算 & $\boldsymbol\theta_m,\ r_m^{\min},\ d_m^{\max}$ & 业务 QoS 需求元组、最小吞吐与最大时延 \\
+  $A_i(t),\ \lambda_{m_i},\ \ell$ & 分组到达、平均到达率与平均分组长度 & $\rho,\ \kappa,\ p_b$ & 活跃流比例、到达缩放因子与突发概率 \\
+  $\nu_i(t),\ \eta_s(t)$ & 突发期到达强度与服务速率缩放因子 & $\delta_{u,s}(t),\ h_{u,s}(t),\ \gamma_{i,s}(t)$ & 星地距离、大尺度信道增益与接收信噪比 \\
+  $f_c$ & 星地链路载波频率 & $G_s,\ G_u,\ N_0$ & 卫星天线增益、终端天线增益与噪声功率谱密度 \\
+  $r_i(t),\ d_i(t),\ \mu_i(t)$ & 可达速率、端到端时延与服务速率 & $S_i^{\mathrm{rate}},\ S_i^{\mathrm{delay}},\ S_i(t)$ & 速率效用、时延效用与综合 QoS 效用 \\
+  $\xi_{c_i},\ b_r,\ b_d,\ S_i^{\min}$ & 速率/时延权重、sigmoid 陡度系数与 QoS 满足门限 & $\bar C,\ \bar S_i,\ \eta_W,\ \eta_P$ & 长期加权资源消耗、长期 QoS 满足与带宽/功率消耗权重 \\
+  $\mathbf{P1},\ \mathbf{P2},\ \mathbf{P3}$ & 原始多星问题、切片预算子问题与 MAC 调度子问题 & $o_{s,k},\ \boldsymbol\zeta_{s,c}(k)$ & POMDP 观测与切片观测状态 \\
+  $\mathbf a_s(k),\ \mathbf m_s(k),\ \mathcal M_s(k)$ & 切片动作、本地关联调整与可行调整集 & $\boldsymbol h_k,\ \boldsymbol z_k$ & 历史服务状态记忆与不确定服务状态变量 \\
+  $p_\theta,\ q_\theta$ & 历史状态预测网络与反馈状态校正网络 & $\rho_s(k),\ \hat C_s,\ \hat\rho_s,\ \hat S_{s,c}^{\mathrm{slice}}$ & QoS 违背率、预测预留代价、预测 QoS 违背率与预测切片满足 \\
+  $\mathcal L_{\mathrm{pred}},\ \mathcal L_{\mathrm{dyn}},\ \mathcal L_{\mathrm{wm}},\ \beta$ & 预测损失、状态预测一致性损失、世界模型总损失与权衡系数 & $R_s(k),\ \gamma_{\mathrm d},\ \epsilon_s^{\max}$ & 切片奖励、折扣因子与最大可容忍 QoS 违背率 \\
+  $\pi_\psi,\ V_\omega$ & 切片策略网络与价值函数网络 & $\mathcal I_{s,c}(k),\ \mathcal I_{s,c}^{\mathrm{fea}}(t)$ & 切片应用流集合与可行流集合 \\
+  $i,\ y_i(t),\ \pi_i,\ q_i$ & 应用流索引、调度指示、QCI 优先级值与 QCI/5QI 标识 & $r_i^{\mathrm{req}}(t),\ n_i^{\min}(t),\ p_i^{\min}(t)$ & 满足 QoS 所需最小速率、最小 RBG 数与最小发射功率 \\
+  $\Delta P,\ \bar P_{s,c}(k),\ F_i(n,p)$ & 功率量化粒度、量化功率容量与背包动态规划值函数 &  &  \\
+\end{longtable}
 
 \subsection{网络与切片架构模型}
 \label{subsec:ch4_network}
