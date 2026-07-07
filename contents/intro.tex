@@ -6,7 +6,18 @@
 
 \subsection{低轨星座的快速发展与 6G 融合趋势}
 
-低轨（Low Earth Orbit，LEO）卫星星座正由技术验证转入规模化全球组网。在第六代移动通信系统（Sixth-Generation Mobile Communication System，6G）愿景中，低轨卫星网络已由地面网络的补充覆盖系统演进为支撑端到端业务的空间基础设施。近年来，Starlink、OneWeb、Kuiper 及 SES-Intelsat 等低轨星座持续部署，推动卫星通信从传统广播和补充覆盖向全球宽带接入与天地一体化组网扩展。以 Starlink 为例，截至 2025 年，其在轨卫星数量已超过 7000 颗，通信容量约为 22 Tbps；预计到 2030 年将提升至 208 Tbps，约占全球在轨通信容量的 74\%\cite{wang-InternationalSatCom-satapp2025}。我国也将卫星互联网纳入“新型基础设施”建设范畴，“国网”、“千帆”等星座计划稳步推进\cite{sun-SatDevelopment-satapp2023,lin-Satinternet-broadcast2023}。如图\ref{fig:6G-vision}所示，IMT-2030 愿景已将非地面网络（Non-Terrestrial Network，NTN）纳入 6G 网络体系，要求通信、感知、计算与人工智能（Artificial Intelligence，AI）能力深度融合\cite{wang-6GSATIntro-radioCom2024,wang-Integrated6GSat-newcom2023}。在此背景下，增强移动宽带（enhanced Mobile Broadband，eMBB）、超可靠低时延通信（Ultra-Reliable and Low-Latency Communications，URLLC）和海量机器类通信（massive Machine-Type Communications，mMTC）等业务对低轨卫星网络提出了差异化服务质量（Quality of Service，QoS）保障需求。低轨卫星网络的管控目标已从基础连接建立转向高动态拓扑、受限星间回传与有限星上算力约束下的用户级 QoS 持续保障，分布式资源管控能力成为其深度融入 6G 体系的关键支撑。
+低轨（Low Earth Orbit，LEO）卫星星座已经从技术验证走向规模化组网。Starlink、OneWeb、Kuiper 等低轨星座持续部署，推动卫星通信从广播分发和补充覆盖扩展到全球宽带接入与天地一体化组网。以 Starlink 为例，据文献统计，截至 2025 年，其在轨卫星数量已超过 7000 颗，通信容量约为 22 Tbps；相关预测指出，到 2030 年该容量将达到 208 Tbps，约占全球在轨通信容量的 74\%\cite{wang-InternationalSatCom-satapp2025}。我国也将卫星互联网纳入“新型基础设施”建设范畴，“国网”、“千帆”等星座计划稳步推进\cite{sun-SatDevelopment-satapp2023,lin-Satinternet-broadcast2023}。这些部署说明，低轨卫星网络正在从面向特定区域和特定业务的补充链路，转向面向广域移动用户的空间接入与业务承载网络。
+
+星座规模扩大以后，单纯增加可见链路数量并不足以支撑连续接入和多跳承载，卫星载荷、星间链路和星上处理能力也需要同步提升。传统透明转发载荷主要完成射频放大、频率变换和波束转发；再生载荷、数字透明转发、可重构载荷和星上计算平台的发展，使卫星可以在轨执行基带处理、链路自适应、业务识别和轻量级在线推理\cite{fang-6GSatCompute-SpaceElec2023,zou-SatComSurvey-SpaceElec2023}。抗辐射可重构器件、异构星上计算平台以及在轨模型推理与微调实验的发展，为再生载荷条件下的本地处理和轻量级在线决策提供了工程基础\cite{AMD-XQRFPGA-1124,unibap-IX5-1124,Ortiz-onboardProcessing-Aerospace23,Plumridge-FTSat-IPAS25,ruzicka-fastModelInference-IGARSS23}。这些变化使 LEO 卫星逐步从链路中的透明转发器，转向具备接入、处理、转发和星间承载能力的网络节点。如图\ref{fig:SatSys-evolution}所示，低轨卫星网络正在从“单跳透明转发链路”转向“星地接入与星间传输协同的综合业务承载网络”。
+
+\begin{figure}[!htp]
+  \centering
+  \includegraphics[width=0.9\textwidth]{figures/分布式智能发展趋势.pdf}
+  \bicaption{LEO 卫星网络由透明转发向分布式业务承载网络的演进趋势}{Evolution of LEO Satellite Networks from Transparent Relay to Distributed Service-Bearing Networks}
+  \label{fig:SatSys-evolution}
+\end{figure}
+
+在移动通信体系中，IMT-2030 愿景强调 IMT 系统与非地面网络（Non-Terrestrial Network，NTN）、现有 IMT 系统和其他接入系统的紧密互通，并将泛在连接、服务连续性以及通信、计算、人工智能（Artificial Intelligence，AI）能力融合视为未来网络的重要发展方向\cite{itu-IMT2030Framework-2023,wang-6GSATIntro-radioCom2024,wang-Integrated6GSat-newcom2023}。如图\ref{fig:6G-vision}所示，AI 与通信融合是 IMT-2030 相比 IMT-2020 更突出的新增能力方向之一，但 LEO 卫星网络在 6G 中的定位首先仍是提供广域覆盖、非地面接入、星间回传和业务连续性支撑。3GPP 的 NTN 标准化路径也体现了这一演进：Release 15/16 阶段主要开展 NR 支持 NTN 的研究和解决方案研究，分析卫星信道、长传播时延、移动性、随机接入和链路层机制等关键影响\cite{3gpp-38811,3gpp-38821}；Release 17 是 3GPP 规范中首次包含 NTN 规范性要求的版本，涵盖 NR over NTN 和 IoT over NTN，并形成面向卫星接入的射频、性能、架构和协议基础\cite{3gpp-38101,3gpp-NTNOverview-2025}；Release 18 进一步围绕覆盖增强、移动性与服务连续性、IoT-NTN、卫星回传和新频段部署开展增强\cite{3gpp-NTNOverview-2025}；Release 19 则面向再生载荷、存储转发、UE--卫星--UE 通信和 NTN 管理增强开展研究，为星上处理和分布式业务承载提供后续演进方向\cite{3gpp-NTNOverview-2025}。
 
 \begin{figure}[!htp]
   \centering
@@ -15,16 +26,9 @@
   \label{fig:6G-vision}
 \end{figure}
 
-为支撑上述 QoS 保障需求，LEO 卫星网络正围绕“硬件平台、管控模式、服务类型”三个维度向星上智能化与分布式自治演进，其趋势如图\ref{fig:SatSys-evolution}所示。在硬件平台方面，卫星系统由传统透明转发载荷逐步发展为具备在轨再生处理能力的载荷，并进一步向通信、感知与计算一体化平台演进。可重构载荷、数字透明转发和星上计算平台的发展，使卫星具备业务识别、链路自适应和轻量级模型推理能力\cite{fang-6GSatCompute-SpaceElec2023,zou-SatComSurvey-SpaceElec2023}。例如，AMD XQR Kintex UltraScale 等抗辐射可重构器件为星上实时重配置提供硬件基础\cite{AMD-XQRFPGA-1124}，Unibap SpaceCloud 等异构计算平台为星上推理、链路诊断和在轨任务处理提供部署环境\cite{unibap-IX5-1124,Ortiz-onboardProcessing-Aerospace23}。相关在轨模型推理与微调验证表明，在受限算力条件下开展星上 AI 处理已初步具备工程可行性\cite{Plumridge-FTSat-IPAS25,ruzicka-fastModelInference-IGARSS23}。在管控模式方面，低轨卫星网络正由地面集中控制演进为星间协同的分布式管控体系；在服务类型方面，则由缺乏 QoS 保障的单跳透明传输发展为尽力而为的多跳传输，并进一步转向面向差异化 QoS 保障的多业务服务。三个维度的演进表明，低轨卫星网络的管控决策权正由地面中心向空间边缘节点迁移，星上节点由被动转发实体转变为主动参与服务保障的决策单元。
+上述网络形态和标准路径使 LEO 卫星网络的目标从“接入可用”推向“业务可保障”。增强移动宽带（enhanced Mobile Broadband，eMBB）业务需要在可见窗口内维持持续吞吐，超可靠低时延通信（Ultra-Reliable and Low-Latency Communications，URLLC）业务要求端到端时延和可靠性满足严格门限，海量机器类通信（massive Machine-Type Communications，mMTC）业务则依赖大规模接入、服务连续性和负载均衡。面向 6G 的多业务并发场景，服务质量（Quality of Service，QoS）不能再只理解为单条星地链路的瞬时速率。本文所称用户端到端 QoS，侧重用户业务从终端接入 LEO 星座，经星地接入、多跳星间承载和回程链路到达核心网或业务网关过程中的服务质量保障，主要体现为持续速率、端到端时延、传输可靠性和接入服务连续性。相应地，LEO 卫星网络需要从尽力而为传输转向差异化用户级 QoS 保障，资源管理目标也从提升单链路容量，扩展为维持端到端业务承载能力。
 
-\begin{figure}[!htp]
-  \centering
-  \includegraphics[width=0.9\textwidth]{figures/分布式智能发展趋势.pdf}
-  \bicaption{LEO 卫星系统在硬件平台、管控模式与服务类型下的智能化演进趋势}{Intelligent Evolution of LEO Satellite Systems Across Hardware Platform, Control Architecture, and Service Type}
-  \label{fig:SatSys-evolution}
-\end{figure}
-
-然而，管控决策下沉至空间边缘后，星上节点必须在缺乏实时全网视图的条件下完成状态获取、接入控制、资源调度与转发决策。与地面蜂窝网络相比，LEO 卫星网络具有高速运动、拓扑周期变化、星地与星间链路时变以及回程链路受限等高动态特征。链路可用带宽、信道质量、业务负载和邻域拓扑状态会在短时间内持续波动，且难以通过星间信令实现全网实时同步。星间链路同时承载业务数据与管控信令；过度依赖全局状态汇聚会显著增加信令开销，并可能诱发或加剧链路拥塞。星上算力、存储和能耗约束限制了高复杂度模型和全局优化算法的直接部署。在低轨卫星网络由地面集中管控转向星上分布式决策的过程中，关键问题不在于追求更完整的网络状态，而在于如何在可靠全局状态缺失、地面实时控制闭环受限以及星上通信与计算预算受限条件下，依托本地观测与有限邻域信令实现面向端到端 QoS 的分布式管控。
+面向用户端到端 QoS 的资源管理，不能直接套用地面蜂窝网络中的集中式或准集中式机制。地面无线接入网通常依托较稳定的基站拓扑、完善的回传链路、边缘/云侧计算能力和集中或半集中控制框架完成无线资源管理；大规模 LEO 星座则具有高速运动、星地/星间链路时变、星间回传容量有限、全局状态难以及时同步、星上计算和能耗预算受限等特征。链路可用带宽、信道质量、业务负载和邻域拓扑会在短时间内波动，星间链路还要同时承载业务数据和管控信令。若过度依赖全局状态汇聚，信令开销会挤占业务承载资源，并可能放大局部拥塞。因此，面向 LEO 星座的无线资源管理，应从依赖全网状态汇聚和地面中心实时编排的管控方式，转向基于本地观测、有限邻域信令和星上在线决策的分布式资源管控。本文所关注的分布式管控并非否定地面侧全局规划和低频配置，而是强调高动态接入、切换、调度和转发等短周期无线资源管理功能，应更多依托星上节点和用户侧的本地观测与邻域协同完成。本文所称无线资源管理也不局限于单星物理层时频功率分配，而是面向端到端业务承载过程，涵盖接入关联、链路资源调度、星间承载状态感知和受限链路可靠传输等与用户 QoS 直接相关的资源管控功能。6G 网络智能化为这一转变提供了工具：AI 方法可用于高动态空间环境中的状态预测、链路质量评估、接入控制和无线资源调度，并为星上节点提供轻量级在线推理能力\cite{itu-IMT2030Framework-2023,Mahboob-AIEmpoweredNTN-Survey-COMST24}。因此，面向大规模 LEO 星座的用户端到端 QoS 保障，有必要研究 AI 赋能的分布式无线资源管理机制。
 
 \subsection{人工智能赋能的分布式网络管控发展}
 
