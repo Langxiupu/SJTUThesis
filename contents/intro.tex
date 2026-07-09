@@ -74,17 +74,11 @@
     \label{fig:intro-control-architectures}
 \end{figure}
 
-集中式管控以软件定义网络（Software-Defined Networking，SDN）和地面控制器为典型形式，依托全网链路、拓扑、队列和业务状态进行统一资源编排。它适合长周期全局规划、离线资源配置和全局策略更新，也可用于动态频谱分配、干扰协调、负载均衡路由以及面向公平性的信道和功率配置\cite{Heydar-spectrum-survey25,lee-fairnessSat-TWC2024,xie-routingLEO-CNML2025}。然而，面向用户级 QoS 的短周期业务控制时，其局限性逐渐显现：状态同步开销随卫星数、用户数和星间链路数增长，控制闭环时延难以支撑高频用户切换和媒体接入控制（Medium Access Control，MAC）层在线调度；星地控制链路中断时，星上节点也只能沿用已有策略。改进型 SDN 和分层控制架构可缓解单点失效与部分可扩展性问题\cite{choi-SDNVirt-IoTJ2025,ji-SatOpt-TWC22}，但仍依赖较稳定的跨域控制链路，难以根本解决实时性问题。
-
-为提升管控实时性，分簇式管控架构将星座划分为若干簇，由簇头节点完成簇内状态汇聚、策略计算和功能编排，并通过簇头间交互处理跨簇协同。基带云化和卫星边缘计算为簇内通信、计算和缓存资源编排提供了支撑\cite{wang-cloudnativeSat-EDGE23,wang-cloudCellfree-comMag20,wang-SatComputing-IoTJ2-23}。这种架构降低了全网状态同步需求，缩短了局部控制环路，但跨簇业务仍需簇头协调，簇头失效会影响簇内用户，用户跨簇切换也会增加管理复杂度。早期通信、导航与遥感卫星系统相互独立，跨域资源协同能力有限\cite{liu-spaceAirGround-ComSurveys2018}；星座规模扩大后，这类分立管控更难支撑端到端 QoS\cite{kodhe-comNewEra-tutorials2021,di-5Goffloading-press2019}。集中式和分簇式架构的共同局限在于，高频实时的用户级资源调度决策仍依赖状态上报和策略下发，难以适应海量用户并发和毫秒级决策需求。
-
-为压缩高频控制环路，LEO 卫星网络开始转向对等分布式管控。本文所称分布式管控，是指将与实时资源调度相关的管控功能，包括用户切换、接入控制、无线资源分配、链路维护和语义编解码等，下沉至星上节点或用户终端，在网络边缘通过卫星之间的自主协作完成决策与执行，减少对地面控制中心集中解算的实时依赖。该模式的前提是星上节点具备本地状态处理、在线推理和协议执行能力，并可通过有限邻域信令完成跨节点协同；地面控制中心仍负责星历管理、低频监控和参数配置，但不闭合实时控制环路。再生载荷、星间链路和星上计算平台的发展，使星上基带处理、协议处理、邻域状态交互和轻量级在线推理具备工程基础\cite{fang-6GSatCompute-SpaceElec2023,zou-SatComSurvey-SpaceElec2023,zhang-distributedSat-SCIS2025,Mahboob-AIEmpoweredNTN-Survey-COMST24}。分布式卫星信息网络（Distributed Satellite Information Networks，DSIN）和再生式 NTN 中的功能划分思想也体现了这一趋势。分布式管控将高频决策闭合在星上节点，压缩星地往返引入的控制时延；以邻域信令替代全网状态汇聚，降低控制开销；节点增长主要增加局部交互，不要求全网重收敛；星地链路短时不可用时，星上节点仍可沿本地状态执行接入、调度和链路维护。这些特性提高了用户级 QoS 管控的实时性和可扩展性，但也要求本地网络视图具备足够可信度，局部决策保持协同，星上在线推理复杂度落在载荷算力和能耗预算内。表\ref{tab:control-arch-compare}从控制闭环位置、状态同步范围、策略执行路径、星地实时控制闭环依赖和典型适用功能等维度，对集中式、分簇式与对等分布式管控架构在大规模 LEO 星座中的适用性进行比较。
-
 \begin{table}[!htp]
 \centering
 \footnotesize
 
-\bicaption{大规模 LEO 星座管控场景下不同管控架构的功能性对比}
+\bicaption{大规模 LEO 星座不同管控架构对比}
 {Functional comparison of different control architectures for large-scale LEO constellation management}
 \label{tab:control-arch-compare}
 \setlength{\tabcolsep}{3.2pt}
@@ -127,6 +121,12 @@
 \bottomrule
 \end{tabular}
 \end{table}
+
+集中式管控以软件定义网络（Software-Defined Networking，SDN）和地面控制器为典型形式，依托全网链路、拓扑、队列和业务状态进行统一资源编排。它适合长周期全局规划、离线资源配置和全局策略更新，也可用于动态频谱分配、干扰协调、负载均衡路由以及面向公平性的信道和功率配置\cite{Heydar-spectrum-survey25,lee-fairnessSat-TWC2024,xie-routingLEO-CNML2025}。然而，面向用户级 QoS 的短周期业务控制时，其局限性逐渐显现：状态同步开销随卫星数、用户数和星间链路数增长，控制闭环时延难以支撑高频用户切换和媒体接入控制（Medium Access Control，MAC）层在线调度；星地控制链路中断时，星上节点也只能沿用已有策略。改进型 SDN 和分层控制架构可缓解单点失效与部分可扩展性问题\cite{choi-SDNVirt-IoTJ2025,ji-SatOpt-TWC22}，但仍依赖较稳定的跨域控制链路，难以根本解决实时性问题。
+
+为提升管控实时性，分簇式管控架构将星座划分为若干簇，由簇头节点完成簇内状态汇聚、策略计算和功能编排，并通过簇头间交互处理跨簇协同。基带云化和卫星边缘计算为簇内通信、计算和缓存资源编排提供了支撑\cite{wang-cloudnativeSat-EDGE23,wang-cloudCellfree-comMag20,wang-SatComputing-IoTJ2-23}。这种架构降低了全网状态同步需求，缩短了局部控制环路，但跨簇业务仍需簇头协调，簇头失效会影响簇内用户，用户跨簇切换也会增加管理复杂度。早期通信、导航与遥感卫星系统相互独立，跨域资源协同能力有限\cite{liu-spaceAirGround-ComSurveys2018}；星座规模扩大后，这类分立管控更难支撑端到端 QoS\cite{kodhe-comNewEra-tutorials2021,di-5Goffloading-press2019}。集中式和分簇式架构的共同局限在于，高频实时的用户级资源调度决策仍依赖状态上报和策略下发，难以适应海量用户并发和毫秒级决策需求。
+
+为压缩高频控制环路，LEO 卫星网络开始转向对等分布式管控。本文所称分布式管控，是指将与实时资源调度相关的管控功能，包括用户切换、接入控制、无线资源分配、链路维护和语义编解码等，下沉至星上节点或用户终端，在网络边缘通过卫星之间的自主协作完成决策与执行，减少对地面控制中心集中解算的实时依赖。该模式的前提是星上节点具备本地状态处理、在线推理和协议执行能力，并可通过有限邻域信令完成跨节点协同；地面控制中心仍负责星历管理、低频监控和参数配置，但不闭合实时控制环路。再生载荷、星间链路和星上计算平台的发展，使星上基带处理、协议处理、邻域状态交互和轻量级在线推理具备工程基础\cite{fang-6GSatCompute-SpaceElec2023,zou-SatComSurvey-SpaceElec2023,zhang-distributedSat-SCIS2025,Mahboob-AIEmpoweredNTN-Survey-COMST24}。分布式卫星信息网络（Distributed Satellite Information Networks，DSIN）和再生式 NTN 中的功能划分思想也体现了这一趋势。分布式管控将高频决策闭合在星上节点，压缩星地往返引入的控制时延；以邻域信令替代全网状态汇聚，降低控制开销；节点增长主要增加局部交互，不要求全网重收敛；星地链路短时不可用时，星上节点仍可沿本地状态执行接入、调度和链路维护。这些特性提高了用户级 QoS 管控的实时性和可扩展性，但也要求本地网络视图具备足够可信度，局部决策保持协同，星上在线推理复杂度落在载荷算力和能耗预算内。表\ref{tab:control-arch-compare}从控制闭环位置、状态同步范围、策略执行路径、星地实时控制闭环依赖和典型适用功能等维度，对集中式、分簇式与对等分布式管控架构在大规模 LEO 星座中的适用性进行比较。
 
 面向大规模 LEO 星座的用户级 QoS 保障，管控架构需要从地面集中解算转向星上分布式自治。分布式管控缩短了控制环路，但稳定 QoS 仍取决于星上节点在有限邻域信息和受限算力下的状态判断、接入选择和资源配置能力。下一小节进一步从用户级 QoS 需求出发，说明端到端业务承载需要分解为哪些关键技术环节。
 
