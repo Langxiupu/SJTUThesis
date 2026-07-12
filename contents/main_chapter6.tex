@@ -10,12 +10,12 @@
 \section{系统模型与问题建模}
 \label{sec:ch5_sysmodel}
 
-本节在第~\ref{sec:ch2_arch_comparison}~节确立的星上分布式管控范式下，建模受限条件下语义可靠传输过程。在该非对称 LEO 图像传输系统中，星上发送端采集源图像，经带宽受限前向链路发送语义表征，地面接收端恢复表征后调用本地任务模型执行下游推理。传输过程采用协同增量语义 HARQ，初始轮先建立粗粒度语义状态，其后各增量重传轮借助紧凑接收端反馈，请求并累积任务尚缺的语义分块。本节建立非对称图像传输场景、多轮语义 HARQ 传输模型与前向/反馈链路模型，并将受限条件下任务相关语义恢复形式化为多轮约束优化问题。
+考虑由资源受限低轨卫星和地面接收端组成的非对称图像传输系统。星上发送端采集源图像并发送语义表征，地面接收端恢复图像表征后，调用本地任务模型完成下游推理。部署期间，星上发送端不获取任务标签与任务输出，也不存储或运行下游任务模型。训练期间，接收端计算的任务监督用于优化增量重传模块。每幅图像先经过一轮基础传输，随后可执行至多 $R$ 轮接收端驱动的增量语义重传。后续轮次只传送接收端请求的语义增量，以额外通信负载弥补轻量星上编码器单轮传输能力的不足。
 
-本章核心符号汇总如表~\ref{tab:ch5_symbols} 所示。
+本节主要符号汇总如表~\ref{tab:ch5_symbols} 所示。
 
-\begin{longtable}[c]{@{}p{0.23\textwidth}p{0.25\textwidth}p{0.23\textwidth}p{0.25\textwidth}@{}}
-\bicaption{CIS-HARQ 主要符号汇总}{Main notation used for CIS-HARQ}
+\begin{longtable}[c]{@{}p{0.21\textwidth}p{0.245\textwidth}p{0.21\textwidth}p{0.245\textwidth}@{}}
+\bicaption{CIS-R 系统模型主要符号汇总}{Main notation used in the system model of CIS-R}
 \label{tab:ch5_symbols} \\
 \toprule
 符号 & 含义 & 符号 & 含义 \\
@@ -31,132 +31,149 @@
 \endfoot
 \bottomrule
 \endlastfoot
-  $\mathbf X,\ H,\ W,\ C_{\mathrm{img}}$ & 源图像、图像高、图像宽与图像通道数 & $f_{\mathrm{pat}},\ f_{\mathrm{unpat}}$ & 分块映射与反分块映射 \\
-  $\mathbf P,\ \mathbf p_n,\ N,\ D$ & 语义分块特征、单分块特征、分块数与分块维度 & $\mathcal T_\phi,\ \hat{\mathbf X}^{(r)},\ \mathbf l^{(r)}$ & 接收端任务模型、重建图像与任务 logits \\
-  $r,\ R,\ \mathbf e_r$ & HARQ 轮次索引、最大增量重传轮数与轮次嵌入 & $f_{\mathrm{base}},\ \mathrm{Norm},\ g_{\mathrm{dec}}$ & 基础编码器、平均功率归一化与 JSCC 解码器 \\
-  $\mathbf Z^{(0)},\ \mathbf Y^{(r)}$ & 任务无关基础表征与接收端语义状态 & $\mathbf M_{\mathrm{hard}}^{(r)},\ K$ & top-$K$ 硬掩码反馈与反馈预算 \\
-  $f_{\mathrm{ref}},\ \tilde{\mathbf Z}^{(r)},\ \mathbf Z^{(r)}$ & 增量编码器、候选增量与掩码截断增量 & $\hat{\mathbf Z}^{(r)},\ \mathbf N^{(r)},\ \sigma_{\mathrm{ch}}^2$ & 接收表征、信道噪声与噪声方差 \\
-  $\mathbf h^{(r)},\ \kappa,\ N_{\mathrm s}$ & Rician 衰落向量、莱斯因子与复信道使用次数 & $\mathrm{SNR}$ & 平均接收信噪比 \\
-  $\epsilon,\ \mathrm{CBR}^{(r)}$ & 单分块传输符号维度与累积信道带宽比 & $C_{\mathrm s}$ & 静态 JSCC 基线的传输符号维度 \\
-  $\mathcal Q(\cdot),\ \lambda_r$ & 下游任务效用与各轮任务效用权重 & $\mathcal F_{\mathrm{mask}},\ \mathcal F_{\mathrm{tx}},\ \mathcal F_{\mathrm{rx}}$ & 反馈生成、增量编码与语义累积映射 \\
-  $\Omega_{\mathrm{tx/rx}},\ \Omega^{\max},\ \mathbf{P1}$ & 收发机复杂度、可部署复杂度上限与受限语义传输问题 & $O^{(r-1)},\ l_{(1)},\ l_{(2)}$ & 任务输出裕量、最大与次大 logit \\
-  $C_n^{(r)},\ V_n^{(r)},\ \bar V_n^{(r)}$ & 梯度—激活归因评分、归一化评分与惩罚后评分 & $\eta$ & 上一轮掩码惩罚因子 \\
-  $\mathbf c_n^{(r)},\ f_{\mathrm{SFT}},\ \boldsymbol\gamma_n^{(r)},\ \boldsymbol\beta_n^{(r)}$ & 条件向量、SFT 网络与分块级缩放/平移参数 & $f_{\mathrm{res}}$ & 残差增量网络 \\
-  $\mathbf U^{(r)},\ \mathbf G^{(r)},\ \tilde{\mathbf Y}^{(r)},\ f_g$ & 解码增量特征、自适应融合门、门控融合候选与融合网络 & $\mathcal L_{\mathrm{rec}},\ \mathcal L_{\mathrm{task}}^{(r)},\ \mathcal L_{\mathrm{CIS}}$ & 重建损失、任务损失与总训练损失 \\
-  $y$ & 真值标签 & $\lambda_r$ & 各轮损失权重 \\
+  $\mathbf X,\ H,\ W,\ C_{\mathrm{img}}$ & 源图像、图像高、图像宽与图像通道数 & $f_{\mathrm{pat}},\ f_{\mathrm{unpat}}$ & 图像分块映射与反分块映射 \\
+  $\mathbf P,\ \mathbf p_n,\ N,\ D$ & 分块特征序列、单分块特征、分块数与分块特征维度 & $\mathbf Y^{(r)},\ \mathbf y_n^{(r)}$ & 第 $r$ 轮接收端语义状态与第 $n$ 个分块状态 \\
+  $\mathcal T_\phi,\ \hat{\mathbf X}^{(r)},\ \mathbf l^{(r)}$ & 冻结的接收端任务模型、恢复图像表征与任务输出向量 & $r,\ R,\ \mathbf e_r$ & 传输轮次、最大增量重传轮数与轮次嵌入 \\
+  $f_{\mathrm{base}},\ \mathrm{Norm},\ g_{\mathrm{dec}}$ & 基础编码器、平均功率归一化与语义解码器 & $\mathbf Z^{(0)},\ \hat{\mathbf Z}^{(0)}$ & 基础传输负载与相应接收负载 \\
+  $\mathbf M_{\mathrm{hard}}^{(r)},\ K,\ \mathcal I^{(r)}$ & 第 $r$ 轮二进制反馈掩码、选定分块数与分块索引集合 & $\mathcal F_{\mathrm{tx}},\ \tilde{\mathbf Z}^{(r)}$ & 反馈条件化增量编码映射与候选语义增量 \\
+  $\operatorname{Pack},\ \mathbf Z^{(r)}$ & 所选分块打包操作与第 $r$ 轮实际发送负载 & $\hat{\mathbf Z}^{(r)},\ \mathbf N^{(r)},\ \sigma_r^2$ & 第 $r$ 轮接收负载、AWGN 噪声与噪声方差 \\
+  $\gamma_r,\ P_r,\ D_r$ & 第 $r$ 轮信噪比、发送负载平均功率与实值传输维数 & $d(t_r),\ c,\ \tau_{\mathrm{prop}}^{(r)}$ & 星地斜距、光速与单向传播时延 \\
+  $\epsilon,\ L^{(0)},\ L^{(r)}$ & 单分块实值信道维数、基础轮与增量轮信道使用次数 & $\mathrm{CBR}^{(r)},\ B_{\mathrm{fb}}^{(r)}$ & 累积信道带宽比与累积反馈比特数 \\
 \end{longtable}
 
-\subsection{非对称 LEO 图像传输场景}
-\label{subsec:ch5_scenario}
+\noindent(1)~\textbf{非对称 LEO 图像传输场景}
 
-记源图像为 $\mathbf X\in\mathbb R^{H\times W\times C_{\mathrm{img}}}$，其中 $H$ 与 $W$ 为图像高与宽，RGB 图像通道数 $C_{\mathrm{img}}=3$。发送端经分块映射将其编码为语义分块特征
+记星上发送端采集的源图像为 $\mathbf X\in\mathbb R^{H\times W\times C_{\mathrm{img}}}$，其中 $H$、$W$ 与 $C_{\mathrm{img}}$ 分别表示图像高度、宽度和通道数。分块映射将源图像转换为
 \begin{equation}\label{eq:ch5_patch}
 \mathbf P=f_{\mathrm{pat}}(\mathbf X)=[\mathbf p_1,\dots,\mathbf p_N],\quad \mathbf p_n\in\mathbb R^{D},
 \end{equation}
-其中 $N$ 为分块数，$D$ 为单分块特征维度。不同于任务导向语义通信，发送端仅观测源图像 $\mathbf X$、HARQ 轮次索引与接收端反馈掩码，无法获知任务标签或下游任务模型；下游任务在接收端由本地任务模型 $\mathcal T_\phi(\cdot)$ 执行。该非对称设定刻画星上发送端仅负责图像获取与转发、地面接收端承担异构任务推理的实际图像传输架构。
+其中，$N$ 为图像分块数，$D$ 为单个分块的特征维度。星上发送端只观测源图像、当前传输轮次和接收端返回的二进制掩码，不访问任务标签、任务输出或任务模型参数。下游任务模型部署在算力充足的地面接收端，卫星无需为不同接收任务存储专用模型。
 
-在第 $r$ 轮结束时，接收端维护语义状态 $\mathbf Y^{(r)}=[\mathbf y_1^{(r)},\dots,\mathbf y_N^{(r)}]$。该状态经反分块重建为 $\hat{\mathbf X}^{(r)}=f_{\mathrm{unpat}}(\mathbf Y^{(r)})$，并据此得到任务判决依据
+第 $r$ 轮传输结束后，地面接收端维护语义状态 $\mathbf Y^{(r)}=[\mathbf y_1^{(r)},\dots,\mathbf y_N^{(r)}]$，并通过反分块映射得到恢复图像表征 $\hat{\mathbf X}^{(r)}=f_{\mathrm{unpat}}(\mathbf Y^{(r)})$。冻结的接收端任务模型输出
 \begin{equation}\label{eq:ch5_logits}
 \mathbf l^{(r)}=\mathcal T_\phi\!\left(\hat{\mathbf X}^{(r)}\right),
 \end{equation}
-其中 $\mathbf l^{(r)}$ 为任务模型输出的对数几率（logits）向量，作为反馈生成与任务性能评估的共同依据。
+其中，$\mathbf l^{(r)}$ 为任务输出向量。接收端依据该向量评估当前语义状态，并生成下一轮分块反馈。任务监督和梯度计算均在地面侧完成，不占用星上计算资源。
 
-\subsection{多轮语义 HARQ 传输模型}
-\label{subsec:ch5_harq}
+\noindent(2)~\textbf{多轮语义增量重传模型}
 
-CIS-HARQ 由初始基础传输（base 轮）与 $R$ 个反馈条件化增量重传轮构成。记 HARQ 轮次索引为 $r\in\{0,1,\dots,R\}$，其中 $r=0$ 为 base 轮。在 base 轮，发送端生成任务无关的 JSCC 基础表征
+协同增量语义重传（Coordinated Incremental Semantic Retransmission，CIS-R）包括一轮基础传输和至多 $R$ 轮接收端驱动的增量重传。记传输轮次为 $r\in\{0,1,\dots,R\}$，其中 $r=0$ 表示基础传输。星上发送端首先生成
 \begin{equation}\label{eq:ch5_base}
 \mathbf Z^{(0)}=\mathrm{Norm}\!\left(f_{\mathrm{base}}(\mathbf P)\right),
 \end{equation}
-其中 $f_{\mathrm{base}}(\cdot)$ 为基础编码器，$\mathrm{Norm}(\cdot)$ 为平均功率归一化。接收端将其解码为 $\mathbf Y^{(0)}=g_{\mathrm{dec}}(\hat{\mathbf Z}^{(0)})$，$g_{\mathrm{dec}}(\cdot)$ 为 JSCC 解码器，$\hat{\mathbf Z}^{(0)}$ 为经前向信道后的接收表征。该轮建立的任务无关基础状态为后续增量重传提供统一起点。
+其中，$f_{\mathrm{base}}(\cdot)$ 为基础编码器，$\mathrm{Norm}(\cdot)$ 执行平均功率归一化。基础负载经过前向信道后记为 $\hat{\mathbf Z}^{(0)}$，地面接收端将其解码为 $\mathbf Y^{(0)}=g_{\mathrm{dec}}(\hat{\mathbf Z}^{(0)})$。$\mathbf Y^{(0)}$ 不依赖具体下游任务，并作为后续增量重传的初始语义状态。
 
-对每个增量重传轮 $r\ge1$，接收端依据上一轮状态 $\mathbf Y^{(r-1)}$ 生成 top-$K$ 硬掩码 $\mathbf M_{\mathrm{hard}}^{(r)}\in\{0,1\}^{N}$，且满足 $\lVert\mathbf M_{\mathrm{hard}}^{(r)}\rVert_0=K$，仅标记 $K$ 个待重传分块。以该掩码与轮次嵌入 $\mathbf e_r$ 为条件，发送端生成候选语义增量 $\tilde{\mathbf Z}^{(r)}=f_{\mathrm{ref}}(\mathbf P,\mathbf M_{\mathrm{hard}}^{(r)},\mathbf e_r)$，并按硬掩码截断为
+对任意增量重传轮 $r\geq1$，接收端生成二进制掩码 $\mathbf M_{\mathrm{hard}}^{(r)}\in\{0,1\}^{N}$，并满足 $\lVert\mathbf M_{\mathrm{hard}}^{(r)}\rVert_0=K$。该掩码指示本轮请求的 $K$ 个图像分块。星上发送端以源分块特征、反馈掩码和轮次嵌入为输入，生成候选语义增量
+\begin{equation}
+\tilde{\mathbf Z}^{(r)}=\mathcal F_{\mathrm{tx}}\!\left(\mathbf P,\mathbf M_{\mathrm{hard}}^{(r)},\mathbf e_r\right).
+\end{equation}
+定义所选分块的有序索引集合为 $\mathcal I^{(r)}=\{n:M_{\mathrm{hard},n}^{(r)}=1\}$。实际送入物理信道的负载仅包含这些分块：
 \begin{equation}\label{eq:ch5_maskinc}
-\mathbf Z^{(r)}=\mathbf M_{\mathrm{hard}}^{(r)}\odot\tilde{\mathbf Z}^{(r)},\quad r\ge1,
-\end{equation}
-其中 $f_{\mathrm{ref}}(\cdot)$ 为反馈条件化增量编码器，$\odot$ 为按分块的逐元素相乘，硬掩码沿特征维广播。仅接收端请求的分块进入增量重传负载，未请求分块不占用前向链路资源，重传从完整表征重复发送收敛为受请求分量的选择性增量。
-
-\subsection{前向信道与紧凑反馈链路}
-\label{subsec:ch5_channel}
-
-前向链路建模为 Rician 衰落信道，刻画 LEO 卫星链路中视距（Line-of-Sight，LoS）分量与散射分量并存的传播特性~\cite{zhang-SAGINChannelModel-TVT25}。按复基带约定，两个实值特征维构成一次复信道使用。在第 $r$ 轮，接收表征为
-\begin{equation}\label{eq:ch5_channel}
-\hat{\mathbf Z}^{(r)}=\mathbf h^{(r)}\odot\mathbf Z^{(r)}+\mathbf N^{(r)},\quad \mathbf N^{(r)}\sim\mathcal{CN}\!\left(\mathbf 0,\sigma_{\mathrm{ch}}^2\mathbf I\right),
-\end{equation}
-其中 $\odot$ 为逐符号相乘，$\sigma_{\mathrm{ch}}^2$ 为噪声方差，衰落向量 $\mathbf h^{(r)}$ 的各元素为独立同分布的 Rician 变量，莱斯因子记为 $\kappa$：
-\begin{equation}\label{eq:ch5_rician}
-h_i^{(r)}=\sqrt{\frac{\kappa}{\kappa+1}}+\sqrt{\frac{1}{\kappa+1}}\,\tilde h_i^{(r)},\quad \tilde h_i^{(r)}\sim\mathcal{CN}(0,1),
-\end{equation}
-其中确定性项对应 LoS 分量，$\tilde h_i^{(r)}$ 为散射分量。接收端已知信道状态并执行逐符号均衡。莱斯因子 $\kappa$ 控制 LoS 强度：$\kappa$ 越大链路越趋于 LoS 主导，$\kappa\to\infty$ 时退化为 AWGN 信道，$\kappa$ 越小则多径散射越强。由于 Rician 系数满足单位平均功率 $\mathbb E\!\left[|h_i^{(r)}|^2\right]=1$，信噪比取平均接收信噪比 $\mathrm{SNR}=\mathbb E\!\left[\lVert\mathbf Z^{(r)}\rVert^2\right]/(N_{\mathrm s}\sigma_{\mathrm{ch}}^2)$，其中 $N_{\mathrm s}$ 为复信道使用次数。$r=0$ 时 $\mathbf Z^{(0)}$ 为基础表征；$r\ge1$ 时 $\mathbf Z^{(r)}$ 为经硬掩码截断的增量。第~\ref{sec:ch5_sim}~节所扫 SNR 对应仰角、大气衰减与衰落余量等不同 LEO 链路条件，多普勒与大尺度阴影假定由物理层链路自适应跟踪。
-
-反向链路仅承载硬掩码 $\mathbf M_{\mathrm{hard}}^{(r)}$，用于条件化发送端增量重传与接收端选择性更新。硬掩码为 $K$ 个分块位置的 $0/1$ 指示，反馈开销远低于高维语义特征或模型状态回传，契合星上严格受限的反馈控制信令预算。每个增量重传轮在 LEO 链路上闭合一次反馈环，额外引入一次往返传播时延，其对端到端时延的影响见第~\ref{subsec:ch5_complexity}~节。
-
-\subsection{受限条件下的语义可靠传输问题}
-\label{subsec:ch5_problem}
-
-基于上述非对称架构与多轮传输模型，受限条件下语义可靠传输的目标是：在前向链路带宽、反馈预算与收发机复杂度三重约束下，最大化多轮传输后下游任务的期望执行性能。
-
-为刻画前向链路开销，记单分块传输符号维度为 $\epsilon$，则截至第 $r$ 轮的累积信道带宽比（Channel Bandwidth Ratio，CBR）为
-\begin{equation}\label{eq:ch5_cbr}
-\mathrm{CBR}^{(r)}=\frac{\epsilon\,(N+rK)}{2HWC_{\mathrm{img}}},
-\end{equation}
-其中分母因子 $2$ 表示两个实维计为一次复信道使用，$N$ 与 $rK$ 分别为 base 轮与 $r$ 个增量重传轮累积传输的分块数。记下游任务效用为 $\mathcal Q(\mathbf l^{(r)})$（如分类任务的判决正确性），由接收端状态 $\mathbf Y^{(r)}$ 经任务模型 $\mathcal T_\phi$ 决定。据此，受限语义可靠传输问题形式化为
-\begin{equation}\label{eq:ch5_P1}
 \begin{aligned}
-\mathbf{P1:}\quad \max_{\mathcal F_{\mathrm{mask}},\,\mathcal F_{\mathrm{tx}},\,\mathcal F_{\mathrm{rx}}}\ &\mathbb E\!\left[\sum_{r=1}^{R}\lambda_r\,\mathcal Q\!\left(\mathbf l^{(r)}\right)\right]\\
-\text{s.t.}\quad
-\mathbf{C1:}\ &\big\lVert\mathbf M_{\mathrm{hard}}^{(r)}\big\rVert_0=K, &&\forall r\ge1,\\
-\mathbf{C2:}\ &\mathrm{CBR}^{(R)}\le\mathrm{CBR}^{\max}, &&\\
-\mathbf{C3:}\ &\text{反向链路仅承载 }\mathbf M_{\mathrm{hard}}^{(r)},\ \ \Omega_{\mathrm{tx/rx}}\le\Omega^{\max}, &&\\
-&\text{式~\eqref{eq:ch5_maskinc} 与式~\eqref{eq:ch5_channel}}, &&
+\mathbf Z^{(r)}
+&=\operatorname{Pack}\!\left(\tilde{\mathbf Z}^{(r)},\mathcal I^{(r)}\right)\\
+&=\left[\tilde{\mathbf z}_{n}^{(r)}\right]_{n\in\mathcal I^{(r)}}
+\in\mathbb R^{K\times\epsilon},\qquad r\geq1.
 \end{aligned}
 \end{equation}
-其中 $\mathcal F_{\mathrm{mask}}$、$\mathcal F_{\mathrm{tx}}$、$\mathcal F_{\mathrm{rx}}$ 分别为接收端反馈生成、发送端增量编码与接收端语义累积的待设计映射，$\lambda_r$ 为各轮任务效用权重，$\Omega_{\mathrm{tx/rx}}$ 与 $\Omega^{\max}$ 分别为收发机复杂度及其在受限载荷下的可部署上限。约束 C1 限定每轮反馈仅请求 $K$ 个分块；C2 约束累积前向开销不超过带宽预算；C3 要求反向链路仅承载硬掩码、且收发机须为可部署于受限星上载荷的轻量结构。
+接收端解码这 $K$ 行语义增量后，将其放回掩码指定的位置；未选位置在本轮增量中置零，再与历史语义状态累积。未被请求的分块不占用本轮前向链路资源。
 
-问题 $\mathbf{P1}$ 难以直接求解，原因有三。其一，发送端任务无关，无法获知任务模型 $\mathcal T_\phi$ 与标签，因此无法在发送端直接评估 $\mathcal Q(\cdot)$ 并据此优化增量编码。其二，目标为多轮序贯耦合：第 $r$ 轮的增量更新改变接收端状态 $\mathbf Y^{(r)}$，影响后续各轮的反馈与增量，使各轮决策无法独立求解。其三，约束 C1--C3 将选择性反馈、前向带宽与模型复杂度相互耦合，需在严格反馈预算下以紧凑信令传递任务相关的语义缺口。本章不直接求解 $\mathbf{P1}$，而将其分解为接收端任务缺口定位与紧凑反馈（$\mathcal F_{\mathrm{mask}}$）、发送端反馈条件化增量编码（$\mathcal F_{\mathrm{tx}}$）与接收端状态累积（$\mathcal F_{\mathrm{rx}}$）三个相互衔接的环节，并由两阶段训练协同优化，闭环逼近其目标，相应的框架设计见下一节。
+\noindent(3)~\textbf{AWGN 前向链路与低开销反馈链路}
 
-\section{协同增量语义 HARQ 框架设计}
+各轮语义负载通过加性白高斯噪声（Additive White Gaussian Noise，AWGN）前向链路传输。第 $r$ 轮接收负载为
+\begin{equation}\label{eq:ch5_channel}
+\hat{\mathbf Z}^{(r)}=\mathbf Z^{(r)}+\mathbf N^{(r)},
+\end{equation}
+其中
+\begin{equation}
+\mathbf N^{(r)}\sim\mathcal N\!\left(\mathbf 0,\sigma_r^2\mathbf I\right).
+\end{equation}
+给定第 $r$ 轮目标信噪比 $\gamma_r$（单位为 dB），噪声功率根据本轮实值发送张量的瞬时平均功率确定：
+\begin{equation}
+\sigma_r^2=\frac{P_r}{10^{\gamma_r/10}},\qquad
+P_r=\frac{1}{D_r}\left\lVert\mathbf Z^{(r)}\right\rVert_2^2,
+\end{equation}
+其中，$D_r$ 为第 $r$ 轮发送负载包含的实值维数。静态仿真在一次训练和测试中采用固定 SNR。轨迹驱动仿真在每轮开始时从时变下行链路轨迹中读取 $\gamma_r$，并获取时刻 $t_r$ 的星地斜距 $d(t_r)$。相应的单向传播时延为
+\begin{equation}
+\tau_{\mathrm{prop}}^{(r)}=\frac{d(t_r)}{c},
+\end{equation}
+其中，$c$ 为光速。
+
+反向链路仅传输二进制掩码 $\mathbf M_{\mathrm{hard}}^{(r)}$，并假定该掩码由可靠的低速率控制链路承载。每轮反馈固定占用 $N$ bit。对于 $14\times14$ 分块网格，单轮反馈量为 $196$ bit，三轮增量重传的累计反馈量为 $588$ bit。反馈中不携带高维语义特征、任务模型参数或任务输出，星上发送端只解析分块选择信息。
+
+\noindent(4)~\textbf{通信开销与受限传输问题建模}
+
+记每个发送分块占用 $\epsilon$ 个实值信道维数，并按两个实值维数对应一次复信道使用计数。基础轮与单个增量重传轮的前向负载分别为
+\begin{equation}\label{eq:ch5_round_payloads}
+L^{(0)}=\frac{N\epsilon}{2},\qquad
+L^{(r)}=\frac{K\epsilon}{2},\quad r\geq1.
+\end{equation}
+截至第 $r$ 轮的累积信道带宽比（Channel Bandwidth Ratio，CBR）为
+\begin{equation}\label{eq:ch5_cbr}
+\mathrm{CBR}^{(r)}=\frac{\epsilon(N+rK)}{2HWC_{\mathrm{img}}},
+\qquad r\in\{0,\ldots,R\}.
+\end{equation}
+反向链路累计开销单独记为
+\begin{equation}
+B_{\mathrm{fb}}^{(r)}=rN\quad\text{bit}.
+\end{equation}
+在上述模型中，$K$ 给出每轮请求的分块数量，$\epsilon$ 规定每个分块的前向负载，$R$ 限制增量重传次数。地面接收端依据当前任务输出选择待补充分块，星上发送端仅为这些分块生成并发送语义增量。本章研究的问题是：在星上发送端不部署下游任务模型且保持轻量编码的条件下，如何利用有限的前向增量负载和低速率反馈，提高地面接收端的任务性能。
+
+\section{接收端驱动的协同增量语义重传框架设计}
 \label{sec:ch5_framework}
 
-本节将受限语义传输问题 $\mathbf{P1}$ 的闭环求解具体化为 CIS-HARQ 框架，其总体结构如图~\ref{fig:ch5_system_model}~所示。该框架由三个功能模块构成闭环：接收端的任务驱动硬掩码反馈生成模块实现映射 $\mathcal F_{\mathrm{mask}}$，依据当前语义状态的任务输出裕量及其梯度定位任务相关语义缺口，并将其压缩为 Top-$K$ 硬掩码经反向链路回传；发送端的反馈条件化语义增量编码模块实现映射 $\mathcal F_{\mathrm{tx}}$，以硬掩码与 HARQ 轮次嵌入为条件生成选择性语义增量，仅面向接收端请求分块生成增量重传负载；接收端的掩码引导语义累积模块实现映射 $\mathcal F_{\mathrm{rx}}$，对被请求分块门控融合历史语义与当前增量，对未请求分块保持历史语义不变。三个模块由两阶段训练协同优化。下文先给出单轮协议流程，再依次阐述各模块与训练方法的设计。
+协同增量语义重传（Coordinated Incremental Semantic Retransmission，CIS-R）用于星上发送端算力受限、地面接收端承担任务推理的非对称部署场景。卫星端执行图像分块、基础编码和反馈条件化语义增量生成，地面端负责语义解码、增量累积、下游任务推理和反馈生成。地面端根据当前任务输出选出需要补充语义信息的图像分块，卫星端据此生成并发送相应的语义增量。星上模型容量和推理开销保持不变，任务性能增益来自低速率反馈和有限的增量传输。
 
 \begin{figure}[!htp]
     \centering
-    \includegraphics[width=\linewidth]{figures/chapter5/system_model.pdf}
-    \bicaption{CIS-HARQ闭环语义重传框架}{Closed-loop semantic retransmission framework of CIS-HARQ}
+    \includegraphics[width=\linewidth]{figures/chapter6/figs/system_model.pdf}
+    \bicaption{接收端驱动的 CIS-R 语义重传框架}{Receiver-driven semantic retransmission framework of CIS-R}
     \label{fig:ch5_system_model}
 \end{figure}
 
-\subsection{协议总览}
+\subsection{框架总览}
 \label{subsec:ch5_protocol}
 
-在第~\ref{sec:ch5_sysmodel}~节定义的基础状态上，每个增量重传轮 $r\ge1$ 遵循
-\begin{equation}\label{eq:ch5_protocol}
-\begin{aligned}
-\mathbf M_{\mathrm{hard}}^{(r)}&=\mathcal F_{\mathrm{mask}}\!\left(\mathbf Y^{(r-1)},\mathcal T_\phi\right),\\
-\mathbf Z^{(r)}&=\mathbf M_{\mathrm{hard}}^{(r)}\odot\mathcal F_{\mathrm{tx}}\!\left(\mathbf P,\mathbf M_{\mathrm{hard}}^{(r)},\mathbf e_r\right),\\
-\hat{\mathbf Z}^{(r)}&=\mathbf h^{(r)}\odot\mathbf Z^{(r)}+\mathbf N^{(r)},\\
-\mathbf Y^{(r)}&=\mathcal F_{\mathrm{rx}}\!\left(\mathbf Y^{(r-1)},\hat{\mathbf Z}^{(r)},\mathbf M_{\mathrm{hard}}^{(r)}\right),
-\end{aligned}
-\end{equation}
-其中 $\mathcal F_{\mathrm{mask}}(\cdot)$ 在接收端定位任务缺口，$\mathcal F_{\mathrm{tx}}(\cdot)$ 在发送端将反馈转化为语义增量，$\mathcal F_{\mathrm{rx}}(\cdot)$ 在接收端累积增量而不覆盖未请求分量。该闭环以硬掩码为唯一跨端信令，将接收端任务感知与发送端任务无关编码耦合。
+图~\ref{fig:ch5_system_model} 给出了 CIS-R 的收发结构。星上发送端由分块映射 $f_{\mathrm{pat}}$、基础编码器 $f_{\mathrm{base}}$ 和轻量反馈条件化增量生成模块 $\mathcal F_{\mathrm{tx}}$ 组成。地面接收端部署语义解码器 $g_{\mathrm{dec}}$、增量累积模块 $\mathcal F_{\mathrm{rx}}$、冻结的任务模型 $\mathcal T_\phi$ 以及反馈生成模块 $\mathcal F_{\mathrm{mask}}$。每轮接收完成后，地面端计算各分块对当前任务判决的敏感度，并将评分最高的 $K$ 个分块写入二进制掩码。该掩码通过反向控制链路回传，用于确定下一轮发送的分块及接收状态的更新位置。
 
-\subsection{任务驱动的硬掩码反馈生成}
+算法~\ref{algo:ch5_cis} 给出了 CIS-R 的多轮收发过程。基础轮先建立任务无关的语义状态。此后，每个增量重传轮均由地面端发起分块请求，卫星端生成并打包对应的语义增量，地面端解码后将其并入已有语义状态。在线传输期间，卫星端无需访问任务标签、任务输出和任务模型参数。
+
+\begin{algorithm}[!htp]
+\caption{接收端驱动的协同增量语义重传（CIS-R）收发流程}
+\label{algo:ch5_cis}
+\KwIn{源图像 $\mathbf X$，最大增量重传轮数 $R$，每轮选择分块数 $K$，重复选择抑制因子 $\eta$，冻结的任务模型 $\mathcal T_\phi$}
+\KwOut{完成第 $R$ 轮增量重传后的任务输出}
+发送端计算分块特征 $\mathbf P=f_{\mathrm{pat}}(\mathbf X)$\;
+发送端生成基础负载 $\mathbf Z^{(0)}=\mathrm{Norm}(f_{\mathrm{base}}(\mathbf P))$，并按式~\eqref{eq:ch5_channel} 经前向链路发送\;
+接收端解码基础状态 $\mathbf Y^{(0)}=g_{\mathrm{dec}}(\hat{\mathbf Z}^{(0)})$\;
+\For{$r\leftarrow 1$ \KwTo $R$}{
+  接收端计算 $\mathbf l^{(r-1)}=\mathcal T_\phi(f_{\mathrm{unpat}}(\mathbf Y^{(r-1)}))$\;
+  接收端按照式~\eqref{eq:ch5_margin}--\eqref{eq:ch5_penalty} 计算判决裕量和分块优先级\;
+  接收端选取 Top-$K$ 分块生成 $\mathbf M_{\mathrm{hard}}^{(r)}$，并经反向链路回传\;
+  发送端生成候选语义增量 $\tilde{\mathbf Z}^{(r)}=\mathcal F_{\mathrm{tx}}(\mathbf P,\mathbf M_{\mathrm{hard}}^{(r)},\mathbf e_r)$\;
+  发送端按式~\eqref{eq:ch5_maskinc} 打包所选分块，并按式~\eqref{eq:ch5_channel} 发送 $\mathbf Z^{(r)}$\;
+  接收端解码并按掩码位置恢复增量特征 $\mathbf U^{(r)}$\;
+  接收端按式~\eqref{eq:ch5_accum} 更新语义状态 $\mathbf Y^{(r)}$\;
+}
+接收端输出 $\mathcal T_\phi(f_{\mathrm{unpat}}(\mathbf Y^{(R)}))$\;
+\end{algorithm}
+
+\subsection{任务驱动的决策敏感分块优先级评估}
 \label{subsec:ch5_feedback}
 
-接收端反馈生成旨在找出对当前任务缺口贡献最大的分块。给定状态 $\mathbf Y^{(r-1)}$，接收端重建 $\hat{\mathbf X}^{(r-1)}=f_{\mathrm{unpat}}(\mathbf Y^{(r-1)})$ 并得到任务 logits $\mathbf l^{(r-1)}=\mathcal T_\phi(\hat{\mathbf X}^{(r-1)})$。对分类任务，反馈生成需要反映当前判决边界不确定性的标量任务信号。分类判决直接受预测类与次强竞争类之间裕量影响，本章以 logit 裕量作为任务相关的反馈评分。记 $l_{(1)}^{(r-1)}$ 与 $l_{(2)}^{(r-1)}$ 分别为最大与次大 logit，任务输出裕量定义为
+第 $r$ 轮增量重传开始前，地面端根据当前任务判决对图像分块排序。由语义状态 $\mathbf Y^{(r-1)}$ 恢复图像表征 $\hat{\mathbf X}^{(r-1)}=f_{\mathrm{unpat}}(\mathbf Y^{(r-1)})$ 后，任务模型输出 $\mathbf l^{(r-1)}=\mathcal T_\phi(\hat{\mathbf X}^{(r-1)})$。对于分类任务，将最大任务输出与次大任务输出之差定义为判决裕量：
 \begin{equation}\label{eq:ch5_margin}
 O^{(r-1)}=l_{(1)}^{(r-1)}-l_{(2)}^{(r-1)}.
 \end{equation}
-裕量越小，表明当前语义状态越接近判决边界；其梯度提供定位影响该边界语义分量的分块级信号。
+其中，$l_{(1)}^{(r-1)}$ 和 $l_{(2)}^{(r-1)}$ 分别是 $\mathbf l^{(r-1)}$ 中的最大值和次大值。判决裕量对分块语义特征的梯度用于衡量当前任务输出对该分块的局部敏感度。
 
-仅用梯度可度量局部敏感性，即扰动某分块特征时裕量的变化幅度，无法反映该分块特征自身的当前幅值。为此，采用梯度--激活联合归因评分估计各分块对当前任务裕量的实际贡献：
+第 $n$ 个分块的优先级还与其当前特征幅度有关。为此，将梯度与特征激活相乘，得到分块归因评分
 \begin{equation}\label{eq:ch5_attr}
 C_n^{(r)}=\sum_{d=1}^{D}\left|\frac{\partial O^{(r-1)}}{\partial Y_{n,d}^{(r-1)}}\,Y_{n,d}^{(r-1)}\right|.
 \end{equation}
-该评分使反馈优先选择当前特征值已对判决边界产生较大影响的分块，而非仅在假设特征扰动下才会影响裕量的分块。
+上述梯度均在地面端计算，不占用星上计算资源。$C_n^{(r)}$ 越大，说明第 $n$ 个分块对当前任务判决的影响越大，增量重传时应优先选择该分块。
 
-归因评分经最小--最大归一化为 $V_n^{(r)}$。若不加约束，相邻 HARQ 轮可能反复选择相同的高归因分块，使增量重传资源集中到已更新位置。对首个增量重传轮无上一轮掩码，取 $\bar V_n^{(1)}=V_n^{(1)}$；对 $r\ge2$，引入上一轮掩码惩罚
+将归因评分进行最小--最大归一化，结果记为 $V_n^{(r)}$。若某个分块在相邻轮次连续入选，有限的增量传输资源可能过度集中于同一位置。因此，从第二轮增量重传开始，降低上一轮已选分块的评分：
 \begin{equation}\label{eq:ch5_penalty}
 \bar V_n^{(r)}=
 \begin{cases}
@@ -165,27 +182,30 @@ V_n^{(r)}, & M_{\mathrm{hard},n}^{(r-1)}=0,
 \end{cases}
 \quad r\ge2,
 \end{equation}
-其中 $\eta\in[0,1]$ 为惩罚因子。该惩罚降低近期已重传分块的优先级而非将其完全排除，使任务贡献持续占优的分块仍可被再次选择。接收端随后选取评分最大的 $K$ 个分块，即当 $n\in\operatorname{TopK}(\bar{\mathbf V}^{(r)},K)$ 时 $M_{\mathrm{hard},n}^{(r)}=1$，否则为 $0$。所得硬掩码是回传发送端的唯一反馈信号，紧凑指示下一轮应重传的分块。
+其中，$\bar V_n^{(1)}=V_n^{(1)}$，$\eta\in[0,1]$ 为重复选择抑制因子。该处理仅下调近期已传分块的评分，仍允许对任务判决持续重要的分块再次传输。接收端从 $\bar{\mathbf V}^{(r)}$ 中选取评分最高的 $K$ 个分块，生成 $\mathbf M_{\mathrm{hard}}^{(r)}$。反向链路只需传输这一二进制掩码。
 
-\subsection{反馈条件化语义增量编码}
+\subsection{反馈条件化语义增量生成}
 \label{subsec:ch5_refine}
 
-反馈条件化增量编码器在增量重传轮 $r\ge1$ 工作。给定硬掩码 $\mathbf M_{\mathrm{hard}}^{(r)}$ 与轮次嵌入 $\mathbf e_r$，发送端不观测任务模型与任务 logits 时生成定向增量。为此需将低维反馈转化为分块级特征调制，同时保持条件化机制轻量。
-
-CIS-HARQ 采用空间特征变换（Spatial Feature Transform，SFT）：由紧凑条件向量预测分块级缩放与平移参数，而非高开销的交叉注意力或弱可控的特征拼接。轮次嵌入使调制可随累积语义状态在 HARQ 轮间自适应演化。对第 $n$ 个分块，发送端构造条件向量 $\mathbf c_n^{(r)}=[M_{\mathrm{hard},n}^{(r)},\mathbf e_r]$ 并生成 $[\boldsymbol\gamma_n^{(r)},\boldsymbol\beta_n^{(r)}]=f_{\mathrm{SFT}}(\mathbf c_n^{(r)})$，原始分块特征经调制为
+星上发送端接收到的任务反馈只有二进制掩码，不包含任务模型和任务输出。CIS-R 采用空间特征变换（Spatial Feature Transform，SFT），根据掩码和轮次信息生成分块级缩放参数与平移参数。第 $n$ 个分块的条件向量为 $\mathbf c_n^{(r)}=[M_{\mathrm{hard},n}^{(r)},\mathbf e_r]$，调制参数满足
+\begin{equation}
+[\boldsymbol\gamma_n^{(r)},\boldsymbol\beta_n^{(r)}]
+=f_{\mathrm{SFT}}(\mathbf c_n^{(r)}).
+\end{equation}
+SFT 对原始分块特征的调制结果为
 \begin{equation}\label{eq:ch5_sft}
 \mathbf p_{n,\mathrm{mod}}^{(r)}=\boldsymbol\gamma_n^{(r)}\odot\mathbf p_n+\boldsymbol\beta_n^{(r)},
 \end{equation}
-其中 $f_{\mathrm{SFT}}(\cdot)$ 为 SFT 参数生成网络，$\boldsymbol\gamma_n^{(r)}$ 与 $\boldsymbol\beta_n^{(r)}$ 为分块级缩放与平移参数。调制特征再经残差增量网络得到 $\tilde{\mathbf z}_n^{(r)}=f_{\mathrm{res}}(\mathbf p_{n,\mathrm{mod}}^{(r)})$。随后按式~\eqref{eq:ch5_maskinc} 以硬掩码抑制未选分块，仅使受请求分块进入增量重传负载。
+其中，$\boldsymbol\gamma_n^{(r)}$ 与 $\boldsymbol\beta_n^{(r)}$ 分别为分块级缩放参数和平移参数。调制后的特征送入轻量残差增量网络：
+\begin{equation}
+\tilde{\mathbf z}_n^{(r)}=f_{\mathrm{res}}\!\left(\mathbf p_{n,\mathrm{mod}}^{(r)}\right).
+\end{equation}
+发送端按照式~\eqref{eq:ch5_maskinc} 将接收端请求的 $K$ 个分块打包为本轮负载。因而，每轮增量传输的前向链路占用只由 $K$ 和单分块实值信道维数 $\epsilon$ 决定，未选分块不产生额外的前向传输开销。
 
-硬掩码将每轮增量重传限制在 $K$ 个分块，单分块符号维度 $\epsilon$ 则限定每个分块的前向链路占用。由此，CIS-HARQ 的附加重传开销由分块选择、固定符号维度与重传轮数共同决定，并通过 CBR 统一刻画。该设计使发送端只为接收端请求分块生成语义增量，避免冗余分块占用前向链路资源。
-
-\subsection{掩码引导的语义累积}
+\subsection{掩码引导的增量语义累积}
 \label{subsec:ch5_accum}
 
-经前向信道后，接收端获得含噪增量重传负载 $\hat{\mathbf Z}^{(r)}$ 并解码为增量语义特征 $\mathbf U^{(r)}=g_{\mathrm{dec}}(\hat{\mathbf Z}^{(r)})$。以新解码增量直接替换历史状态会损害性能：一方面增量仍受信道噪声影响且可能不完整，另一方面未选分块未被请求重传、却可能已含有用语义。接收端需要选择性累积机制，在所选分块上平衡历史与增量特征，同时保持未选分块不变。
-
-对所选分块，CIS-HARQ 先以自适应融合门平衡历史状态与新增量，再由硬掩码将融合结果仅施加于受请求分块：
+地面接收端对增量负载进行解码，并按反馈索引将所选分块回填至原位置，得到增量语义特征 $\mathbf U^{(r)}$。历史状态仍包含有效语义，当前增量各特征维的可靠性也不完全相同。CIS-R 根据二者联合生成融合门：
 \begin{equation}\label{eq:ch5_accum}
 \begin{aligned}
 \mathbf G^{(r)}&=\sigma\!\left(f_g\!\left([\mathbf Y^{(r-1)},\mathbf U^{(r)}]\right)\right),\\
@@ -193,39 +213,32 @@ CIS-HARQ 采用空间特征变换（Spatial Feature Transform，SFT）：由紧�
 \mathbf Y^{(r)}&=\mathbf M_{\mathrm{hard}}^{(r)}\odot\tilde{\mathbf Y}^{(r)}+\left(1-\mathbf M_{\mathrm{hard}}^{(r)}\right)\odot\mathbf Y^{(r-1)},
 \end{aligned}
 \end{equation}
-其中 $f_g(\cdot)$ 为融合网络，$\sigma(\cdot)$ 为 sigmoid 函数，硬掩码沿语义特征维广播。该规则仅更新受请求分块，其余分块保持历史特征，从而保护有用语义分量免受含噪重传干扰，并支撑 HARQ 轮间的互补累积。
+其中，$f_g(\cdot)$ 为融合门生成网络，$\sigma(\cdot)$ 为 sigmoid 函数。对于被请求的分块，$\mathbf G^{(r)}$ 逐维调节历史状态与当前增量的融合比例；其余分块不参与本轮更新，继续沿用 $\mathbf Y^{(r-1)}$ 中的状态。
 
-\subsection{两阶段训练与算法流程}
+\subsection{两阶段训练目标}
 \label{subsec:ch5_train}
 
-框架采用两阶段训练。第一阶段标定任务无关 JSCC 基础传输，第二阶段优化反馈条件化语义 HARQ 增量重传环。
-
-第一阶段联合优化分块、基础编码、JSCC 解码与反分块模块，最小化重建损失 $\mathcal L_{\mathrm{rec}}=\lVert f_{\mathrm{unpat}}(g_{\mathrm{dec}}(\hat{\mathbf Z}^{(0)}))-\mathbf X\rVert_2^2$，建立稳定的任务无关基础表征。
-
-第二阶段冻结基础传输模块，仅优化增量重传模块。训练目标直接面向下游任务性能。对分类任务，接收端以 logits $\mathbf l^{(r)}$ 与真值标签 $y$ 计算交叉熵损失 $\mathcal L_{\mathrm{task}}^{(r)}=\mathrm{CE}(\mathbf l^{(r)},y)$。对其他下游任务，可在保持相同反馈条件化增量重传协议下，替换任务损失与反馈评分函数。语义 HARQ 总训练损失为
-\begin{equation}\label{eq:ch5_loss}
-\mathcal L_{\mathrm{CIS}}=\sum_{r=1}^{R}\lambda_r\mathcal L_{\mathrm{task}}^{(r)},
+第一阶段训练任务无关的基础传输模块。分块映射、基础编码器、语义解码器和反分块映射采用图像重建损失联合训练：
+\begin{equation}\label{eq:ch5_base_loss}
+\mathcal L_{\mathrm{base}}
+=\left\|f_{\mathrm{unpat}}\!\left(g_{\mathrm{dec}}(\hat{\mathbf Z}^{(0)})\right)-\mathbf X\right\|_2^2.
 \end{equation}
-其中 $\lambda_r$ 平衡各增量重传轮贡献。求和自 $r=1$ 起，因为第二阶段冻结基础传输模块并优化增量重传环；实践中对后轮赋更大权重，使最终任务输出获得更强监督，中间轮为稳定多轮增量重传提供辅助引导。CIS-HARQ 的多轮收发流程概括于算法~\ref{algo:ch5_cis}。
+这一阶段不使用下游任务模型，训练得到的基础语义状态作为地面端后续任务处理和增量累积的初始输入。
 
-\begin{algorithm}[!htp]
-\caption{协同增量语义 HARQ（CIS-HARQ）多轮收发流程}
-\label{algo:ch5_cis}
-\KwIn{源图像 $\mathbf X$，最大增量重传轮数 $R$，反馈预算 $K$，惩罚因子 $\eta$}
-\KwOut{各轮接收端语义状态 $\{\mathbf Y^{(r)}\}_{r=0}^{R}$ 与最终任务判决 $\mathbf l^{(R)}$}
-发送端计算分块特征 $\mathbf P=f_{\mathrm{pat}}(\mathbf X)$\;
-发送端生成基础表征 $\mathbf Z^{(0)}=\mathrm{Norm}(f_{\mathrm{base}}(\mathbf P))$ 并经前向信道发送\;
-接收端解码基础状态 $\mathbf Y^{(0)}=g_{\mathrm{dec}}(\hat{\mathbf Z}^{(0)})$\;
-\For{$r\leftarrow 1$ \KwTo $R$}{
-  接收端重建 $\hat{\mathbf X}^{(r-1)}=f_{\mathrm{unpat}}(\mathbf Y^{(r-1)})$ 并求 logits $\mathbf l^{(r-1)}=\mathcal T_\phi(\hat{\mathbf X}^{(r-1)})$\;
-  由式~\eqref{eq:ch5_margin}--\eqref{eq:ch5_penalty} 计算裕量 $O^{(r-1)}$、归因 $C_n^{(r)}$ 与惩罚后评分 $\bar V_n^{(r)}$\;
-  选取 top-$K$ 生成硬掩码 $\mathbf M_{\mathrm{hard}}^{(r)}$ 并经反向链路回传发送端\;
-  发送端由式~\eqref{eq:ch5_sft} 经 SFT 调制与残差增量生成候选增量，按式~\eqref{eq:ch5_maskinc} 截断为 $\mathbf Z^{(r)}$\;
-  发送端经前向信道发送 $\mathbf Z^{(r)}$，接收端解码增量 $\mathbf U^{(r)}=g_{\mathrm{dec}}(\hat{\mathbf Z}^{(r)})$\;
-  接收端由式~\eqref{eq:ch5_accum} 执行门控融合与掩码引导累积，更新状态 $\mathbf Y^{(r)}$\;
-}
-接收端输出最终任务判决 $\mathbf l^{(R)}=\mathcal T_\phi(f_{\mathrm{unpat}}(\mathbf Y^{(R)}))$\;
-\end{algorithm}
+第二阶段冻结基础传输模块，只训练 SFT 参数生成网络、残差增量网络和接收端融合门。分类任务在第 $r$ 轮采用交叉熵损失 $\mathcal L_{\mathrm{task}}^{(r)}=\mathrm{CE}(\mathbf l^{(r)},y)$。为抑制过于平坦的预测分布，记
+\begin{equation}
+p_c^{(r)}=\mathrm{softmax}(\mathbf l^{(r)})_c,
+\end{equation}
+相应的预测熵为
+\begin{equation}\label{eq:ch5_entropy}
+\mathcal H^{(r)}=-\sum_c p_c^{(r)}\log\!\left(p_c^{(r)}+\delta\right),
+\end{equation}
+其中，$\delta>0$ 用于避免对数运算出现数值异常。第二阶段的训练目标写为
+\begin{equation}\label{eq:ch5_loss}
+\mathcal L_{\mathrm{CIS-R}}
+=\sum_{r=1}^{R}\lambda_r\left(\mathcal L_{\mathrm{task}}^{(r)}+\lambda_{\mathrm{ent}}\mathcal H^{(r)}\right),
+\end{equation}
+其中，$\lambda_r$ 控制各增量重传轮对总损失的贡献，$\lambda_{\mathrm{ent}}$ 为预测熵正则项的权重。预测熵只约束地面端的任务输出，不用于估计传输码率。前向通信开销仍由式~\eqref{eq:ch5_round_payloads} 和式~\eqref{eq:ch5_cbr} 给出的分块数量与信道维数确定。
 
 \section{仿真结果与分析}
 \label{sec:ch5_sim}
