@@ -243,16 +243,20 @@ p_c^{(r)}=\mathrm{softmax}(\mathbf l^{(r)})_c,
 \section{仿真结果与分析}
 \label{sec:ch5_sim}
 
-本节从精度--CBR 折衷、计算复杂度与时延、模块消融、反馈可视化、敏感性与鲁棒性，以及不同数据集、多任务与跨任务泛化等方面，对 CIS-HARQ 进行系统评估。
-
 \subsection{仿真设置}
 \label{subsec:ch5_setup}
 
-在三个公开数据集上评估 CIS-HARQ：ImageNet-100~\cite{deng-ImageNet-CVPR09} 与 CIFAR-100~\cite{krizhevsky-CIFAR-TR09} 用于单任务图像分类，VeRi-776~\cite{liu-VeRi776-ECCV16} 用于评估多任务接收端，其重建图像分别送入车辆颜色与车型两个任务头。除特别说明外，输入图像在传输前统一缩放或裁剪为 $224\times224$。前向链路建模为莱斯因子 $\kappa=10$ 的 Rician 衰落信道，以反映 LEO 链路 LoS 主导的几何特性；默认信噪比（Signal-to-Noise Ratio，SNR）为 $5$~dB，最大增量重传轮数为三轮，每个硬掩码反馈选取 $K=16$ 个分块。接收端任务模型采用视觉 Transformer（Vision Transformer，ViT）~\cite{dosovitskiy-ViT-ICLR21}。ImageNet-100 采用 ViT 特征维度与 JSCC 隐藏维度均为 $512$ 的配置，CIFAR-100 与 VeRi-776 采用维度分别为 $256$ 与 $128$ 的轻量配置，以检验受限配置下的反馈有效性。在 ImageNet-100 上，冻结任务模型对干净图像的精度为 $87.84\%$，作为相应图中的参照上界。主要仿真场景与模型超参数分别列于表~\ref{tab:ch5_scenario} 与表~\ref{tab:ch5_model}。
+\noindent(1)~\textbf{数据集与评价方法}
+
+受控仿真采用 ImageNet-100~\cite{deng-ImageNet-CVPR09} 图像分类数据集。输入尺寸为 $224\times224$，每幅 RGB 图像划分为 $N=196$ 个分块，并按 $14\times14$ 网格排列。冻结任务模型在干净图像上的分类结果作为性能参照。所有 ImageNet-100 准确率均在包含 $5000$ 幅图像的验证集上统计。地面端任务性能采用 Top-1 分类准确率衡量，前向链路开销采用名义信道带宽比（Channel Bandwidth Ratio，CBR）衡量。CBR 只计入前向复信道使用次数，反馈开销以比特数另行统计。
+
+\noindent(2)~\textbf{信道与反馈配置}
+
+前向链路采用加性白高斯噪声（Additive White Gaussian Noise，AWGN）信道，静态信道仿真的 SNR 取 $\{0,2,5,8,10\}$~dB。每个 SNR 均独立训练和测试 CIS-R 模型。除非另有说明，单分块实值信道维数取 $\epsilon=32$，每轮选择 $K=16$ 个分块，最多执行 $R=3$ 轮增量重传。反向控制链路在每轮返回一个 $196$ bit 的二进制掩码，因此三轮增量重传对应每幅图像 $588$ bit 的累计反馈量。其余默认参数见表~\ref{tab:ch5_scenario}。
 
 \begin{table}[!htp]
 \centering
-\bicaption{仿真场景与数据集配置}{Simulation scenario and dataset configuration}
+\bicaption{CIS-R 默认仿真参数}{Default simulation parameters of CIS-R}
 \label{tab:ch5_scenario}
 \small
 \renewcommand{\arraystretch}{1.2}
@@ -260,195 +264,168 @@ p_c^{(r)}=\mathrm{softmax}(\mathbf l^{(r)})_c,
 \toprule
 参数 & 取值 \\
 \midrule
-数据集 & ImageNet-100；CIFAR-100；VeRi-776 \\
-任务类型 & 图像分类；车辆颜色/车型分类（多任务） \\
 输入尺寸 & $224\times224$ \\
-前向信道 & Rician 衰落，$\kappa=10$ \\
-默认 SNR & $5$~dB \\
-最大重传轮数 $R$ & $3$ \\
-反馈预算 $K$ & $16$ 个语义分块 \\
-参照上界精度 & $87.84\%$（ImageNet-100，干净图像） \\
+分块网格 $N$ & $14\times14=196$ \\
+单分块实值信道维数 $\epsilon$ & $32$ \\
+每轮选择分块数 $K$ & $16$ \\
+最大增量重传轮数 $R$ & $3$ \\
+重复选择抑制因子 $\eta$ & $0.1$ \\
+各轮损失权重 $(\lambda_1,\lambda_2,\lambda_3)$ & $(0.2,0.3,1.0)$ \\
+预测熵正则项权重 $\lambda_{\mathrm{ent}}$ & $0.2$ \\
+轮次嵌入维数 & $32$ \\
 \bottomrule
 \end{tabular}
 \end{table}
 
-\begin{table}[!htp]
-\centering
-\bicaption{模型结构与关键超参数}{Model structure and key hyperparameters}
-\label{tab:ch5_model}
-\small
-\renewcommand{\arraystretch}{1.2}
-\begin{tabular}{@{}l c c@{}}
-\toprule
-参数 & ImageNet-100 & CIFAR-100 / VeRi-776 \\
-\midrule
-任务模型骨干 & ViT & ViT \\
-ViT 特征维度 $D$ & $512$ & $256$ \\
-JSCC 隐藏维度 & $512$ & $128$ \\
-单分块符号维度 $\epsilon$ & $\{16,32,64\}$ & 轻量固定配置 \\
-反馈预算 $K$ & $16$ & $16$ \\
-\bottomrule
-\end{tabular}
-\end{table}
+\noindent(3)~\textbf{对比方法与开销统计}
 
-对比基线为 SwinJSCC~\cite{SwinJSCC} 与 DiffJSCC~\cite{DiffJSCC}。SwinJSCC 作为对齐 CBR 设置下的静态开环 JSCC 基线；DiffJSCC 发布模型在本设置下仅提供 $\mathrm{CBR}=1/96$ 的单一工作点，且依赖 BLIP 与 Stable Diffusion、模型规模更大，故主要作为精度--复杂度参照而非完整 CBR 轨迹基线。评估指标包括分类精度、CBR、模型参数量与端到端时延。前向链路按复基带建模，统计 CBR 时两个实维计为一次复信道使用：对静态基线，$\mathrm{CBR}=NC_{\mathrm s}/(2HWC_{\mathrm{img}})$，其中 $C_{\mathrm s}$ 为静态 JSCC 基线的传输符号维度；对 CIS-HARQ 第 $r$ 轮则由式~\eqref{eq:ch5_cbr} 给出。CIS-HARQ 的附加传输开销由每轮请求分块数 $K$、单分块符号维度 $\epsilon$ 与重传轮数共同决定，并统一反映在 CBR 中。
+SNR 对比采用 SwinJSCC~\cite{SwinJSCC} 作为静态联合信源信道编码基线，实验直接使用其公开发布的重建导向预训练模型。SwinJSCC 在传输符号维数 $C=32$ 时的 CBR 为 $0.020833$，与 $\epsilon=32$ 时 CIS-R 基础轮 R0 的 CBR 相同。CIS-R 完成三轮增量重传后，累计 CBR 为 $0.025935$。语义码本方法 Codebook~\cite{liang-SemanticCodebookHARQ-TCOMM25} 和 DiffJSCC~\cite{DiffJSCC} 作为部署开销参照，其中 DiffJSCC 采用输入尺寸为 $512\times512$ 的生成式恢复流程。部署开销统计通信模型参数量、完整任务处理链路的同步推理时延和峰值 GPU 显存占用。
 
-\subsection{精度--CBR 主对比}
-\label{subsec:ch5_acc_cbr}
+\subsection{不同信噪比下的任务传输性能}
+\label{subsec:ch5_snr_comparison}
 
-表~\ref{tab:ch5_acc_cbr} 在 ImageNet-100、SNR $=5$~dB 下比较 SwinJSCC 与 CIS-HARQ 的分类精度和 CBR。低 CBR 工作点首先体现出闭环增量重传的收益：当 CBR 为 $0.0104$ 时，SwinJSCC 的精度为 $10.36\%$，而 CIS-HARQ 的基础轮 R0 已达到 $19.76\%$；经过三轮增量传输后，CBR 增至 $0.0129$，精度进一步升至 $38.40\%$，较 R0 提高 $18.64$ 个百分点。在中等 CBR 工作点，CIS-HARQ 由 $56.88\%$ 提升至 $65.02\%$，相对 R0 的增益为 $8.14$ 个百分点，同时仍明显高于同初始 CBR 下 SwinJSCC 的 $35.66\%$。这说明任务反馈引导的增量语义传输主要弥补初始语义状态不足，而不是简单依赖一次性增大发送符号维度。
+图~\ref{fig:ch5_snr_accuracy} 比较了不同 SNR 下 SwinJSCC、CIS-R 基础轮 R0 和三轮增量重传后 R3 的 Top-1 分类准确率。SwinJSCC 与 CIS-R R0 的 CBR 均为 $0.020833$，二者具有相同的前向链路开销；CIS-R R3 的累计 CBR 为 $0.025935$。每个 SNR 工作点均采用独立训练的 CIS-R 模型。
 
-当特征维度增至 $\epsilon=64$ 时，SwinJSCC 在 CBR $0.0417$ 下达到 $77.54\%$，CIS-HARQ 的 R0 精度为 $77.60\%$，二者几乎相同。继续执行三轮增量传输后，CIS-HARQ 的 CBR 从 $0.0417$ 增至 $0.0519$，最终精度仅提升到 $78.44\%$，相对 R0 增益为 $0.84$ 个百分点。该结果表明，当基础轮已经保留较充分的任务相关语义时，后续 HARQ 轮次带来的精度增益会自然收敛；CIS-HARQ 的主要适用区间是初始表征受链路带宽或信道质量限制的场景。
-
-\begin{table}[!htp]
-\centering
-\bicaption{ImageNet-100 上信噪比 $5$~dB 时的分类精度与 CBR 对比}{Comparison of classification accuracy and CBR at SNR $5$~dB on ImageNet-100}
-\label{tab:ch5_acc_cbr}
-\small
-\renewcommand{\arraystretch}{1.2}
-\setlength{\tabcolsep}{5pt}
-\begin{tabular}{@{}l c c c@{}}
-\toprule
-方法 & 配置 & CBR & 精度（\%） \\
-\midrule
-SwinJSCC & $C_{\mathrm s}=16$ & $0.0104$ & $10.36$ \\
-CIS-HARQ & $\epsilon=16$，R0$\to$R3 & $0.0104\to0.0129$ & $19.76\to38.40$ \\
-\midrule
-SwinJSCC & $C_{\mathrm s}=32$ & $0.0208$ & $35.66$ \\
-CIS-HARQ & $\epsilon=32$，R0$\to$R3 & $0.0208\to0.0259$ & $56.88\to65.02$ \\
-\midrule
-SwinJSCC & $C_{\mathrm s}=64$ & $0.0417$ & $77.54$ \\
-CIS-HARQ & $\epsilon=64$，R0$\to$R3 & $0.0417\to0.0519$ & $77.60\to78.44$ \\
-\bottomrule
-\end{tabular}
-\end{table}
-
-图~\ref{fig:ch5_acc_cbr} 将 SwinJSCC 的静态开环工作点与 CIS-HARQ 的逐轮增量轨迹置于同一精度--CBR 平面。SwinJSCC 若要提高精度，只能切换到更大的静态符号维度；CIS-HARQ 则在 R0 基础上沿 HARQ 轮次追加少量前向链路开销。以 $\epsilon=16$ 为例，CIS-HARQ 在 CBR $0.0104$ 时的 R0 精度为 $19.76\%$，经过三轮增量传输后以 CBR $0.0129$ 达到 $38.40\%$；这一结果高于同 CBR 处 SwinJSCC 的 $10.36\%$，并超过 SwinJSCC 在更高 CBR $0.0208$ 下的 $35.66\%$。在 $\epsilon=32$ 时，R3 精度为 $65.02\%$，相对 R0 增加 $8.14$ 个百分点，但曲线斜率已低于 $\epsilon=16$；当 $\epsilon=64$ 时，R0 到 R3 仅增加 $0.84$ 个百分点，轨迹几乎水平。该趋势说明，反馈引导的增量传输主要在低、中 CBR 区间提升任务相关语义恢复效率；基础表征足够强时，继续增加重传轮次的收益有限。
+在 SNR $=0$~dB 时，CIS-R 的准确率由 R0 的 $11.30\%$ 提升至 R3 的 $29.02\%$，SwinJSCC 为 $22.80\%$。SNR $=2$~dB 时，CIS-R 从 $30.06\%$ 提升至 $53.90\%$，相较 R0 增加 $23.84$ 个百分点，而 SwinJSCC 的准确率为 $29.94\%$。当 SNR 提升至 $5$~dB，CIS-R 从 $57.32\%$ 提升至 $69.56\%$，SwinJSCC 为 $35.28\%$。CIS-R R3 在 SNR 为 $8$~dB 和 $10$~dB 时分别达到 $77.02\%$ 和 $79.58\%$。基础传输受到信道噪声影响时，后续增量传输仍可补充任务判决所需的语义信息。SNR $=2$~dB 时的逐轮增益最大。
 
 \begin{figure}[!htp]
     \centering
-    \includegraphics[width=0.8\linewidth]{figures/chapter5/accuracy_cbr_tradeoff.png}
-    \bicaption{SNR为5 dB时CIS-HARQ的准确率与CBR权衡}{Accuracy-CBR tradeoff of CIS-HARQ at an SNR of 5 dB}
-    \label{fig:ch5_acc_cbr}
+    \includegraphics[width=0.86\linewidth]{figures/chapter6/figs/snr_accuracy_comparison_eps32.pdf}
+    \bicaption{ImageNet-100 上不同信噪比下的 Top-1 分类准确率}{Top-1 classification accuracy versus SNR on ImageNet-100}
+    \label{fig:ch5_snr_accuracy}
 \end{figure}
 
-\subsection{计算复杂度与时延}
-\label{subsec:ch5_complexity}
+\subsection{任务准确率与前向链路开销权衡}
+\label{subsec:ch5_accuracy_cbr}
 
-表~\ref{tab:ch5_complexity} 给出不同传输流程的模型规模与推理时延。此处时延为对应通信流程处理单幅图像的模型推理时间，不含传播时延与下游任务头推理；对 CIS-HARQ，时延涵盖 HARQ 流程中完整的收发推理管线。DiffJSCC 在其发布的 CBR 设置下达到 $85.60\%$ 精度，但依赖 BLIP 与 Stable Diffusion；SwinJSCC 较 DiffJSCC 更轻，但仍采用 Swin Transformer 骨干。CIS-HARQ 则由轻量基础编码器、基于多层感知机（Multilayer Perceptron，MLP）的增量重传模块与门控融合构成，参数量和推理时延分别为 $2.22$~M 与 $2.17$~ms。
+图~\ref{fig:ch5_accuracy_cbr} 绘制了不同单分块实值信道维数 $\epsilon$ 下 CIS-R 的逐轮准确率--CBR 轨迹，实验设置为 SNR $=5$~dB、$K=16$。当 $\epsilon=16$ 时，准确率由 R0 的 $19.66\%$ 提升至 R3 的 $40.28\%$，累计 CBR 从 $0.010417$ 增至 $0.012968$。当 $\epsilon=32$ 时，准确率由 $57.32\%$ 提升至 $69.56\%$，CBR 从 $0.020833$ 增至 $0.025935$。将 $\epsilon$ 增至 $64$ 后，基础轮准确率已达到 $77.64\%$，三轮增量重传后为 $81.44\%$，相应 CBR 从 $0.041667$ 增至 $0.051871$。
 
-\begin{table}[!htp]
-\centering
-\bicaption{不同传输流程的模型规模与推理时延}{Model size and inference latency of different transmission schemes}
-\label{tab:ch5_complexity}
-\small
-\renewcommand{\arraystretch}{1.2}
-\begin{tabular}{@{}l c c c@{}}
-\toprule
-方法 & 骨干 & 参数量（M） & 时延（ms） \\
-\midrule
-DiffJSCC & JSCC+BLIP+SD2.1 & $5479.00$ & $\sim4000.00$ \\
-SwinJSCC & Swin Transformer & $33.03$ & $15.19$ \\
-CIS-HARQ & 基础编码器+MLP+融合 & $2.22$ & $2.17$ \\
-\bottomrule
-\end{tabular}
-\end{table}
-
-综合表~\ref{tab:ch5_acc_cbr} 与表~\ref{tab:ch5_complexity} 可见，CIS-HARQ 在最强配置（$\epsilon=64$、R3）下达到 $78.44\%$ 精度，与 DiffJSCC 的 $85.60\%$ 相差 $7.16$ 个百分点，但其参数量仅为 $2.22$~M，约为 SwinJSCC 的 $1/15$、DiffJSCC 的 $1/2500$。从推理时延看，CIS-HARQ 为 $2.17$~ms，约为 SwinJSCC 的 $1/7$、DiffJSCC 的 $1/1800$。这表明，CIS-HARQ 把精度增益更多地放在窄带宽下的反馈增量轮次上，避免依赖更大的收发机容量。
-
- LEO 链路中的端到端时延由模型推理与往返传播共同决定。表~\ref{tab:ch5_complexity} 只计列模型推理时延，是为了隔离不同收发机结构的计算开销；传播时延主要由轨道高度、仰角和链路几何决定，而非由编解码器结构决定。对 CIS-HARQ 而言，每个增量重传轮会引入一次反馈闭环和一次额外前向传输，主要代价体现在 LEO 往返传播上；但其本地推理仍保持在毫秒级。相比之下，DiffJSCC 的 $\sim4000$~ms 推理时延来自生成式复原流程，即使不考虑传播也会占据主要时延预算。该分解说明，在星上算力受限而允许少量反馈轮次的场景下，用选择性增量重传替代模型容量扩展更符合 LEO 语义传输的部署约束。
-
-\subsection{消融实验}
-\label{subsec:ch5_ablation}
-
-在 ImageNet-100、$\epsilon=32$、$K=16$、SNR $=5$~dB 下开展消融实验。图~\ref{fig:ch5_ablation} 将最终第三轮（R3）分类精度作为评价指标，分别考察语义状态累积和反馈分块选择两类设计。所有变体保持相同的增量轮数、单分块符号维度和反馈分块数，因此图中差异主要来自接收端如何融合跨轮语义状态，以及反馈模块如何选择后续请求分块。
+三种配置下，R0 至 R3 的准确率增益分别为 $20.62$、$12.24$ 和 $3.80$ 个百分点。基础轮通信预算越大，初始语义状态越接近饱和，追加增量传输带来的增益也越小。因而，CIS-R 的主要收益区间是基础轮前向链路资源受限的场景：系统增加少量通信负载，用以弥补轻量星上编码器单次传输能力的不足。图中 CBR 只统计前向链路开销，反馈比特未计入 CBR。
 
 \begin{figure}[!htp]
     \centering
-    \includegraphics[width=0.7\linewidth]{figures/chapter5/round_wise_ablation.png}
-    \bicaption{ImageNet-100下语义状态累积与反馈生成消融结果}{Ablation results of semantic state accumulation and feedback generation on ImageNet-100}
-    \label{fig:ch5_ablation}
+    \includegraphics[width=0.86\linewidth]{figures/chapter6/figs/epsilon_accuracy_cbr_tradeoff.pdf}
+    \bicaption{不同单分块信道维数下的任务准确率与 CBR 权衡}{Task accuracy--CBR trade-off under different per-patch channel dimensions}
+    \label{fig:ch5_accuracy_cbr}
 \end{figure}
 
-语义累积消融显示，自适应融合门取得 $65.0\%$ 的 R3 精度，直接替换历史状态仅为 $57.2\%$，下降 $7.8$ 个百分点。这说明新一轮解码增量并不能无条件覆盖既有语义状态；在跨轮传输中，历史状态仍包含对最终分类有用的任务相关特征。简单平均达到 $64.7\%$，与自适应融合门仅差 $0.3$ 个百分点，表明在该工作点下，保留历史语义比复杂融合形式本身更关键。自适应融合门的主要作用是为不同分块提供可学习的历史--增量权重，增益幅度在该设置下较为有限。
+\subsection{关键模块消融与反馈掩码分析}
+\label{subsec:ch5_ablation_mask}
 
-反馈生成消融中，基于任务裕量的硬掩码达到 $65.0\%$，随机分块选择为 $61.0\%$，差距为 $4.0$ 个百分点。两者使用相同的 $K=16$ 和相同增量轮数，$4.0$ 个百分点的差距直接指向反馈分块选择策略。随机反馈仍能带来一定恢复能力，说明多轮增量本身可以补充部分丢失语义；基于裕量的反馈进一步把有限增量集中到影响分类边界的分块上，因而获得更高最终精度。
+\noindent(1)~\textbf{关键模块消融}
 
-\subsection{反馈掩码可视化}
-\label{subsec:ch5_maskvis}
+图~\ref{fig:ch5_ablation_roundwise} 在 $\epsilon=32$、$K=16$ 和 SNR $=5$~dB 下比较 CIS-R 及其消融变体。各变体在同一轮次具有相同的名义 CBR，准确率差异由反馈生成、SFT 条件调制和接收端累积方式造成。完整 CIS-R 在 R3 达到 $69.56\%$。采用随机分块选择时，准确率降至 $66.64\%$。两者传输的符号数相同，$2.92$ 个百分点的差距来自分块选择策略。移除 SFT 后的 R3 准确率为 $68.58\%$，比完整方法低 $0.98$ 个百分点，反映出反馈条件化调制在硬掩码限定发送位置之外的作用。
 
- 图~\ref{fig:ch5_maskvis} 可视化了 CIS-HARQ 的任务驱动硬掩码反馈。接收端在每一轮基于当前语义状态计算任务裕量归因，并选择 top-$K$ 分块作为下一轮增量请求；语义状态更新后，归因分布重新计算，因而 R1、R2 和 R3 的掩码位置并不固定。该反馈只回传分块索引，不传输高维语义特征，使反向链路开销保持在低控制信令量级。
+接收端采用固定平均融合时，R3 准确率为 $68.24\%$。直接使用当前增量替换历史状态会在 R2 出现明显下降，最终仅达到 $62.00\%$，相较完整方法低 $7.56$ 个百分点。这一差距来自历史语义的丢失：跨轮累积需要保留已有状态中的有效信息，并根据当前增量调整融合比例。
 
 \begin{figure}[!htp]
     \centering
-    \includegraphics[width=\linewidth]{figures/chapter5/feedback_mask_vis_paper.png}
-    \bicaption{CIS-HARQ任务驱动反馈掩码可视化}{Visualization of task-driven feedback masks in CIS-HARQ}
-    \label{fig:ch5_maskvis}
+    \includegraphics[width=0.88\linewidth]{figures/chapter6/figs/roundwise_ablation_nobits.pdf}
+    \bicaption{CIS-R 关键模块的逐轮消融结果}{Round-wise ablation results of the key CIS-R modules}
+    \label{fig:ch5_ablation_roundwise}
 \end{figure}
 
- 从该样例可以看到，R1 的归因图主要在目标主体及其附近形成较高响应，后续硬掩码覆盖目标边缘、局部纹理以及与背景交界的区域。随着 R2 和 R3 更新语义状态，掩码位置发生调整，说明反馈并非重复请求固定区域，而是随当前判决状态重新选择增量分块。该样例在 R0 后分类错误、R3 后转为正确，提供了任务相关反馈能够引导互补增量重传的定性证据；定量收益仍以上一节消融结果中的 $4.0$ 个百分点反馈增益为准。
+\noindent(2)~\textbf{决策敏感反馈掩码分析}
 
-\subsection{特征维度敏感性}
-\label{subsec:ch5_epsilon}
-
- 进一步评估特征维度 $\epsilon$ 在 ImageNet-100、SNR $=5$~dB、$K=16$ 下的影响。图~\ref{fig:ch5_epsilon} 显示，当 $\epsilon=8$ 时，R0 精度仅约 $5\%$，经过三轮增量重传后也只有约 $10\%$。这说明首轮传输若只保留很少的任务相关语义，后续 HARQ 轮次可补充的信息有限。将 $\epsilon$ 增至 $16$ 后，CIS-HARQ 的精度由 R0 的 $19.76\%$ 提升至 R3 的 $38.40\%$，增益为 $18.64$ 个百分点；$\epsilon=32$ 时最终精度达到 $65.0\%$。该变化表明，中等特征维度能够提供更可靠的初始语义状态，使任务反馈有足够依据选择后续增量分块。
-
-当 $\epsilon$ 增至 $64$ 和 $128$ 时，R0 精度已分别约为 $77.6\%$ 与 $83\%$，与低维配置相比，主要增益来自首轮语义承载能力的提升。此时继续执行增量重传的边际收益明显收窄：$\epsilon=64$ 从 R0 到 R3 仅提升到 $78.44\%$，增益为 $0.84$ 个百分点；$\epsilon=128$ 的逐轮曲线也基本保持平坦，并仍低于干净图像参照上界 $87.84\%$。因此，$\epsilon$ 主要决定首轮前向链路能够承载的语义信息量，而 HARQ 轮次更适合修补低、中 CBR 条件下首轮遗漏的任务相关分块；当初始状态已较完整时，继续增加重传轮次难以带来同等幅度的精度提升。
+图~\ref{fig:ch5_feedback_mask} 中的样例在 R0 分类错误，经过三轮增量重传后分类正确。地面接收端在 R0 后计算分块归因图，并生成 R1 的请求掩码。语义状态每更新一次，接收端都重新计算任务判决对各分块的敏感度，再确定下一轮掩码。因此，R1 至 R3 的选择区域随接收状态发生变化，并非重复请求首轮评分较高的分块。该样例给出了接收端依据当前任务判决调整增量传输位置的具体过程；分块选择策略的定量收益见图~\ref{fig:ch5_ablation_roundwise} 中的随机反馈对比。
 
 \begin{figure}[!htp]
     \centering
-    \includegraphics[width=0.8\linewidth]{figures/chapter5/epsilon_sensitivity.png}
-    \bicaption{ImageNet-100下特征维度对CIS-HARQ增量重传的影响}{Impact of feature dimension on CIS-HARQ incremental retransmission on ImageNet-100}
-    \label{fig:ch5_epsilon}
+    \includegraphics[width=\linewidth]{figures/chapter6/figs/feedback_mask_vis_paper.pdf}
+    \bicaption{决策敏感分块归因与多轮反馈掩码}{Decision-sensitive patch attribution and multi-round feedback masks}
+    \label{fig:ch5_feedback_mask}
 \end{figure}
 
-\subsection{信道信噪比鲁棒性}
-\label{subsec:ch5_snr}
+\subsection{分块选择数与增量重传轮数的影响}
+\label{subsec:ch5_k_rounds}
 
- 图~\ref{fig:ch5_snr} 在 ImageNet-100 上比较 $\epsilon=32$ 与 $\epsilon=64$、$K=16$ 时 CIS-HARQ 在不同 SNR 下的 R0 与 R3 精度。对 $\epsilon=32$，SNR $=2$~dB 时 R0 精度约为 $30\%$，R3 提升至约 $48\%$，增益约 $18$ 个百分点；SNR $=5$~dB 时由约 $57\%$ 提升至约 $65\%$，增益约 $8$ 个百分点；SNR $=8$~dB 时仅由约 $70\%$ 提升至约 $71\%$。增益随 SNR 升高而收窄，说明信道噪声主要削弱首轮语义状态的完整性。在低 SNR 下，接收端任务反馈仍能从受损语义状态中定位后续请求分块，因此增量重传对分类精度的补偿更明显。
+\noindent(1)~\textbf{分块选择数的影响}
 
-当特征维度增至 $\epsilon=64$ 时，各 SNR 工作点的 R0 精度已明显高于 $\epsilon=32$，R0 与 R3 曲线间距相应变小。图中 $2$~dB 下仍可观察到约数个百分点的重传收益，而在 $5$~dB 和 $8$~dB 下，R3 仅比 R0 略高，曲线接近重合。该现象与图~\ref{fig:ch5_epsilon} 的特征维度敏感性一致：较大的单分块符号维度提高了首轮前向链路的语义承载能力，HARQ 轮次主要用于修补剩余的任务相关缺口；当信道质量和首轮表征能力同时较好时，继续重传带来的精度增益自然有限。
-
-\begin{figure}[!htp]
-    \centering
-    \includegraphics[width=0.8\linewidth]{figures/chapter5/snr_robustness.png}
-    \bicaption{ImageNet-100下SNR对CIS-HARQ分类准确度的影响}{Impact of SNR on CIS-HARQ accuracy on ImageNet-100}
-    \label{fig:ch5_snr}
-\end{figure}
-
-\subsection{不同数据集、多任务与跨任务泛化}
-\label{subsec:ch5_generalization}
-
- 图~\ref{fig:ch5_generalization}(a) 比较初始 R0 精度、随机反馈下的 R3 精度和任务驱动反馈下的 R3 精度。各数据集与任务设置均采用独立训练的 CIS-HARQ 模型，因此该实验不用于证明跨数据集迁移或零样本泛化，而用于检验反馈辅助增量重传在不同数据分布与任务接收端下是否持续有效。对单任务分类数据集，任务驱动反馈均优于随机反馈。CIFAR-100 上，随机反馈仅将精度由 $70.7\%$ 提升至 $70.8\%$，增益为 $0.1$ 个百分点；任务驱动反馈达到 $74.9\%$，较 R0 提高 $4.2$ 个百分点，较随机反馈高 $4.1$ 个百分点。ImageNet-100 上，随机反馈的 R3 精度为 $61.0\%$，任务驱动反馈达到 $65.0\%$，相对 R0 的增益分别为 $4.1$ 和 $8.1$ 个百分点。该对比说明，接收端任务输出提供的分块选择信息可在不同单任务数据集上稳定改善增量重传，而不是简单依赖随机追加前向链路开销。
-
- 在 VeRi-776 多任务设置中，颜色与车型分类的 R0 精度分别为 $75.1\%$ 和 $35.4\%$。随机反馈已将两项任务的 R3 精度提升至 $88.1\%$ 和 $77.6\%$，说明当初始语义状态较弱时，多轮增量传输本身也能补充大量可判别信息。任务驱动反馈进一步达到 $89.0\%$ 和 $79.5\%$，较随机反馈分别增加 $0.9$ 和 $1.9$ 个百分点。该结果给出的结论更克制：CIS-HARQ 的闭环反馈在单任务与多任务接收端上均保持有效，但多任务场景中的主要增益同时来自增量传输轮次和任务相关分块选择，两者不能简单混为同一来源。
-
-
- 为进一步区分接收端反馈有效性与发送端是否需要目标任务重训，本文补充冻结 ImageNet-100 发送端的 CIFAR-100 迁移实验。源发送端在 ImageNet-100 上训练，迁移到 CIFAR-100 后完全冻结；CIFAR-100 任务模型只放在接收端，用于生成硬掩码反馈。在线传输阶段，发送端不访问 CIFAR-100 分类器、logits、梯度或标签。这个设置不把 CIS-HARQ 宣称为完全任务无关系统，而是专门检验发送端在目标任务上不重训时，接收端能否仍通过任务驱动硬掩码完成增量重传。
+图~\ref{fig:ch5_k_sensitivity} 在 $\epsilon=32$、SNR $=5$~dB 下比较了 $K\in\{8,16,32\}$ 时的逐轮准确率和 R3 准确率--CBR 关系。三种配置的 R3 准确率分别为 $65.32\%$、$69.56\%$ 和 $73.10\%$，对应的累计 CBR 分别为 $0.023384$、$0.025935$ 和 $0.031037$。将 $K$ 从 $8$ 增至 $16$，增加 $0.002551$ 的 CBR 可获得 $4.24$ 个百分点的准确率增益；继续将 $K$ 从 $16$ 增至 $32$，附加 CBR 增加到前一阶段的两倍，但准确率增益降为 $3.54$ 个百分点。$K=16$ 在任务准确率与前向链路开销之间取得较为合适的折中，后续实验采用该设置。反馈使用固定长度的分块位图，因此三种 $K$ 配置的每轮反馈量均为 $196$ bit。
 
 \begin{figure}[!htp]
     \centering
-    \begin{subfigure}[t]{0.49\linewidth}
+    \begin{subfigure}[t]{0.48\linewidth}
         \centering
-        \includegraphics[width=\linewidth]{figures/chapter5/generalization_multitask.png}
-        \caption{不同数据集与任务设置}
-        \label{fig:ch5_generalization_datasets}
+        \includegraphics[width=\linewidth]{figures/chapter6/figs/k_sensitivity_roundwise.pdf}
+        \caption{逐轮分类准确率}
+        \label{fig:ch5_k_roundwise}
     \end{subfigure}
     \hfill
-    \begin{subfigure}[t]{0.49\linewidth}
+    \begin{subfigure}[t]{0.48\linewidth}
         \centering
-        \includegraphics[width=\linewidth]{figures/chapter5/frozen_tx_transfer.png}
-        \caption{冻结发送端跨任务迁移}
-        \label{fig:ch5_frozen_tx_transfer}
+        \includegraphics[width=\linewidth]{figures/chapter6/figs/k_sensitivity_accuracy_cbr.pdf}
+        \caption{R3 准确率与累计 CBR}
+        \label{fig:ch5_k_cbr}
     \end{subfigure}
-    \bicaption{CIS-HARQ在不同数据集、多任务与跨任务迁移设置下的反馈有效性}{Feedback effectiveness of CIS-HARQ under different datasets, multiple tasks, and cross-task transfer}
-    \label{fig:ch5_generalization}
+    \bicaption{不同分块选择数下的任务准确率与前向链路开销}{Task accuracy and forward-link overhead under different numbers of selected patches}
+    \label{fig:ch5_k_sensitivity}
 \end{figure}
 
+\noindent(2)~\textbf{增量重传轮数的影响}
 
- 图~\ref{fig:ch5_generalization}(b) 给出了两种接收端适配设置下的结果。在 \texttt{receiver\_all} 中，CIFAR-100 接收端的 decoder、unpatchify 与 fusion gate 均参与适配，精度由 R0 的 $73.15\%$ 提升到 R3 的 $77.27\%$。该结果说明冻结的 ImageNet-100 发送端能够提供可被 CIFAR-100 接收端解释的基础语义表征，但由于接收端适配自由度较大，它不适合作为最严格的迁移证据。
+图~\ref{fig:ch5_round_saturation} 考察继续增加重传轮次后的收益。实验在 $\epsilon=32$、$K=16$ 和 SNR $=5$~dB 下单独训练 $R_{\max}=6$ 模型，R0 至 R6 的准确率依次为 $57.32\%$、$63.96\%$、$67.90\%$、$69.32\%$、$70.56\%$、$71.04\%$ 和 $71.82\%$。从 R3 延长至 R6 只增加 $2.50$ 个百分点，CBR 却从 $0.025935$ 增至 $0.031037$，相对增加 $19.67\%$，同时多出三次反馈闭环。本文据此将 $R=3$ 作为默认设置。由于六轮模型单独训练，其 R3 准确率与默认三轮模型的 $69.56\%$ 略有差异。
 
-更严格的是 \texttt{fusion\_only} 设置。Stage 1 只训练 CIFAR-100 接收端的 decoder 与 unpatchify，以解释冻结发送端输出的基础表征；Stage 2 只训练 fusion gate，发送端始终不更新参数。在这一限制下，CIS-HARQ 仍由 R0 的 $70.64\%$ 提升到 R3 的 $75.20\%$，与 CIFAR-100 原生 scaled 配置的 R3 精度 $75.36\%$ 仅相差 $0.16$ 个百分点。两组迁移实验的增量比特也处于相同量级，\texttt{fusion\_only} 在 R1、R2 和 R3 的估计比特数分别为 $1007.05$、$991.23$ 与 $64.79$。因此，在发送端目标任务不重训设置下，性能接近原生训练并不是由额外前向负载换来的，而是来自接收端硬掩码对已有发送端表征的定向调用。该结果表明，在发送端目标任务不重训设置下，接收端仍可利用目标任务反馈驱动多轮增量重传。这一点将发送端训练从每个目标任务中解耦出来，是本文相对重训练式语义收发机的一个重要区别。
+\begin{figure}[!htp]
+    \centering
+    \includegraphics[width=0.86\linewidth]{figures/chapter6/figs/round_saturation_eps32_k16_snr5.pdf}
+    \bicaption{增量重传轮数增加时的分类准确率饱和趋势}{Classification accuracy saturation with additional incremental retransmission rounds}
+    \label{fig:ch5_round_saturation}
+\end{figure}
+
+\subsection{星地部署开销与轨迹驱动传输性能}
+\label{subsec:ch5_deployment_trace}
+
+\noindent(1)~\textbf{模型复杂度与任务级推理开销}
+
+表~\ref{tab:ch5_complexity_latency} 列出了不同方法的通信模型参数量、同步任务级推理时延和峰值 GPU 显存占用。测试平台为 RTX A6000，批量大小为 $1$，数据精度为 FP32。参数量只统计通信模型；时延和显存覆盖各方法已实现的完整任务处理链路，不计入模型加载、数据读取、主机至设备的数据传输、磁盘 I/O 和结果保存。DiffJSCC 使用 $512\times512$ 输入和 $50$ 个去噪步骤，其余方法的输入尺寸均为 $224\times224$。表中 CIS-R 采用 $\epsilon=64$，并执行 R0 至 R3 的完整收发流程。
+
+\begin{table}[!htp]
+    \centering
+    \bicaption{不同方法的模型规模与任务级推理开销}{Model size and task-level inference cost of different methods}
+    \label{tab:ch5_complexity_latency}
+    \small
+    \renewcommand{\arraystretch}{1.15}
+    \resizebox{\linewidth}{!}{
+    \begin{tabular}{@{}lcccc@{}}
+        \toprule
+        方法 & 输入尺寸 & 参数量（M） & 任务级时延（ms） & 峰值显存（MiB） \\
+        \midrule
+        CIS-R（$\epsilon=64$，R3） & $224^2$ & $2.274$ & $45.340$ & $150.00$ \\
+        SwinJSCC（$C=64$） & $224^2$ & $33.064$ & $16.347$ & $318.91$ \\
+        Codebook（$C=80$） & $224^2$ & $519.940$ & $19.325$ & $2213.96$ \\
+        DiffJSCC（$50$ 步） & $512^2$ & $5478.999$ & $4382.750$ & $22143.48$ \\
+        \bottomrule
+    \end{tabular}}
+\end{table}
+
+CIS-R 的通信模型参数量为 $2.274$~M，峰值显存约为 $150$~MiB，均为表中最低。完整 R0--R3 任务处理链路耗时 $45.340$~ms，其中包含四次任务模型前向推理和三次基于梯度的反馈计算。SwinJSCC 和 Codebook 只执行单次前向处理，任务级时延低于 CIS-R，但模型规模和显存占用更高。DiffJSCC 的生成式恢复需要多次迭代，任务级时延达到 $4382.750$~ms。CIS-R 将任务模型和梯度计算放在地面端，卫星端运行轻量基础编码与语义增量生成模块。任务性能增益来自多轮增量通信，星上模型规模保持不变。
+
+\noindent(2)~\textbf{轨迹驱动的 LEO 星地传输性能}
+
+轨迹驱动仿真采用卫星轨道几何和链路预算生成的时变下行链路轨迹，地面站包括北京密云、喀什和三亚。每轮传输开始时，仿真器读取当前 SNR、星地斜距和仰角，根据该 SNR 生成 AWGN，并由星地斜距计算传播时延。前向链路符号速率设为 $4\times10^8$ 复信道符号/s，反馈速率为 $1$~Mbit/s，单轮反馈周转时间为 $4$~ms。
+
+业务负载由 $500$ 幅 ImageNet-100 图像和 $500$ 幅 CIFAR-100~\cite{krizhevsky-CIFAR-TR09} 图像交替组成。星上发送端共享在 ImageNet-100 上训练的同一组参数，地面侧分别部署 ImageNet-100 接收端和仅适配融合门的 CIFAR-100 接收端，任务模型与反馈计算均位于地面。任务驱动反馈和随机反馈使用相同的前向、反向负载，并对每幅图像、每个轮次采用相同的 AWGN 噪声样本。每幅图像累计传输 $3904$ 个前向复信道符号和 $588$ bit 反馈信息。两类任务的汇总准确率列于表~\ref{tab:ch5_trace_case}。
+
+\begin{table}[!htp]
+    \centering
+    \bicaption{轨迹驱动的双任务星地传输结果}{Trace-driven two-task satellite--ground transmission results}
+    \label{tab:ch5_trace_case}
+    \small
+    \renewcommand{\arraystretch}{1.15}
+    \resizebox{\linewidth}{!}{
+    \begin{tabular}{@{}lcccccc@{}}
+        \toprule
+        地面站 & 平均 SNR（dB） & 任务驱动 R0（\%） & 任务驱动 R3（\%） & 随机反馈 R3（\%） & 增益（百分点） & 仿真业务时延（ms） \\
+        \midrule
+        北京密云 & $3.22$ & $50.6$ & $61.0$ & $55.6$ & $5.4$ & $37.28$ \\
+        喀什 & $2.98$ & $50.7$ & $61.1$ & $55.7$ & $5.4$ & $37.61$ \\
+        三亚 & $3.71$ & $56.5$ & $64.9$ & $60.4$ & $4.5$ & $36.39$ \\
+        \bottomrule
+    \end{tabular}}
+\end{table}
+
+在前向和反馈负载完全相同的条件下，任务驱动反馈相较随机反馈在北京密云、喀什和三亚轨迹上分别提高 $5.4$、$5.4$ 和 $4.5$ 个百分点。三个地面站的仿真业务时延分别为 $37.28$、$37.61$ 和 $36.39$~ms。该时延由解析链路仿真器计算，与表~\ref{tab:ch5_complexity_latency} 中实测的 GPU 任务级推理时延属于不同统计口径。在可见窗口内 SNR 和传播距离持续变化的情况下，地面接收端的任务归因仍能为星上增量传输提供有效的分块选择信息。
 
 \section{本章小结}
 
