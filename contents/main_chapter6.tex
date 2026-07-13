@@ -284,7 +284,7 @@ p_c^{(r)}=\mathrm{softmax}(\mathbf l^{(r)})_c,
 
 \noindent(1)~\textbf{数据集与评价方法}
 
-受控仿真采用 ImageNet-100~\cite{deng-ImageNet-CVPR09} 图像分类数据集。输入尺寸为 $224\times224$，每幅 RGB 图像划分为 $N=196$ 个分块，并按 $14\times14$ 网格排列。冻结任务模型在干净图像上的分类结果作为性能参照。所有 ImageNet-100 准确率均在包含 $5000$ 幅图像的验证集上统计。地面端任务性能采用 Top-1 分类准确率衡量，前向链路开销采用名义信道带宽比（Channel Bandwidth Ratio，CBR）衡量。CBR 只计入前向复信道使用次数，反馈开销以比特数另行统计。
+仿真采用 ImageNet-100~\cite{deng-ImageNet-CVPR09} 图像分类数据集。输入尺寸为 $224\times224$，每幅 RGB 图像划分为 $N=196$ 个分块，并按 $14\times14$ 网格排列。冻结任务模型在干净图像上的分类结果作为性能参照。所有 ImageNet-100 准确率均在包含 $5000$ 幅图像的验证集上统计。地面端任务性能采用 Top-1 分类准确率衡量，前向链路开销采用名义信道带宽比（Channel Bandwidth Ratio，CBR）衡量。CBR 只计入前向复信道使用次数，反馈开销以比特数另行统计。
 
 \noindent(2)~\textbf{信道与反馈配置}
 
