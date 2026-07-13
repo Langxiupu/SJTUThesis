@@ -267,9 +267,9 @@ p_c^{(r)}=\mathrm{softmax}(\mathbf l^{(r)})_c,
 \end{equation}
 相应的预测熵为
 \begin{equation}\label{eq:ch6_entropy}
-\mathcal H^{(r)}=-\sum_c p_c^{(r)}\log\!\left(p_c^{(r)}+\delta\right),
+\mathcal H^{(r)}=-\sum_c p_c^{(r)}\log p_c^{(r)},
 \end{equation}
-其中，$\delta>0$ 用于避免对数运算出现数值异常。第二阶段的训练目标写为
+第二阶段的训练目标写为
 \begin{equation}\label{eq:ch6_loss}
 \mathcal L_{\mathrm{CIS-R}}
 =\sum_{r=1}^{R}\lambda_r\left(\mathcal L_{\mathrm{task}}^{(r)}+\lambda_{\mathrm{ent}}\mathcal H^{(r)}\right),
