@@ -248,8 +248,6 @@ x_{i\leftarrow u}^{\mathrm{obs}}(k)
 \left\|
 x_{i,u}^{\mathrm{pri}}(k)
 \right\|_2
-+
-\varepsilon_m
 },
 & b_{i,u}(k)=1,\\
 m_{\mathrm{neu}},
@@ -257,7 +255,7 @@ m_{\mathrm{neu}},
 \end{cases}
 \label{eq:ch2_cagsr_mismatch}
 \end{equation}
-其中 $\varepsilon_m$ 为避免零分母的极小常数，$m_{\mathrm{neu}}\in[0,1]$ 为缺失观测对应的中性失配常数。该定义使零占位缺失表项不参与观测与先验失配计算，而由可用性指示 $b_{i,u}(k)$ 单独表征缺失性并输入置信度估计器。时序先验本身也存在新鲜度差异：由近期校准状态生成的先验通常比由长期未更新缓存外推的先验更具信息量。令 $a_{i,u}^{\mathrm{pri}}(k)$ 表示自上次用于更新节点 $u$ 时序先验的可靠观测以来经过的时隙数，并定义归一化先验年龄 $\bar a_{i,u}^{\mathrm{pri}}(k)=\min\{a_{i,u}^{\mathrm{pri}}(k)/L,1\}$。
+其中，$m_{\mathrm{neu}}\in[0,1]$ 为缺失观测对应的中性失配常数。该定义使零占位缺失表项不参与观测与先验失配计算，而由可用性指示 $b_{i,u}(k)$ 单独表征缺失性并输入置信度估计器。时序先验本身也存在新鲜度差异：由近期校准状态生成的先验通常比由长期未更新缓存外推的先验更具信息量。令 $a_{i,u}^{\mathrm{pri}}(k)$ 表示自上次用于更新节点 $u$ 时序先验的可靠观测以来经过的时隙数，并定义归一化先验年龄 $\bar a_{i,u}^{\mathrm{pri}}(k)=\min\{a_{i,u}^{\mathrm{pri}}(k)/L,1\}$。
 
 置信度估计器的逐节点输入为
 \begin{equation}
