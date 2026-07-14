@@ -33,12 +33,12 @@
 \endlastfoot
   $\mathbf X,\ H,\ W,\ C_{\mathrm{img}}$ & 源图像、图像高、图像宽与图像通道数 & $f_{\mathrm{pat}},\ f_{\mathrm{unpat}}$ & 图像分块映射与反分块映射 \\
   $\mathbf P,\ \mathbf p_n,\ N,\ D$ & 分块特征序列、单分块特征、分块数与分块特征维度 & $\mathbf Y^{(r)},\ \mathbf y_n^{(r)}$ & 第 $r$ 轮分块级接收表征（语义状态）与第 $n$ 个分块表征 \\
-  $\mathcal T_\phi,\ \hat{\mathbf X}^{(r)},\ \mathbf l^{(r)}$ & 冻结的接收端任务模型、恢复图像表征与任务输出向量 & $r,\ R,\ \mathbf e_r$ & 传输轮次、最大增量重传轮数与轮次嵌入 \\
+  $\mathcal T_\phi,\ \hat{\mathbf X}^{(r)},\ \mathbf l^{(r)},\ \Delta^{(r)}$ & 冻结的接收端任务模型、恢复图像表征、任务输出向量与判决裕量 & $r,\ R,\ \mathbf e_r$ & 传输轮次、最大增量重传轮数与轮次嵌入 \\
   $f_{\mathrm{base}},\ \mathrm{Norm},\ g_{\mathrm{dec}}$ & 基础编码器、平均功率归一化与语义解码器 & $\mathbf Z^{(0)},\ \hat{\mathbf Z}^{(0)}$ & 基础传输负载与相应接收负载 \\
-  $\mathbf M_{\mathrm{hard}}^{(r)},\ K,\ \mathcal I^{(r)}$ & 第 $r$ 轮二进制反馈掩码、选定分块数与分块索引集合 & $\mathcal F_{\mathrm{tx}},\ \tilde{\mathbf Z}^{(r)}$ & 反馈条件化增量编码映射与候选语义增量 \\
+  $\mathbf M_{\mathrm{hard}}^{(r)},\ K,\ \mathcal I^{(r)}$ & 第 $r$ 轮二进制反馈掩码、选定分块数与分块索引集合 & $\mathcal F_{\mathrm{tx}},\ \tilde{\mathbf Z}^{(r)}$ & 反馈与轮次条件化增量生成映射及候选补充信道表征 \\
   $\operatorname{Pack},\ \mathbf Z^{(r)}$ & 所选分块打包操作与第 $r$ 轮归一化发送负载 & $\hat{\mathbf Z}^{(r)},\ \mathbf N^{(r)},\ \sigma_r^2$ & 第 $r$ 轮接收负载、AWGN 噪声与噪声方差 \\
   $\hat{\mathbf Z}_{\mathrm{full}}^{(r)},\ \operatorname{Scatter},\ \tilde{\mathbf U}^{(r)}$ & 零填充信道表征、索引回填操作与完整解码表征 & $\bar{\mathbf M}_{\mathrm{hard}}^{(r)},\ \mathbf U^{(r)},\ \mathbf G^{(r)},\ \tilde{\mathbf Y}^{(r)}$ & 特征维广播掩码、本轮补充语义特征、融合门与候选融合状态 \\
-  $\gamma_r,\ D_r$ & 第 $r$ 轮信噪比与发送负载实值维数 & $d(t_r),\ c,\ \tau_{\mathrm{prop}}^{(r)}$ & 星地斜距、光速与单向传播时延 \\
+  $\rho_r,\ D_r$ & 第 $r$ 轮信噪比与发送负载实值维数 & $d(t_r),\ c,\ \tau_{\mathrm{prop}}^{(r)}$ & 星地斜距、光速与单向传播时延 \\
   $\epsilon,\ L^{(0)},\ L^{(r)}$ & 单分块实值信道维数、基础轮与增量轮信道使用次数 & $\mathrm{CBR}^{(r)},\ B_{\mathrm{fb}}^{(r)}$ & 累积信道带宽比与累积反馈比特数 \\
 \end{longtable}
 
@@ -46,12 +46,27 @@
 
 记星上发送端采集的源图像为 $\mathbf X\in\mathbb R^{H\times W\times C_{\mathrm{img}}}$，其中 $H$、$W$ 与 $C_{\mathrm{img}}$ 分别表示图像高度、宽度和通道数。分块映射将源图像转换为
 \begin{equation}\label{eq:ch6_patch}
-\mathbf P=f_{\mathrm{pat}}(\mathbf X)=[\mathbf p_1,\dots,\mathbf p_N],\quad \mathbf p_n\in\mathbb R^{D},
+\mathbf P=f_{\mathrm{pat}}(\mathbf X)
+=\begin{bmatrix}
+\mathbf p_1^{\mathsf T}\\[-1pt]
+\vdots\\[-1pt]
+\mathbf p_N^{\mathsf T}
+\end{bmatrix}
+\in\mathbb R^{N\times D},\qquad \mathbf p_n\in\mathbb R^{D},
 \end{equation}
 其中，$N$ 为图像分块数，$D$ 为单个分块的特征维度。
 
 第 $r$ 轮传输结束后，地面接收端维护分块级接收表征
-$\mathbf Y^{(r)}=[\mathbf y_1^{(r)},\dots,\mathbf y_N^{(r)}]\in\mathbb R^{N\times D}$，本文将其称为第 $r$ 轮语义状态。该表征可通过反分块映射重构为图像域表征 $\hat{\mathbf X}^{(r)}=f_{\mathrm{unpat}}(\mathbf Y^{(r)})$。冻结的接收端任务模型输出
+\begin{equation}\label{eq:ch6_state}
+\mathbf Y^{(r)}
+=\begin{bmatrix}
+(\mathbf y_1^{(r)})^{\mathsf T}\\[-1pt]
+\vdots\\[-1pt]
+(\mathbf y_N^{(r)})^{\mathsf T}
+\end{bmatrix}
+\in\mathbb R^{N\times D}.
+\end{equation}
+本文将其称为第 $r$ 轮语义状态。该表征可通过反分块映射重构为图像域表征 $\hat{\mathbf X}^{(r)}=f_{\mathrm{unpat}}(\mathbf Y^{(r)})$。冻结的接收端任务模型输出
 \begin{equation}\label{eq:ch6_logits}
 \mathbf l^{(r)}=\mathcal T_\phi\!\left(\hat{\mathbf X}^{(r)}\right),
 \end{equation}
@@ -61,9 +76,10 @@ $\mathbf Y^{(r)}=[\mathbf y_1^{(r)},\dots,\mathbf y_N^{(r)}]\in\mathbb R^{N\time
 
 协同增量语义重传（Coordinated Incremental Semantic Retransmission，CIS-R）包括一轮基础传输和至多 $R$ 轮接收端驱动的增量重传。记传输轮次为 $r\in\{0,1,\dots,R\}$，其中 $r=0$ 表示基础传输。星上发送端首先生成
 \begin{equation}\label{eq:ch6_base}
-\mathbf Z^{(0)}=\mathrm{Norm}\!\left(f_{\mathrm{base}}(\mathbf P)\right),
+\mathbf Z^{(0)}=\mathrm{Norm}\!\left(f_{\mathrm{base}}(\mathbf P)\right)
+\in\mathbb R^{N\times\epsilon},
 \end{equation}
-其中，$f_{\mathrm{base}}(\cdot)$ 为基础编码器。对于包含 $D_A$ 个实值传输维数的任意发送张量 $\mathbf A$，平均功率归一化定义为
+其中，$f_{\mathrm{base}}(\cdot)$ 为基础编码器，$\epsilon$ 为单分块实值信道维数。对于包含 $D_A$ 个实值传输维数的任意发送张量 $\mathbf A$，平均功率归一化定义为
 \begin{equation}\label{eq:ch6_norm}
 \mathrm{Norm}(\mathbf A)=\sqrt{\frac{D_A}{\lVert\mathbf A\rVert_2^2}}\,\mathbf A,
 \qquad
@@ -71,9 +87,10 @@ $\mathbf Y^{(r)}=[\mathbf y_1^{(r)},\dots,\mathbf y_N^{(r)}]\in\mathbb R^{N\time
 \end{equation}
 基础负载经过前向信道后记为 $\hat{\mathbf Z}^{(0)}$，地面接收端将其解码为基础分块级接收表征 $\mathbf Y^{(0)}=g_{\mathrm{dec}}(\hat{\mathbf Z}^{(0)})\in\mathbb R^{N\times D}$。$\mathbf Y^{(0)}$ 不依赖具体下游任务，并作为后续增量重传的初始语义状态。
 
-对任意增量重传轮 $r\geq1$，接收端生成二进制掩码 $\mathbf M_{\mathrm{hard}}^{(r)}\in\{0,1\}^{N}$，并满足 $\lVert\mathbf M_{\mathrm{hard}}^{(r)}\rVert_0=K$。该掩码指示本轮请求的 $K$ 个图像分块。星上发送端以源分块特征、反馈掩码和轮次嵌入为输入，生成候选语义增量
+对任意增量重传轮 $r\geq1$，接收端生成二进制掩码 $\mathbf M_{\mathrm{hard}}^{(r)}\in\{0,1\}^{N}$，并满足 $\lVert\mathbf M_{\mathrm{hard}}^{(r)}\rVert_0=K$。该掩码指示本轮请求的 $K$ 个图像分块。星上发送端根据源分块特征、反馈掩码和轮次嵌入，为全部 $N$ 个分块生成候选补充信道表征
 \begin{equation}
-\tilde{\mathbf Z}^{(r)}=\mathcal F_{\mathrm{tx}}\!\left(\mathbf P,\mathbf M_{\mathrm{hard}}^{(r)},\mathbf e_r\right).
+\tilde{\mathbf Z}^{(r)}=\mathcal F_{\mathrm{tx}}\!\left(\mathbf P,\mathbf M_{\mathrm{hard}}^{(r)},\mathbf e_r\right)
+\in\mathbb R^{N\times\epsilon}.
 \end{equation}
 定义所选分块的有序索引集合为 $\mathcal I^{(r)}=\{n:M_{\mathrm{hard},n}^{(r)}=1\}$。实际送入物理信道的负载仅包含这些分块：
 \begin{equation}\label{eq:ch6_maskinc}
@@ -88,27 +105,20 @@ $\mathbf Y^{(r)}=[\mathbf y_1^{(r)},\dots,\mathbf y_N^{(r)}]\in\mathbb R^{N\time
 \in\mathbb R^{K\times\epsilon},\qquad r\geq1.
 \end{aligned}
 \end{equation}
-因此，基础轮和增量轮均满足单位平均发送功率约束。接收端首先按照反馈索引将本轮接收的 $K$ 个有效分块信道表征回填至 $N\times\epsilon$ 的零填充信道表征，再输入与基础轮共享参数的语义解码器。解码得到完整的 $N\times D$ 分块表征后，硬掩码仅保留被请求位置的解码结果，并与历史语义状态累积。未被请求的分块不占用本轮前向链路资源，其历史状态在本轮保持不变。
+基础轮用于建立初始分块级接收表征，增量轮仅传输接收端请求的 $K$ 个分块。接收端仅更新反馈掩码选中的分块，其余分块沿用上一轮的接收状态。具体的接收状态更新过程将在第~\ref{subsec:ch6_accum}~节给出。
 
 \noindent(3)~\textbf{AWGN 前向链路与低开销反馈链路}
 
-各轮语义负载通过加性白高斯噪声（Additive White Gaussian Noise，AWGN）前向链路传输。第 $r$ 轮接收负载为
+各轮语义负载通过加性白高斯噪声（Additive White Gaussian Noise，AWGN）前向链路传输。由式~\eqref{eq:ch6_norm}，基础负载和增量负载均满足单位平均发送功率约束。记第 $r$ 轮发送负载包含的实值信道维数为 $D_r$，其中 $D_0=N\epsilon$，$D_r=K\epsilon$（$r\geq1$），则第 $r$ 轮信道模型及噪声分布写为
 \begin{equation}\label{eq:ch6_channel}
-\hat{\mathbf Z}^{(r)}=\mathbf Z^{(r)}+\mathbf N^{(r)},
+\begin{aligned}
+\hat{\mathbf Z}^{(r)}&=\mathbf Z^{(r)}+\mathbf N^{(r)},\\
+\operatorname{vec}\!\left(\mathbf N^{(r)}\right)
+&\sim\mathcal N\!\left(\mathbf 0_{D_r},\sigma_r^2\mathbf I_{D_r}\right),
+\qquad \sigma_r^2=10^{-\rho_r/10}.
+\end{aligned}
 \end{equation}
-其中
-\begin{equation}
-\mathbf N^{(r)}\sim\mathcal N\!\left(\mathbf 0,\sigma_r^2\mathbf I\right).
-\end{equation}
-记第 $r$ 轮发送负载包含的实值维数为 $D_r$，其中 $D_0=N\epsilon$，$D_r=K\epsilon$（$r\geq1$）。第 $r$ 轮发送负载的瞬时平均功率为
-\begin{equation}\label{eq:ch6_round_power}
-P_r=\frac{1}{D_r}\left\lVert\mathbf Z^{(r)}\right\rVert_2^2.
-\end{equation}
-由式~\eqref{eq:ch6_norm} 可知，基础负载和增量负载均满足 $P_r=1$。给定第 $r$ 轮目标信噪比 $\gamma_r$（单位为 dB），噪声方差写为
-\begin{equation}\label{eq:ch6_noise_variance}
-\sigma_r^2=\frac{P_r}{10^{\gamma_r/10}}=10^{-\gamma_r/10}.
-\end{equation}
-静态仿真在一次训练和测试中采用固定 SNR。时变链路仿真在每轮开始时读取当前 $\gamma_r$，并获取时刻 $t_r$ 的星地斜距 $d(t_r)$。相应的单向传播时延为
+其中，$\rho_r$ 为第 $r$ 轮接收信噪比（单位为 dB），不同轮次的 AWGN 相互独立。静态仿真在一次训练和测试中采用固定 SNR。时变链路仿真在每轮开始时读取当前 $\rho_r$，并获取时刻 $t_r$ 的星地斜距 $d(t_r)$。相应的单向传播时延为
 \begin{equation}
 \tau_{\mathrm{prop}}^{(r)}=\frac{d(t_r)}{c},
 \end{equation}
@@ -137,7 +147,7 @@ B_{\mathrm{fb}}^{(r)}=rN\quad\text{bit}.
 \section{接收端驱动的协同增量语义重传框架设计}
 \label{sec:ch6_framework}
 
-协同增量语义重传（Coordinated Incremental Semantic Retransmission，CIS-R）由决策敏感分块优先级评估、反馈条件化语义增量生成和掩码引导的增量语义累积三个模块构成。分块优先级评估将接收端当前判决对分块级接收表征的局部敏感度转换为后续传输优先级；反馈条件化增量生成依据分块掩码调制星上增量编码，仅为选定位置生成前向负载；掩码引导的门控累积则限定接收状态的更新位置，并在所选分块上自适应融合历史表征与当前增量。三个模块共同形成接收状态更新驱动下一轮分块选择的闭环，使任务性能增益来自增量通信而非星上模型规模扩展。
+协同增量语义重传（Coordinated Incremental Semantic Retransmission，CIS-R）由决策敏感分块优先级评估、反馈条件化候选增量生成与选择性传输、掩码引导的增量语义累积三个模块构成。分块优先级评估将接收端当前判决对分块级接收表征的局部敏感度转换为后续传输优先级；反馈条件化候选增量生成以分块是否入选及当前轮次为条件生成补充信道表征，并依据 Top-$K$ 索引仅打包传输入选分块；掩码引导的门控累积限定接收状态的更新位置，并在所选分块上自适应融合历史表征与当前增量。三个模块共同形成接收状态更新驱动下一轮分块选择的闭环，使任务性能增益来自增量通信而非星上模型规模扩展。
 
 \begin{figure}[!htp]
     \centering
@@ -151,7 +161,7 @@ B_{\mathrm{fb}}^{(r)}=rN\quad\text{bit}.
 
 图~\ref{fig:ch6_system_model} 给出了 CIS-R 的收发结构。星上发送端包括分块映射 $f_{\mathrm{pat}}$、基础编码器 $f_{\mathrm{base}}$ 和轻量反馈条件化增量生成模块 $\mathcal F_{\mathrm{tx}}$；地面接收端包括语义解码器 $g_{\mathrm{dec}}$、增量累积模块 $\mathcal F_{\mathrm{rx}}$、冻结的任务模型 $\mathcal T_\phi$ 和反馈生成模块 $\mathcal F_{\mathrm{mask}}$。前向链路承载基础负载和增量负载，反向控制链路仅承载分块掩码。
 
-算法~\ref{algo:ch6_cis} 给出了 CIS-R 的多轮收发顺序。基础轮中，卫星发送归一化基础负载，地面端解码得到初始分块级接收表征。第 $r$ 个增量轮开始时，地面端计算分块优先级并反馈 Top-$K$ 掩码；卫星端生成、打包和归一化对应的语义增量；地面端依次完成接收信道表征回填、共享解码器解码、硬掩码提取和门控累积。完成 $R$ 轮后，地面端输出任务结果。
+算法~\ref{algo:ch6_cis} 给出了上述实体之间的多轮收发顺序。
 
 \begin{algorithm}[!htp]
 \caption{接收端驱动的协同增量语义重传（CIS-R）收发流程}
@@ -164,9 +174,9 @@ B_{\mathrm{fb}}^{(r)}=rN\quad\text{bit}.
 \For{$r\leftarrow 1$ \KwTo $R$}{
   接收端计算 $\mathbf l^{(r-1)}=\mathcal T_\phi(f_{\mathrm{unpat}}(\mathbf Y^{(r-1)}))$\;
   接收端按照式~\eqref{eq:ch6_margin}--\eqref{eq:ch6_penalty} 计算判决裕量和分块优先级\;
-  接收端选取 Top-$K$ 分块生成 $\mathbf M_{\mathrm{hard}}^{(r)}$，并经反向链路回传\;
-  发送端生成候选语义增量 $\tilde{\mathbf Z}^{(r)}=\mathcal F_{\mathrm{tx}}(\mathbf P,\mathbf M_{\mathrm{hard}}^{(r)},\mathbf e_r)$\;
-  发送端按式~\eqref{eq:ch6_maskinc} 打包并归一化所选分块，再按式~\eqref{eq:ch6_channel} 发送 $\mathbf Z^{(r)}$\;
+  接收端选取 Top-$K$ 分块生成 $\mathbf M_{\mathrm{hard}}^{(r)}$，并经反向链路回传；发送端据此确定 $\mathcal I^{(r)}$\;
+  发送端生成全部分块的候选补充信道表征 $\tilde{\mathbf Z}^{(r)}=\mathcal F_{\mathrm{tx}}(\mathbf P,\mathbf M_{\mathrm{hard}}^{(r)},\mathbf e_r)$\;
+  发送端按式~\eqref{eq:ch6_maskinc} 打包并归一化 $\mathcal I^{(r)}$ 对应的分块，再按式~\eqref{eq:ch6_channel} 发送 $\mathbf Z^{(r)}$\;
   接收端按照式~\eqref{eq:ch6_increment_scatter}--\eqref{eq:ch6_increment_mask} 回填接收信道表征，解码后利用硬掩码提取本轮补充语义特征 $\mathbf U^{(r)}$\;
   接收端按式~\eqref{eq:ch6_accum} 更新分块级接收表征 $\mathbf Y^{(r)}$\;
 }
@@ -178,13 +188,13 @@ B_{\mathrm{fb}}^{(r)}=rN\quad\text{bit}.
 
 第 $r$ 轮增量重传开始前，地面端根据当前任务判决对图像分块排序。由语义状态 $\mathbf Y^{(r-1)}$ 恢复图像表征 $\hat{\mathbf X}^{(r-1)}=f_{\mathrm{unpat}}(\mathbf Y^{(r-1)})$ 后，任务模型输出 $\mathbf l^{(r-1)}=\mathcal T_\phi(\hat{\mathbf X}^{(r-1)})$。对于分类任务，将最大任务输出与次大任务输出之差定义为判决裕量：
 \begin{equation}\label{eq:ch6_margin}
-O^{(r-1)}=l_{(1)}^{(r-1)}-l_{(2)}^{(r-1)}.
+\Delta^{(r-1)}=l_{(1)}^{(r-1)}-l_{(2)}^{(r-1)}.
 \end{equation}
-其中，$l_{(1)}^{(r-1)}$ 和 $l_{(2)}^{(r-1)}$ 分别是 $\mathbf l^{(r-1)}$ 中的最大值和次大值。判决裕量对分块级接收表征的梯度用于衡量当前任务输出对该分块表征的局部敏感度。任务模型参数保持冻结，但接收端仍可计算任务输出关于输入表征的梯度 $\partial O^{(r-1)}/\partial\mathbf Y^{(r-1)}$，用于分块敏感度评估。
+其中，$l_{(1)}^{(r-1)}$ 和 $l_{(2)}^{(r-1)}$ 分别是 $\mathbf l^{(r-1)}$ 中的最大值和次大值。判决裕量对分块级接收表征的梯度用于衡量当前任务输出对该分块表征的局部敏感度。任务模型参数保持冻结，但接收端仍可计算任务输出关于输入表征的梯度 $\partial \Delta^{(r-1)}/\partial\mathbf Y^{(r-1)}$，用于分块敏感度评估。
 
 第 $n$ 个分块的优先级还与其当前特征幅度有关。为此，将梯度与特征激活相乘，得到分块归因评分
 \begin{equation}\label{eq:ch6_attr}
-C_n^{(r)}=\sum_{d=1}^{D}\left|\frac{\partial O^{(r-1)}}{\partial Y_{n,d}^{(r-1)}}\,Y_{n,d}^{(r-1)}\right|.
+C_n^{(r)}=\sum_{d=1}^{D}\left|\frac{\partial \Delta^{(r-1)}}{\partial Y_{n,d}^{(r-1)}}\,Y_{n,d}^{(r-1)}\right|.
 \end{equation}
 $C_n^{(r)}$ 越大，说明第 $n$ 个分块表征对当前任务判决的局部影响越大，增量重传时具有更高的选择优先级。该评分仅用于分块间的相对排序，不等同于信息缺失判定或重传后的准确率增益预测。
 
@@ -199,10 +209,10 @@ V_n^{(r)}, & M_{\mathrm{hard},n}^{(r-1)}=0,
 \end{equation}
 其中，$\bar V_n^{(1)}=V_n^{(1)}$，$\eta\in[0,1]$ 为相邻轮次重复选择抑制因子。该处理只下调上一轮被选择分块的当前评分，不对更早轮次的选择历史累计施加惩罚，并仍允许对当前任务判决持续敏感的分块再次入选。接收端从 $\bar{\mathbf V}^{(r)}$ 中选取评分最高的 $K$ 个分块，生成 $\mathbf M_{\mathrm{hard}}^{(r)}$。反向链路只需传输这一二进制掩码。
 
-\subsection{反馈条件化语义增量生成}
+\subsection{反馈条件化候选增量生成与选择性传输}
 \label{subsec:ch6_refine}
 
-CIS-R 采用空间特征变换（Spatial Feature Transform，SFT），根据反馈掩码和轮次信息生成分块级缩放参数与平移参数。第 $n$ 个分块的条件向量为 $\mathbf c_n^{(r)}=[M_{\mathrm{hard},n}^{(r)},\mathbf e_r]$，调制参数满足
+CIS-R 采用空间特征变换（Spatial Feature Transform，SFT），以单个分块的二值入选状态和轮次嵌入作为条件。第 $n$ 个分块的条件向量为 $\mathbf c_n^{(r)}=[M_{\mathrm{hard},n}^{(r)},\mathbf e_r]$，相应的缩放参数与平移参数满足
 \begin{equation}
 [\boldsymbol\gamma_n^{(r)},\boldsymbol\beta_n^{(r)}]
 =f_{\mathrm{SFT}}(\mathbf c_n^{(r)}).
@@ -211,11 +221,14 @@ SFT 对原始分块特征的调制结果为
 \begin{equation}\label{eq:ch6_sft}
 \mathbf p_{n,\mathrm{mod}}^{(r)}=\boldsymbol\gamma_n^{(r)}\odot\mathbf p_n+\boldsymbol\beta_n^{(r)},
 \end{equation}
-其中，$\boldsymbol\gamma_n^{(r)}$ 与 $\boldsymbol\beta_n^{(r)}$ 分别为分块级缩放参数和平移参数。调制后的特征送入轻量残差增量网络：
+其中，$\boldsymbol\gamma_n^{(r)}$ 与 $\boldsymbol\beta_n^{(r)}$ 分别为第 $n$ 个分块的缩放参数和平移参数。调制后的特征送入轻量残差增量网络：
 \begin{equation}
-\tilde{\mathbf z}_n^{(r)}=f_{\mathrm{res}}\!\left(\mathbf p_{n,\mathrm{mod}}^{(r)}\right).
+\tilde{\mathbf z}_n^{(r)}=f_{\mathrm{res}}\!\left(\mathbf p_{n,\mathrm{mod}}^{(r)}\right)
+\in\mathbb R^{\epsilon}.
 \end{equation}
-发送端按照式~\eqref{eq:ch6_maskinc} 将接收端请求的 $K$ 个分块打包为本轮负载。因而，每轮增量传输的前向链路占用只由 $K$ 和单分块实值信道维数 $\epsilon$ 决定，未选分块不产生额外的前向传输开销。
+式~\eqref{eq:ch6_sft} 对 $n=1,\ldots,N$ 均执行一次。反馈掩码以每个分块的二值选择状态参与编码映射，并确定实际发送集合；轮次嵌入使该条件映射随增量传输轮次变化。各分块的补充信道表征由源分块特征 $\mathbf p_n$ 与上述条件共同生成。
+
+发送端按照反馈掩码形成索引集合 $\mathcal I^{(r)}$，并依据式~\eqref{eq:ch6_maskinc} 从 $N$ 个候选表征中打包接收端请求的 $K$ 个分块。星上计算覆盖全部 $N$ 个分块，前向链路仅承载其中 $K$ 个分块；相应的信道占用由 $K$ 和单分块实值信道维数 $\epsilon$ 决定。
 
 \subsection{掩码引导的增量语义累积}
 \label{subsec:ch6_accum}
@@ -267,7 +280,7 @@ SFT 对原始分块特征的调制结果为
 \end{equation}
 这一阶段不使用下游任务模型，训练得到的基础语义状态作为地面端后续任务处理和增量累积的初始输入。
 
-第二阶段进行离线任务监督训练。该阶段冻结基础传输模块和任务模型参数，只训练 SFT 参数生成网络、残差增量网络和接收端融合门。分类任务在第 $r$ 轮采用交叉熵损失 $\mathcal L_{\mathrm{task}}^{(r)}=\mathrm{CE}(\mathbf l^{(r)},y)$。任务模型参数虽不更新，但损失梯度仍可通过任务模型传至输入分块级接收表征，用于更新增量生成模块和接收端融合门。任务标签、任务模型推理及梯度计算均位于地面训练平台；在线传输阶段的星上发送端仍只使用源图像、轮次信息和反馈掩码。为抑制过于平坦的预测分布，记
+第二阶段进行离线任务监督训练。该阶段冻结基础传输模块和任务模型参数，只训练 SFT 参数生成网络、残差增量网络和接收端融合门。分类任务在第 $r$ 轮采用交叉熵损失 $\mathcal L_{\mathrm{task}}^{(r)}=\mathrm{CE}(\mathbf l^{(r)},y)$。任务模型参数虽不更新，但损失梯度仍可通过任务模型传至输入分块级接收表征，用于更新增量生成模块和接收端融合门。任务标签、任务模型推理及梯度计算均位于地面训练平台；在线传输阶段的星上发送端根据源图像、反馈掩码和轮次信息生成候选补充信道表征，再依据反馈索引打包本轮前向传输分块。为抑制过于平坦的预测分布，记
 \begin{equation}
 p_c^{(r)}=\mathrm{softmax}(\mathbf l^{(r)})_c,
 \end{equation}
@@ -293,6 +306,8 @@ p_c^{(r)}=\mathrm{softmax}(\mathbf l^{(r)})_c,
 \noindent(1)~\textbf{数据集与评价方法}
 
 仿真采用 ImageNet-100~\cite{deng-ImageNet-CVPR09} 图像分类数据集。输入尺寸为 $224\times224$，每幅 RGB 图像划分为 $N=196$ 个分块，并按 $14\times14$ 网格排列。冻结任务模型在干净图像上的分类结果作为性能参照。所有 ImageNet-100 准确率均在包含 $5000$ 幅图像的验证集上统计。地面端任务性能采用 Top-1 分类准确率衡量，前向链路开销采用名义信道带宽比（Channel Bandwidth Ratio，CBR）衡量。CBR 只计入前向复信道使用次数，反馈开销以比特数另行统计。
+
+时变星地链路实验同时引入 CIFAR-100~\cite{krizhevsky-CIFAR-TR09} 作为新的图像分类数据分布，业务负载由 $500$ 幅 ImageNet-100 图像和 $500$ 幅 CIFAR-100 图像交替组成。两种数据分布的图像均经过同一个在 ImageNet-100 上训练并冻结的星上发送端，星上基础编码器、反馈与轮次条件化表征生成模块及其余发送参数在 CIFAR-100 数据分布上均不更新。ImageNet-100 接收端沿用原始训练参数；对于 CIFAR-100，首先在冻结共享发送端的条件下重新训练任务专用语义解码器和反分块映射，随后冻结上述模块，并重新训练接收端融合门以适配多轮补充表征。因此，该实验用于验证固定星上发送参数能否通过地面接收端适配支持新的分类数据分布，不用于证明不同任务类型之间的通用迁移。
 
 \noindent(2)~\textbf{信道与反馈配置}
 
@@ -324,6 +339,8 @@ p_c^{(r)}=\mathrm{softmax}(\mathbf l^{(r)})_c,
 \noindent(3)~\textbf{对比方法与开销统计}
 
 SNR 对比采用 SwinJSCC~\cite{SwinJSCC} 作为静态联合信源信道编码基线，实验直接使用其公开发布的重建导向预训练模型。SwinJSCC 在传输符号维数 $C=32$ 时的 CBR 为 $0.020833$，与 $\epsilon=32$ 时 CIS-R 基础轮 R0 的 CBR 相同。CIS-R 完成三轮增量重传后，累计 CBR 为 $0.025935$。语义码本方法 Codebook~\cite{liang-SemanticCodebookHARQ-TCOMM25} 和 DiffJSCC~\cite{DiffJSCC} 作为部署开销参照，其中 DiffJSCC 采用输入尺寸为 $512\times512$ 的生成式恢复流程。部署开销统计通信模型参数量、GPU 任务处理时延和峰值 GPU 显存占用。
+
+实现级开销测试在 NVIDIA RTX A6000 GPU 上完成，测试批量大小为 $1$，数据精度为 FP32。CIS-R 的 GPU 任务处理时延从输入图像进入通信模型开始计时，至输出 R3 分类结果结束，包括基础轮与三个增量轮的编码和解码、四次任务模型前向推理、三次基于梯度的分块归因计算、分块选择及接收状态融合，不包括星地传播、前向符号传输、反馈链路传输、模型加载、主机与 GPU 数据搬移和文件读写。参数量统计通信模型，峰值显存覆盖当前实现的完整任务处理链路。开销对比中，DiffJSCC 使用 $512\times512$ 输入和 $50$ 个去噪步骤，其余方法的输入尺寸均为 $224\times224$；CIS-R 采用 $\epsilon=64$，并执行 R0 至 R3 的完整收发流程。由于输入尺寸、迭代次数和多轮交互过程不同，该对比用于刻画当前实现的模型规模与 GPU 任务处理开销，不构成同构网络结构下的严格复杂度比较。
 
 \subsection{不同信噪比下的任务传输性能}
 \label{subsec:ch6_snr_comparison}
@@ -358,7 +375,7 @@ SNR 对比采用 SwinJSCC~\cite{SwinJSCC} 作为静态联合信源信道编码�
 
 \noindent(1)~\textbf{关键模块消融}
 
-图~\ref{fig:ch6_ablation_roundwise} 在 $\epsilon=32$、$K=16$ 和 SNR $=5$~dB 下比较 CIS-R 及其消融变体。各变体在同一轮次具有相同的名义 CBR，准确率差异由反馈生成、SFT 条件调制和接收端累积方式造成。完整 CIS-R 在 R3 达到 $69.56\%$。采用随机分块选择时，准确率降至 $66.64\%$。两者传输的符号数相同，$2.92$ 个百分点的差距来自分块选择策略。移除 SFT 后的 R3 准确率为 $68.58\%$，比完整方法低 $0.98$ 个百分点，反映出反馈条件化调制在硬掩码限定发送位置之外的作用。
+图~\ref{fig:ch6_ablation_roundwise} 在 $\epsilon=32$、$K=16$ 和 SNR $=5$~dB 下比较 CIS-R 及其消融变体。各变体在同一轮次具有相同的名义 CBR，准确率差异由分块选择、反馈与轮次条件化特征变换以及接收端累积方式造成。完整 CIS-R 在 R3 达到 $69.56\%$。采用随机分块选择时，准确率降至 $66.64\%$。两者传输的符号数相同，$2.92$ 个百分点的差距来自分块选择策略。移除 SFT 后的 R3 准确率为 $68.58\%$，比完整方法低 $0.98$ 个百分点，表明基于二值反馈状态和轮次嵌入的 SFT 条件映射有助于生成补充表征。
 
 接收端采用固定平均融合时，R3 准确率为 $68.24\%$。直接使用当前增量替换历史状态会在 R2 出现下降，最终仅达到 $62.00\%$，相较完整方法低 $7.56$ 个百分点。这一差距来自历史语义的丢失：跨轮累积需要保留已有状态中的有效信息，并根据当前增量调整融合比例。
 
@@ -422,7 +439,7 @@ SNR 对比采用 SwinJSCC~\cite{SwinJSCC} 作为静态联合信源信道编码�
 
 \noindent(1)~\textbf{通信模型规模与 GPU 任务处理开销}
 
-表~\ref{tab:ch6_complexity_latency} 中的 GPU 任务处理时延表示在 RTX A6000 上，从输入图像进入通信模型开始，到输出 R3 分类结果为止的完整 GPU 计算时间。CIS-R 的测量路径包括基础轮与三个增量轮的编码和解码、四次任务模型前向推理、三次基于梯度的分块归因计算、分块选择及接收状态融合，不包括星地传播、前向符号传输、反馈链路传输、模型加载、主机与 GPU 数据搬移和文件读写。因此，该指标属于任务处理计算时延，不等同于端到端星地业务时延。测试批量大小为 $1$，数据精度为 FP32。参数量统计通信模型，峰值显存覆盖当前实现的完整任务处理链路。DiffJSCC 使用 $512\times512$ 输入和 $50$ 个去噪步骤，其余方法的输入尺寸均为 $224\times224$；CIS-R 采用 $\epsilon=64$，并执行 R0 至 R3 的完整收发流程。由于输入尺寸、迭代次数和多轮交互过程不同，表中数据用于比较当前实现的模型规模与 GPU 任务处理开销，不构成同构网络结构下的严格复杂度比较。
+表~\ref{tab:ch6_complexity_latency} 按照第~\ref{subsec:ch6_setup}~节给出的硬件环境与统计口径，比较不同方法当前实现的模型规模、GPU 任务处理时延和峰值显存占用。其中，GPU 任务处理时延属于接收端任务处理计算时延，不包括通信与传播过程，因而不等同于端到端星地业务时延。
 
 \begin{table}[!htp]
     \centering
@@ -443,19 +460,19 @@ SNR 对比采用 SwinJSCC~\cite{SwinJSCC} 作为静态联合信源信道编码�
     \end{tabular}}
 \end{table}
 
-在上述统计口径下，CIS-R 的通信模型参数量为 $2.274$~M，峰值显存约为 $150$~MiB，均为表中最低。完整 R0--R3 GPU 任务处理时间为 $45.340$~ms。SwinJSCC 和 Codebook 只执行单次前向处理，GPU 任务处理时延低于 CIS-R；DiffJSCC 的生成式恢复包含多次迭代，GPU 任务处理时延达到 $4382.750$~ms。CIS-R 将任务模型推理和反馈计算部署在地面端，星上仅执行基础编码与语义增量生成。表中时延和显存由完整通信模型在地面 GPU 上测得，不直接代表星上硬件的推理开销。
+CIS-R 的通信模型参数量为 $2.274$~M，峰值显存约为 $150$~MiB，均为表中最低。完整 R0--R3 GPU 任务处理时间为 $45.340$~ms。SwinJSCC 和 Codebook 只执行单次前向处理，GPU 任务处理时延低于 CIS-R；DiffJSCC 的生成式恢复包含多次迭代，GPU 任务处理时延达到 $4382.750$~ms。CIS-R 将任务模型推理和反馈计算部署在地面端，星上仅执行基础编码与语义增量生成。
 
 \noindent(2)~\textbf{时变 LEO 星地传输性能}
 
 时变星地链路仿真采用卫星轨道几何和链路预算生成下行链路状态，地面站包括北京密云、喀什和三亚。前向链路符号速率设为 $4\times10^8$ 复信道符号/s，反馈速率为 $1$~Mbit/s，单轮反馈周转时间为 $4$~ms。
 
-业务负载由 $500$ 幅 ImageNet-100 图像和 $500$ 幅 CIFAR-100~\cite{krizhevsky-CIFAR-TR09} 图像交替组成。两类图像均经过同一个在 ImageNet-100 上训练并冻结的星上发送端，星上基础编码器、轮次条件化表征生成模块及其余发送参数在 CIFAR-100 任务中均不更新。ImageNet-100 接收端沿用原始训练参数；对于 CIFAR-100，首先在冻结共享发送端的条件下训练任务专用的语义解码器和反分块映射，使其能够恢复共享发送端产生的基础表征，随后冻结上述模块，仅训练接收端融合门以适配多轮补充表征。两类任务分别使用对应的地面任务模型完成推理与反馈计算。该设置用于考察固定星上发送参数通过接收端适配支持异构下游任务的能力，而不表示两个任务共享完全相同的端到端收发参数。任务驱动反馈和随机反馈使用相同的前向、反向负载，并对每幅图像、每个轮次采用相同的 AWGN 噪声样本。两类任务的汇总准确率列于表~\ref{tab:ch6_trace_case}。
+时变星地链路实验采用第~\ref{subsec:ch6_setup}~节给出的 ImageNet-100 与 CIFAR-100 混合分类业务负载。两种数据分布分别使用相应的地面分类模型完成推理与反馈计算。任务驱动反馈和随机反馈使用相同的前向、反向负载，并对每幅图像、每个轮次采用相同的 AWGN 噪声样本。两种数据分布的汇总分类准确率列于表~\ref{tab:ch6_trace_case}。
 
 时变链路实验采用在固定 SNR $=5$~dB 的 AWGN 信道下训练得到的模型，并直接在由卫星轨道几何和链路预算生成的时变 SNR 轨迹上测试，测试期间不重新训练模型，也不执行在线信道自适应。每个增量轮开始时，仿真器读取当前 SNR 和星地斜距，根据当前 SNR 生成 AWGN，并由斜距计算单向传播时延。因此，该实验反映的是固定信道条件下训练的 CIS-R 模型对所测试时变 SNR 轨迹的直接泛化性能。
 
 \begin{table}[!htp]
     \centering
-    \bicaption{时变星地链路下的双任务传输结果}{Two-task transmission results over time-varying satellite--ground links}
+    \bicaption{时变星地链路下两种图像分类数据分布的传输结果}{Transmission results for two image-classification data distributions over time-varying satellite--ground links}
     \label{tab:ch6_trace_case}
     \small
     \renewcommand{\arraystretch}{1.15}
@@ -475,6 +492,6 @@ SNR 对比采用 SwinJSCC~\cite{SwinJSCC} 作为静态联合信源信道编码�
 
 \section{本章小结}
 
-本章针对轻量星上编码器单轮传输能力受限且模型规模难以继续扩展的问题，提出 CIS-R 机制，以接收端任务反馈引导的选择性增量通信替代星上模型扩展。在线传输阶段，星上发送端无需部署或访问下游任务模型，任务模型推理与反馈计算均在地面端完成。实验结果显示，随着基础轮任务准确率提高，后续增量传输的边际增益逐步下降；消融实验中，移除任务驱动反馈、反馈条件化调制或自适应语义累积均导致最终准确率下降。在所测试配置中，$K=16$ 和三轮增量重传获得较高的准确率--CBR 增益比。
+本章针对轻量星上编码器单轮传输能力受限且模型规模难以继续扩展的问题，提出 CIS-R 机制，以接收端任务反馈引导的选择性增量通信替代星上模型扩展。在线传输阶段，星上发送端无需部署或访问下游任务模型，任务模型推理与反馈计算均在地面端完成。实验结果显示，随着基础轮任务准确率提高，后续增量传输的边际增益逐步下降；消融实验中，移除任务驱动反馈、反馈与轮次条件化特征变换或自适应语义累积均导致最终准确率下降。在所测试配置中，$K=16$ 和三轮增量重传获得较高的准确率--CBR 增益比。
 
-在高压缩率图像传输条件下，三轮增量传输以约 $24.5\%$ 的累计 CBR 增幅换取 $12.24$ 个百分点的 Top-1 分类准确率增益，给出了增量通信开销与任务性能之间的定量交换关系。在 LEO 卫星过顶北京密云、喀什和三亚地面站的星地图像传输仿真中，当采用相同的前向传输与反馈开销时，任务驱动反馈较随机反馈将双任务平均分类准确率提高 $4.5$--$5.4$ 个百分点，说明基于当前任务判决敏感度的分块优先级在所测试的时变星地链路配置下均取得更高的任务准确率。在当前实现的统计口径下，CIS-R 通信模型参数量约为生成式 DiffJSCC 方案的 $1/2400$。
+在高压缩率图像传输条件下，三轮增量传输以约 $24.5\%$ 的累计 CBR 增幅换取 $12.24$ 个百分点的 Top-1 分类准确率增益，给出了增量通信开销与任务性能之间的定量交换关系。在 LEO 卫星过顶北京密云、喀什和三亚地面站的星地图像传输仿真中，当采用相同的前向传输与反馈开销时，任务驱动反馈较随机反馈将两种图像分类数据分布上的平均分类准确率提高 $4.5$--$5.4$ 个百分点，说明基于当前任务判决敏感度的分块优先级在所测试的时变星地链路配置下均取得更高的任务准确率。该实验还表明，在保持星上发送参数不变的条件下，地面接收端适配能够支持新的图像分类数据分布；其结论范围不扩展至分类、检测和分割等不同任务类型之间的迁移。在当前实现的统计口径下，CIS-R 通信模型参数量约为生成式 DiffJSCC 方案的 $1/2400$。
