@@ -325,13 +325,12 @@ p_c^{(r)}=\mathrm{softmax}(\mathbf l^{(r)})_c,
 \midrule
 图像输入尺寸 & $224\times224$ \\
 图像分块网格 $N$ & $14\times14=196$ \\
-每个分块的实值信道维数 $\epsilon$ & $32$ \\
+单分块通道数 $\epsilon$ & $32$ \\
 单轮请求分块数 $K$ & $16$ \\
 最大增量重传轮数 $R$ & $3$ \\
 相邻轮次重复分块抑制因子 $\eta$ & $0.1$ \\
 增量轮损失权重 $(\lambda_1,\lambda_2,\lambda_3)$ & $(0.2,0.3,1.0)$ \\
 预测熵正则权重 $\lambda_{\mathrm{ent}}$ & $0.2$ \\
-轮次嵌入维数 & $32$ \\
 \bottomrule
 \end{tabular}
 \end{table}
