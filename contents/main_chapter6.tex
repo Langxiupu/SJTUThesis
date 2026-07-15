@@ -5,7 +5,7 @@
 
 面向场景分类等视觉业务，资源受限的 LEO 卫星需要将采集图像下传至地面。扩展星上语义编码器会增加计算、存储与能耗负担；将生成式恢复模型部署在地面虽能减轻星上负载，其迭代推理仍会占用较长的处理时间和较多显存，不适合多轮反馈传输。此类链路的收发功能并不对称：卫星负责图像采集与编码，下游任务模型位于地面。发送端若与具体任务绑定，星上模型便需随地面任务调整；采用单轮开环传输时，地面端又无法依据当前判决指定后续增量传输的分块。现有语义 HARQ 通常反馈确认信息或标量质量指标，不能直接反映任务判决对不同分块的敏感程度。跨轮接收若采用固定平均或直接替换，还可能破坏历史语义状态中已经保留的有效表征。
 
-本章提出接收端驱动的协同增量语义重传（Coordinated Incremental Semantic Retransmission，CIS-R）机制，用于收发资源非对称的 LEO 图像传输。其闭环由地面任务判决、分块级反馈、星上选择性增量传输和地面跨轮状态累积构成。地面接收端根据当前判决裕量对分块表征的局部敏感度生成 Top-$K$ 反馈掩码；星上发送端结合掩码与轮次信息生成候选增量，只打包传输接收端请求的分块。地面接收端以门控方式累积所选分块，同时保留其余分块的历史状态。在线传输时，星上发送端不部署下游任务模型，也不访问任务输出和任务标签；任务推理、分块排序与反馈生成均在地面完成。ImageNet-100 仿真和轨迹驱动星地链路实验评估了分块选择与跨轮累积的传输收益，并给出星上发送端和地面接收端的实现开销。本章相关成果已撰写成会议论文 ``CIS-R: Receiver-Driven Incremental Semantic Retransmission for Resource-Constrained LEO Image Delivery''，投稿于 IEEE International Conference on Computer Communications（INFOCOM）2027。
+本章提出接收端驱动的协同增量语义重传（Coordinated Incremental Semantic Retransmission，CIS-R）机制，用于收发资源非对称的 LEO 图像传输。其闭环由地面任务判决、分块级反馈、星上选择性增量传输和地面跨轮状态累积构成。地面接收端根据当前判决裕量对分块表征的局部敏感度生成 Top-$K$ 反馈掩码；星上发送端结合掩码与轮次信息生成候选增量，只打包传输接收端请求的分块。地面接收端以门控方式累积所选分块，同时保留其余分块的历史状态。在线传输时，星上发送端不部署下游任务模型，也不访问任务输出和任务标签；任务推理、分块排序与反馈生成均在地面完成。ImageNet-100 仿真和轨迹驱动星地链路实验评估了分块选择与跨轮累积的传输收益，并给出星上发送端和地面接收端的实现开销。本章相关成果已授权发明专利``一种保障高优先级时敏业务可靠传输的自组织网络''，并已撰写成会议论文 ``CIS-R: Receiver-Driven Incremental Semantic Retransmission for Resource-Constrained LEO Image Delivery''，投稿于 IEEE International Conference on Computer Communications（INFOCOM）2027。
 
 \section{系统模型与问题建模}
 \label{sec:ch6_sysmodel}
