@@ -298,7 +298,7 @@ p_c^{(r)}=\mathrm{softmax}(\mathbf l^{(r)})_c,
 第二阶段的训练目标写为
 \begin{equation}\label{eq:ch6_loss}
 \mathcal L_{\mathrm{CIS-R}}
-=\sum_{r=1}^{R}\lambda_r\left(\mathcal L_{\mathrm{task}}^{(r)}+\lambda_{\mathrm{ent}}\mathcal H^{(r)}\right),
+=\sum_{r=0}^{R}\lambda_r\left(\mathcal L_{\mathrm{task}}^{(r)}+\lambda_{\mathrm{ent}}\mathcal H^{(r)}\right),
 \end{equation}
 其中，$\delta>0$ 是为避免对数计算出现数值异常而设置的常数，$\lambda_r$ 用于平衡不同增量重传轮的任务损失，$\lambda_{\mathrm{ent}}$ 为预测熵正则权重。对各轮任务输出同时施加监督，可以让增量编码与门控软合并模块适配不同的累计通信预算。预测熵只作用于地面端任务输出，不参与传输码率估计；前向通信开销依旧由式~\eqref{eq:ch6_round_payloads} 和式~\eqref{eq:ch6_cbr} 中的分块数与信道维数确定。
 
@@ -327,6 +327,71 @@ SwinJSCC~\cite{SwinJSCC} 是单次图像传输的 Transformer 联合信源信道
 两个基线的用途不同。SwinJSCC-RepHARQ 用来比较完整信道表征重复传输与选择性增量传输的通信效率，但它的收发结构与任务监督方式都不等同于 CIS-R，因此无法单独用来分离决策敏感分块选择的贡献。随机分块变体只改动分块选择规则，才是评估该模块的受控消融基线。
 
 Codebook-SemCom~\cite{zhang-CodebookSemanticCoding-TCOM2025} 和 DiffJSCC~\cite{DiffJSCC} 只作运行开销参照。两者分别采用码本辅助和扩散生成式处理流程，与 CIS-R 在任务监督、前向符号预算及多轮重传方式上都找不到完全一致的工作点，因此它们只在表~\ref{tab:ch6_complexity_latency} 中参与模型规模、处理时延和峰值显存的比较，不进入任务准确率对比。
+
+\subsection{训练过程}
+\label{subsec:ch6_training_process}
+
+CIS-R 的离线训练分为两个阶段。第一阶段训练基础联合信源信道编码链路。第二阶段固定基础链路参数，训练反馈条件化增量编码模块和接收端融合门。除增量重传轮数上限实验单独训练 $R_{\max}=20$ 模型外，其余受控实验默认取 $R=3$、$K=16$ 和 $\epsilon=32$。以下配置对应默认 SNR $=5$~dB，其他 SNR 工作点沿用相同的训练设置并分别训练模型。两个阶段的随机种子均为 $42$，学习率在训练期间保持不变。
+
+\noindent(1)~\textbf{第一阶段：基础联合信源信道编码链路预训练}
+
+第一阶段只训练基础收发链路。输入图像经过分块映射和基础语义编码后形成信道表征，表征通过 AWGN 信道送达地面端，再由语义解码器和反分块映射层恢复图像。星上基础编码模块与地面基础解码模块按式~\eqref{eq:ch6_base_loss} 联合更新。完成 $20$ 个训练周期后，发送端参数和接收端参数分别保存至 \texttt{base\_tx.pth} 和 \texttt{base\_rx.pth}，供第二阶段加载。优化参数和各模块的网络结构列于表~\ref{tab:ch6_stage1_training}。
+
+\begin{table}[!htp]
+    \centering
+    \bicaption{第一阶段训练配置与基础传输模块网络结构}{Stage-1 training configuration and network architecture of the baseline transmission modules}
+    \label{tab:ch6_stage1_training}
+    \small
+    \setlength{\tabcolsep}{4pt}
+    \begin{tabular}{@{}p{0.10\linewidth}p{0.18\linewidth}p{0.42\linewidth}p{0.23\linewidth}@{}}
+        \toprule
+        类别 & 配置项或模块 & 训练配置或网络结构 & 输入、输出与参数量 \\
+        \midrule
+        训练配置 & 优化设置 & AdamW；初始学习率 $1\times10^{-3}$；权重衰减 $1\times10^{-2}$ & 批量大小为 $64$ \\
+        训练配置 & 训练安排 & 训练 $20$ 个训练周期（epoch）；采用自动混合精度；不进行梯度裁剪 & 输出 \texttt{base\_tx.pth} 与 \texttt{base\_rx.pth} \\
+        训练配置 & 训练目标 & 图像重构均方误差 & 更新参数量 $1{,}345{,}571$ \\
+        \midrule
+        网络结构 & 分块映射层 & 二维卷积：$3\rightarrow512$，卷积核 $16\times16$，步长 $16$ & $[B,3,224,224]\rightarrow[B,196,512]$；$393{,}728$ \\
+        网络结构 & 基础语义编码器 & 全连接层 $512\rightarrow512$，ReLU，全连接层 $512\rightarrow32$ & $[B,196,512]\rightarrow[B,196,32]$；$279{,}072$ \\
+        网络结构 & 语义解码器 & 全连接层 $32\rightarrow512$，ReLU，全连接层 $512\rightarrow512$ & $[B,196,32]\rightarrow[B,196,512]$；$279{,}552$ \\
+        网络结构 & 反分块映射层 & 二维转置卷积：$512\rightarrow3$，卷积核 $16\times16$，步长 $16$ & $[B,512,14,14]\rightarrow[B,3,224,224]$；$393{,}219$ \\
+        \bottomrule
+    \end{tabular}
+\end{table}
+
+\noindent(2)~\textbf{第二阶段：任务驱动的增量语义重传训练}
+
+第二阶段载入 \texttt{base\_tx.pth} 和 \texttt{base\_rx.pth}，随后冻结分块映射层、基础语义编码器、语义解码器和反分块映射层。地面端 ViT-S/16 的参数同样保持不变。每轮增量重传前，ViT-S/16 根据当前语义软缓存给出任务判决，反馈评估单元据此计算分块归因并生成 Top-$K$ 掩码。星上增量语义编码器仅为掩码选中的分块生成增量信道表征。地面端经冻结的语义解码器恢复增量后，用融合门更新相应的缓存位置。
+
+R0--R3 的任务输出共同参与式~\eqref{eq:ch6_loss} 的计算，相应轮次权重为 $[0.1,0.2,0.3,1.0]$，预测熵正则权重取 $0.2$。本组实验不使用码率损失，即 $\beta_{\mathrm{rate}}=0$。反向传播只更新表~\ref{tab:ch6_stage2_training} 中的轮次嵌入层、SFT 参数生成网络、尺度参数网络、增量语义编码器和自适应融合门。
+
+\begin{table}[!htp]
+    \centering
+    \bicaption{第二阶段训练配置与增量重传模块网络结构}{Stage-2 training configuration and network architecture of the incremental retransmission modules}
+    \label{tab:ch6_stage2_training}
+    \small
+    \setlength{\tabcolsep}{4pt}
+    \begin{tabular}{@{}p{0.10\linewidth}p{0.18\linewidth}p{0.42\linewidth}p{0.23\linewidth}@{}}
+        \toprule
+        类别 & 配置项或模块 & 训练配置或网络结构 & 输入、输出与参数量 \\
+        \midrule
+        训练配置 & 优化设置 & AdamW；初始学习率 $1\times10^{-3}$；权重衰减 $1\times10^{-4}$；全局梯度范数上限为 $1.0$ & 批量大小为 $64$ \\
+        训练配置 & 训练安排 & 训练 $15$ 个训练周期（epoch）；采用自动混合精度 & 输出 \texttt{final\_tx.pth} 与 \texttt{final\_rx.pth} \\
+        训练配置 & 监督信号 & 多轮交叉熵损失与预测熵正则项；不引入码率损失 & 更新参数量 $876{,}992$ \\
+        \midrule
+        网络结构 & 轮次嵌入层 & 嵌入表 $4\times32$ & 轮次索引$\rightarrow[B,196,32]$；$128$ \\
+        网络结构 & SFT 参数生成网络 & 全连接层 $33\rightarrow64$，ReLU，全连接层 $64\rightarrow1024$ & $[B,196,33]\rightarrow$缩放与平移向量；$68{,}736$ \\
+        网络结构 & 尺度参数网络（Sigma MLP） & 全连接层 $33\rightarrow64$，ReLU，全连接层 $64\rightarrow32$ & $[B,196,33]\rightarrow[B,196,32]$；$4{,}256$ \\
+        网络结构 & 增量语义编码器 & 全连接层 $512\rightarrow512$，ReLU，全连接层 $512\rightarrow32$ & $[B,196,512]\rightarrow[B,196,32]$；$279{,}072$ \\
+        网络结构 & 自适应融合门 & 拼接历史状态与当前增量，全连接层 $1024\rightarrow512$，sigmoid & 两个 $[B,196,512]$ 状态$\rightarrow[B,196,512]$；$524{,}800$ \\
+        \midrule
+        固定模块 & 反馈评估单元 & 梯度归因、归一化与 Top-$K$ 分块选择，不含可训练参数 & $[B,196,512]\rightarrow[B,196]$ 二进制掩码 \\
+        固定模块 & 地面任务模型 & ViT-S/16，$12$ 个 Transformer 块、$6$ 个注意力头，训练期间参数冻结 & $[B,3,224,224]\rightarrow100$ 类输出；$21{,}704{,}164$ \\
+        \bottomrule
+    \end{tabular}
+\end{table}
+
+第二阶段结束后，增量发送模块和接收端融合门分别写入 \texttt{final\_tx.pth} 和 \texttt{final\_rx.pth}。ViT-S/16 只在离线训练中提供任务监督，其参数不计入 CIS-R 通信模型。在线传输时，星上部署基础发送模块和增量发送模块。任务推理、分块归因及反馈掩码生成均在地面端完成。
 
 \subsection{增量重传轮数上限的选择}
 \label{subsec:ch6_round_limit}
