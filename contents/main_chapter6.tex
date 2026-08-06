@@ -140,7 +140,7 @@ h_{\mathrm{ch}}(t_r)\mathbf x_{\mathrm c}^{(r)}
 \right),\qquad
 \sigma_n^2(t_r)=P_{\mathrm N}+P_{\mathrm I}(t_r),
 \end{equation}
-其中，$P_{\mathrm N}$ 与 $P_{\mathrm I}(t_r)$ 分别为占用带宽内的热噪声功率和聚合同频干扰功率。接收信号经逆映射 $\mathcal C^{-1}(\cdot)$ 转换为实值载荷 $\hat{\mathbf Z}^{(r)}$，随后由语义解码器 $g_{\mathrm{dec}}(\cdot)$ 处理，并用于更新语义软缓存。
+其中，$P_{\mathrm N}$ 与 $P_{\mathrm I}(t_r)$ 分别为占用带宽内的热噪声功率和聚合同频干扰功率。计入同频干扰时，取 $P_{\mathrm I}=0.06P_{\mathrm N}$，对应的干扰噪声功率比为 $10\log_{10}(P_{\mathrm I}/P_{\mathrm N})\simeq-12.2$~dB。该设置采用文献~\cite{Kim-InBandCoexistence-TWC25} 针对 $20$~GHz LEO 下行链路给出的干扰噪声保护门限。此时，SINR 分母中的噪声与干扰总功率为 $P_{\mathrm N}+P_{\mathrm I}=1.06P_{\mathrm N}$，比热噪声功率高约 $10\log_{10}(1.06)\simeq0.25$~dB。接收信号经逆映射 $\mathcal C^{-1}(\cdot)$ 转换为实值载荷 $\hat{\mathbf Z}^{(r)}$，随后由语义解码器 $g_{\mathrm{dec}}(\cdot)$ 处理，并用于更新语义软缓存。
 
 星地斜距随卫星轨道位置变化。设 $d_{\mathrm{km}}(t)$ 为以 km 计的星地斜距，$f_{\mathrm{c,MHz}}$ 为以 MHz 计的载波频率。根据 ITU-R P.525，自由空间路径损耗为~\cite{ITU-R-P525}
 \begin{equation}\label{eq:ch6_fspl}
@@ -184,7 +184,7 @@ P_{\mathrm{N,dBm}}
 \end{equation}
 其中，$B_{\mathrm{Hz}}$ 为占用带宽，$F_{\mathrm{dB}}$ 为接收机噪声系数。
 
-传播环境 $\mathcal E$ 和卫星仰角 $\alpha(t)$ 决定直视分量与散射分量的相对强度。3GPP 非地面网络模型给出了不同环境和离散仰角对应的莱斯 $K$ 因子~\cite{3GPP-TR38811}。本文在相邻仰角之间作分段线性插值，并将插值结果记为 $\bar K_{\mathrm{dB}}(\alpha(t),\mathcal E)$。对应的线性尺度莱斯因子为
+传播环境 $\mathcal E$ 和卫星仰角 $\alpha(t)$ 共同决定直视分量与散射分量的相对强度。3GPP TR 38.811 列出了城市、郊区和农村环境下，Ka 频段直视链路在 $10^\circ$ 至 $90^\circ$ 各离散仰角处的莱斯 $K$ 因子统计参数~\cite{3GPP-TR38811}，具体数值见附录~\ref{app:rician_k_factors}。仿真取表中的 $K$ 因子均值作为 $\bar K_{\mathrm{dB}}(\alpha(t),\mathcal E)$，并按 $10^\circ$ 区间的上端点选值，不在相邻表项之间插值。对于本章考察的 $40^\circ$ 以上链路，$[40^\circ,50^\circ]$ 采用 $50^\circ$ 表项，$(50^\circ,60^\circ]$ 采用 $60^\circ$ 表项，其余区间按相同规则选取，直至 $90^\circ$。对应的线性尺度莱斯因子为
 \begin{equation}\label{eq:ch6_k_factor}
 \kappa(t)=10^{\bar K_{\mathrm{dB}}(\alpha(t),\mathcal E)/10}.
 \end{equation}
@@ -408,65 +408,17 @@ Codebook-SemCom~\cite{zhang-CodebookSemanticCoding-TCOM2025} 和 DiffJSCC~\cite{
 \subsection{训练过程}
 \label{subsec:ch6_training_process}
 
-CIS-R 的离线训练分为两个阶段。第一阶段训练基础联合信源信道编码链路。第二阶段固定基础链路参数，训练反馈条件化增量编码模块和接收端融合门。除增量重传轮数上限实验单独训练 $R_{\max}=20$ 模型外，其余受控实验默认取 $R=3$、$K=16$ 和 $\epsilon=32$。以下配置对应默认 SNR $=5$~dB，其他 SNR 工作点沿用相同的训练设置并分别训练模型。两个阶段的随机种子均为 $42$，学习率在训练期间保持不变。
+CIS-R 采用两阶段离线训练。第一阶段训练基础联合信源信道编码链路，第二阶段冻结基础链路参数，只更新反馈条件化增量编码模块和接收端融合门。除增量重传轮数上限实验单独训练 $R_{\max}=20$ 模型外，其余受控实验均取 $R=3$、$K=16$ 和 $\epsilon=32$。本节以 SNR $=5$~dB 的默认配置为例，其他 SNR 工作点沿用相同配置并分别训练。收发端网络结构、输入输出维度、参数量、各阶段学习率和完整训练流程见附录~\ref{app:ch6_network_training}。
 
 \noindent(1)~\textbf{第一阶段：基础联合信源信道编码链路预训练}
 
-第一阶段只训练基础收发链路。输入图像经过分块映射和基础语义编码后形成信道表征，表征通过 AWGN 信道送达地面端，再由语义解码器和反分块映射层恢复图像。星上基础编码模块与地面基础解码模块按式~\eqref{eq:ch6_base_loss} 联合更新。完成 $20$ 个训练周期后，发送端参数和接收端参数分别保存至 \texttt{base\_tx.pth} 和 \texttt{base\_rx.pth}，供第二阶段加载。优化参数和各模块的网络结构列于表~\ref{tab:ch6_stage1_training}。
-
-\begin{table}[!htp]
-    \centering
-    \bicaption{第一阶段训练配置与基础传输模块网络结构}{Stage-1 training configuration and network architecture of the baseline transmission modules}
-    \label{tab:ch6_stage1_training}
-    \small
-    \setlength{\tabcolsep}{4pt}
-    \begin{tabular}{@{}p{0.10\linewidth}p{0.18\linewidth}p{0.42\linewidth}p{0.23\linewidth}@{}}
-        \toprule
-        类别 & 配置项或模块 & 训练配置或网络结构 & 输入、输出与参数量 \\
-        \midrule
-        训练配置 & 优化设置 & AdamW；初始学习率 $1\times10^{-3}$；权重衰减 $1\times10^{-2}$ & 批量大小为 $64$ \\
-        训练配置 & 训练安排 & 训练 $20$ 个训练周期（epoch）；采用自动混合精度；不进行梯度裁剪 & 输出 \texttt{base\_tx.pth} 与 \texttt{base\_rx.pth} \\
-        训练配置 & 训练目标 & 图像重构均方误差 & 更新参数量 $1{,}345{,}571$ \\
-        \midrule
-        网络结构 & 分块映射层 & 二维卷积：$3\rightarrow512$，卷积核 $16\times16$，步长 $16$ & $[B,3,224,224]\rightarrow[B,196,512]$；$393{,}728$ \\
-        网络结构 & 基础语义编码器 & 全连接层 $512\rightarrow512$，ReLU，全连接层 $512\rightarrow32$ & $[B,196,512]\rightarrow[B,196,32]$；$279{,}072$ \\
-        网络结构 & 语义解码器 & 全连接层 $32\rightarrow512$，ReLU，全连接层 $512\rightarrow512$ & $[B,196,32]\rightarrow[B,196,512]$；$279{,}552$ \\
-        网络结构 & 反分块映射层 & 二维转置卷积：$512\rightarrow3$，卷积核 $16\times16$，步长 $16$ & $[B,512,14,14]\rightarrow[B,3,224,224]$；$393{,}219$ \\
-        \bottomrule
-    \end{tabular}
-\end{table}
+第一阶段只训练基础收发链路。输入图像经过分块映射和基础语义编码后形成信道表征，表征通过 AWGN 信道送达地面端，再由语义解码器和反分块映射层恢复图像。星上基础编码模块与地面基础解码模块按式~\eqref{eq:ch6_base_loss} 联合更新。完成第一阶段训练后，发送端参数和接收端参数分别保存至 \texttt{base\_tx.pth} 和 \texttt{base\_rx.pth}，供第二阶段加载。
 
 \noindent(2)~\textbf{第二阶段：任务驱动的增量语义重传训练}
 
 第二阶段载入 \texttt{base\_tx.pth} 和 \texttt{base\_rx.pth}，随后冻结分块映射层、基础语义编码器、语义解码器和反分块映射层。地面端 ViT-S/16 的参数同样保持不变。每轮增量重传前，ViT-S/16 根据当前语义软缓存给出任务判决，反馈评估单元据此计算分块归因并生成 Top-$K$ 掩码。星上增量语义编码器仅为掩码选中的分块生成增量信道表征。地面端经冻结的语义解码器恢复增量后，用融合门更新相应的缓存位置。
 
-R0--R3 的任务输出共同参与式~\eqref{eq:ch6_loss} 的计算，相应轮次权重为 $[0.1,0.2,0.3,1.0]$，预测熵正则权重取 $0.2$。本组实验不使用码率损失，即 $\beta_{\mathrm{rate}}=0$。反向传播只更新表~\ref{tab:ch6_stage2_training} 中的轮次嵌入层、SFT 参数生成网络、尺度参数网络、增量语义编码器和自适应融合门。
-
-\begin{table}[!htp]
-    \centering
-    \bicaption{第二阶段训练配置与增量重传模块网络结构}{Stage-2 training configuration and network architecture of the incremental retransmission modules}
-    \label{tab:ch6_stage2_training}
-    \small
-    \setlength{\tabcolsep}{4pt}
-    \begin{tabular}{@{}p{0.10\linewidth}p{0.18\linewidth}p{0.42\linewidth}p{0.23\linewidth}@{}}
-        \toprule
-        类别 & 配置项或模块 & 训练配置或网络结构 & 输入、输出与参数量 \\
-        \midrule
-        训练配置 & 优化设置 & AdamW；初始学习率 $1\times10^{-3}$；权重衰减 $1\times10^{-4}$；全局梯度范数上限为 $1.0$ & 批量大小为 $64$ \\
-        训练配置 & 训练安排 & 训练 $15$ 个训练周期（epoch）；采用自动混合精度 & 输出 \texttt{final\_tx.pth} 与 \texttt{final\_rx.pth} \\
-        训练配置 & 监督信号 & 多轮交叉熵损失与预测熵正则项；不引入码率损失 & 更新参数量 $876{,}992$ \\
-        \midrule
-        网络结构 & 轮次嵌入层 & 嵌入表 $4\times32$ & 轮次索引$\rightarrow[B,196,32]$；$128$ \\
-        网络结构 & SFT 参数生成网络 & 全连接层 $33\rightarrow64$，ReLU，全连接层 $64\rightarrow1024$ & $[B,196,33]\rightarrow$缩放与平移向量；$68{,}736$ \\
-        网络结构 & 尺度参数网络（Sigma MLP） & 全连接层 $33\rightarrow64$，ReLU，全连接层 $64\rightarrow32$ & $[B,196,33]\rightarrow[B,196,32]$；$4{,}256$ \\
-        网络结构 & 增量语义编码器 & 全连接层 $512\rightarrow512$，ReLU，全连接层 $512\rightarrow32$ & $[B,196,512]\rightarrow[B,196,32]$；$279{,}072$ \\
-        网络结构 & 自适应融合门 & 拼接历史状态与当前增量，全连接层 $1024\rightarrow512$，sigmoid & 两个 $[B,196,512]$ 状态$\rightarrow[B,196,512]$；$524{,}800$ \\
-        \midrule
-        固定模块 & 反馈评估单元 & 梯度归因、归一化与 Top-$K$ 分块选择，不含可训练参数 & $[B,196,512]\rightarrow[B,196]$ 二进制掩码 \\
-        固定模块 & 地面任务模型 & ViT-S/16，$12$ 个 Transformer 块、$6$ 个注意力头，训练期间参数冻结 & $[B,3,224,224]\rightarrow100$ 类输出；$21{,}704{,}164$ \\
-        \bottomrule
-    \end{tabular}
-\end{table}
+R0--R3 的任务输出共同参与式~\eqref{eq:ch6_loss} 的计算，相应轮次权重为 $[0.1,0.2,0.3,1.0]$，预测熵正则权重取 $0.2$。本组实验不使用码率损失，即 $\beta_{\mathrm{rate}}=0$。反向传播只更新轮次嵌入层、SFT 参数生成网络、尺度参数网络、增量语义编码器和自适应融合门。
 
 第二阶段结束后，增量发送模块和接收端融合门分别写入 \texttt{final\_tx.pth} 和 \texttt{final\_rx.pth}。ViT-S/16 只在离线训练中提供任务监督，其参数不计入 CIS-R 通信模型。在线传输时，星上部署基础发送模块和增量发送模块。任务推理、分块归因及反馈掩码生成均在地面端完成。
 
@@ -593,7 +545,7 @@ CIFAR-100 一侧的配置需要单独说明。星上发送端沿用 SNR $=5$~dB 
 
 时变链路实验另外引入 SwinJSCC（$C=32$）作为外部任务性能参照。它在同一组 $1000$ 幅交织图像和相同的有效链路区间上运行，每幅图像传输 $3136$ 个前向复信道符号且不使用反馈，前向负载与 CIS-R R0 相同，两类数据各自使用对应的冻结分类模型。作为对比，CIS-R R3 每幅图像传输 $3904$ 个前向复信道符号，另加 $588$ bit 反馈。
 
-轨道几何由 Skyfield 依据双行根数（Two-Line Element，TLE）生成~\cite{Rhodes-Skyfield-ASCL2019}，星地链路 SNR 按斜距和自由空间路径损耗计算~\cite{ITU-R-P525}。每个地面站都选取处于上升段且仰角最低的候选卫星，在其仰角高于 $40^\circ$ 的时段内保持关联，并取最长的连续有效链路区间用于测试。主要参数见表~\ref{tab:ch6_trace_config}。
+轨道几何由 Skyfield 根据双行根数（Two-Line Element，TLE）生成~\cite{Rhodes-Skyfield-ASCL2019}。星地链路的平均 SINR 由斜距、自由空间路径损耗以及式~\eqref{eq:ch6_aggregate_noise} 中的噪声与干扰功率计算~\cite{ITU-R-P525}。对每个地面站，仿真选取上升段中仰角最低的候选卫星，在仰角高于 $40^\circ$ 期间保持关联，并截取最长连续有效链路区间进行测试。仿真分别生成城市、郊区和农村三类 Ka 频段 LOS 信道；每轮通信按照瞬时仰角选取 3GPP 莱斯 $K$ 因子均值，并据此采样小尺度衰落系数~\cite{3GPP-TR38811}。离散仰角映射规则和参数见附录~\ref{app:rician_k_factors}，其余仿真参数列于表~\ref{tab:ch6_trace_config}。
 
 \begin{table}[!htp]
     \centering
@@ -607,23 +559,23 @@ CIFAR-100 一侧的配置需要单独说明。星上发送端沿用 SNR $=5$~dB 
         \midrule
         轨道参数 & $1584$ 颗 Starlink 卫星；TLE；2025 年 7 月 1 日 04:00 UTC；仿真时长 $900$~s；采样间隔 $0.1$~s；最低仰角 $40^\circ$ \\
         地面站 & 北京密云（$40.3762^\circ\mathrm{N},116.8430^\circ\mathrm{E}$）、新疆喀什（$39.4704^\circ\mathrm{N},75.9898^\circ\mathrm{E}$）和海南三亚（$18.3074^\circ\mathrm{N},109.3272^\circ\mathrm{E}$） \\
-        链路预算 & $f_c=20$~GHz，$B=400$~MHz，$P_t=40$~dBm，$G_t+G_r=60$~dB，$N_0=-164$~dBm/Hz \\
+        链路预算 & $f_c=20$~GHz，$B=400$~MHz，$P_t=40$~dBm，$G_t+G_r=60$~dB，$N_0=-164$~dBm/Hz，$P_{\mathrm I}=0.06P_{\mathrm N}$ \\
         业务负载 & $500$ 幅 ImageNet-100 图像和 $500$ 幅 CIFAR-100 图像 \\
         通信参数 & $\epsilon=32$，$K=16$，R0--R3；每幅图像 $3904$ 个前向复信道符号和 $588$ bit 反馈；前向符号速率 $400$~Msymbol/s；反馈速率 $1$~Mbit/s；单轮反馈周转时间 $4$~ms \\
         \bottomrule
     \end{tabular}
 \end{table}
 
-该案例随斜距变化更新自由空间路径损耗和 AWGN 信噪比，用来考察 CIS-R 对所选时变链路区间的直接适应能力。仿真没有引入小尺度衰落、同频干扰以及自由空间传播之外的附加损耗，所以结果并不代表复杂星地传播环境下的完整链路性能。
+仿真随星地斜距更新自由空间路径损耗、平均 SINR 和传播时延，并根据传播环境与瞬时仰角采样莱斯小尺度衰落。聚合同频干扰功率固定为 $0.06P_{\mathrm N}$。链路模型未计入阴影衰落、云雾衰减、大气气体吸收、对流层闪烁和降雨衰减。因此，本节结果只用于比较各传输方法在相同链路配置下的相对性能，不应解释为计及全部星地传播效应后的绝对链路性能。
 
-每轮传输中，仿真器按当前星地斜距确定信道 SNR 和传播时延。CIS-R 与随机分块变体使用相同的前向及反馈负载，并共享逐图像、逐轮次的信道噪声样本；SwinJSCC 用同一组业务样本和有效链路区间，但只执行单次前向传输。$\epsilon=32$ 时，ImageNet-100 和 CIFAR-100 的完整 R0--R3 任务处理时延分别为 $49.10$~ms 和 $44.31$~ms，等权平均值 $46.71$~ms。仿真不计排队时延。平均端到端时延定义为
+每轮传输的平均 SINR、莱斯小尺度衰落系数和传播时延均由当前星地斜距与仰角确定。CIS-R 与随机分块变体采用相同的前向和反馈负载，并在每幅图像、每轮传输上共享同一信道实现。SwinJSCC 使用相同的业务样本与有效链路区间，但只进行一次前向传输。当 $\epsilon=32$ 时，ImageNet-100 和 CIFAR-100 上完整 R0--R3 的任务处理时延分别为 $49.10$~ms 和 $44.31$~ms，等权平均为 $46.71$~ms。仿真不计排队时延。平均端到端时延定义为
 \begin{equation}\label{eq:ch6_e2e_latency}
 T_{\mathrm{E2E}}^{\mathrm{avg}}
 =T_{\mathrm{task}}^{\mathrm{case}}+T_{\mathrm{comm}}^{\mathrm{avg}},
 \end{equation}
 其中，$T_{\mathrm{comm}}$ 包括前向与反馈序列化时延、星地传播时延和三次反馈周转时间。
 
-表~\ref{tab:ch6_trace_case} 中的 Top-1 准确率在 $1000$ 幅交织业务图像上统计，两个数据集各占 $500$ 幅；SNR 一行报告的是每个有效链路区间内的最小值、均值和最大值。
+表~\ref{tab:ch6_trace_case} 中的 Top-1 准确率在 $1000$ 幅交织业务图像上统计，两个数据集各占 $500$ 幅；平均 SINR 一行报告的是每个有效链路区间内的最小值、均值和最大值。
 
 \begin{table}[!htp]
     \centering
@@ -636,7 +588,7 @@ T_{\mathrm{E2E}}^{\mathrm{avg}}
         指标 & 北京密云 & 新疆喀什 & 海南三亚 \\
         \midrule
         有效链路时长（s） & $322.0$ & $649.3$ & $767.8$ \\
-        SNR 最小值/均值/最大值（dB） & $1.29/3.22/5.29$ & $1.29/2.98/4.47$ & $1.41/3.71/5.65$ \\
+        平均 SINR 最小值/均值/最大值（dB） & $1.29/3.22/5.29$ & $1.29/2.98/4.47$ & $1.41/3.71/5.65$ \\
         通信时延均值/第 $95$ 百分位数（ms） & $28.00/31.08$ & $28.33/30.75$ & $27.11/29.93$ \\
         平均端到端时延（ms） & $74.70$ & $75.03$ & $73.82$ \\
         \midrule

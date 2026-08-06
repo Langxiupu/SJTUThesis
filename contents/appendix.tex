@@ -1,0 +1,245 @@
+\chapter{补充材料}
+\label{app:supplementary_materials}
+
+\section{第三章：CA-LDP 的训练目标与实现参数}
+\label{app:ch3_training_details}
+
+第~\ref{chap:perception}~章 CA-LDP 的训练包括 CaGSR 状态校准和近端策略优化（Proximal Policy Optimization，PPO）路由策略训练。相应的训练目标、实现参数和奖励函数说明如下。
+
+\subsection{两阶段训练与核心参数}
+
+设 $\Theta_{\mathrm C}$ 为 CaGSR 的可训练参数集合，包括时序先验模块、观测权重与保真权重估计网络、星间链路门控网络、残差校正网络和可学习残差尺度。传播模块的可训练参数记为 $\Theta_{\mathrm R}=\{\theta_0,\theta_d,\theta_r,a_\alpha,a_\beta\}$，PPO 路由头参数记为 $\Theta_\pi$。
+
+第一阶段利用式~\eqref{eq:ch2_cagsr_loss} 的当前状态监督优化 $\Theta_{\mathrm C}$。仿真器在引入状态更新误差前记录当前物理状态 $x_u(k)$，该状态只用于监督状态校准。观测权重 $c_{i,u}(k)$ 和保真权重 $w_{i,u}(k)$ 是展开校准算子中的可微内部变量，与 CaGSR 的其余参数共同学习，不使用独立的监督标签。
+
+第二阶段固定 $\Theta_{\mathrm C}$，由 PPO 联合优化传播模块参数 $\Theta_{\mathrm R}$ 和路由策略参数 $\Theta_\pi$。CA-LDP 的核心结构与优化参数以及图修复校准基线的配置列于表~\ref{tab:app_ch3_caldp_hyperparams}。在线路由期间，本地监测半径 $h$、校准步数 $L_c$、传播步数 $T$ 和校准步长 $\eta$ 保持不变。上界 $\alpha_{\max}$ 与 $\beta_{\max}$ 约束可学习的传播强度和锚定强度，但不改变校准与传播的执行步数。
+
+\begin{table}[!htp]
+    \centering
+    \bicaption{CA-LDP 核心参数与图修复基线配置}{Core CA-LDP parameters and Graph-restoration baseline configuration}
+    \label{tab:app_ch3_caldp_hyperparams}
+    \footnotesize
+    \setlength{\tabcolsep}{4pt}
+    \renewcommand{\arraystretch}{1.14}
+    \begin{tabular}{p{0.25\linewidth} p{0.19\linewidth} p{0.25\linewidth} p{0.19\linewidth}}
+        \hline
+        参数 & 取值 & 参数 & 取值 \\
+        \hline
+        本地监测半径 $h$ & $5$ & 状态维度 / CaGSR 宽度 & $54$ \\
+        状态更新历史长度 $L$ & $4$ & 校准展开步数 / 步长 & $3$ / $0.05$ \\
+        全局图正则化权重 $\lambda_{\mathrm g}$ & $0.02$ & 观测 / 保真权重估计网络 & 2 层 MLP，宽度为 $54$ \\
+        图修复权重 / 数值稳定项 $(\lambda_{\mathrm{NA}},\epsilon_{\mathrm{NA}})$ & $(3\times10^{-4},10^{-6})$ & 固定节点尺度 $\omega_u$ & $\sqrt{1+\epsilon_u}$，$\epsilon_u\in[0,0.05]$，随机种子为 $260217$ \\
+        AoI 衰减 / 失配尺度 $(\mu_f,\mu_m)$ & $(0.1,1.0)$ & 残差尺度 $\gamma_r$ & 可学习，初值为 $0.01$ \\
+        第一阶段学习率 & $5\times10^{-4}$ & 传播隐藏层宽度 & $96$ \\
+        传播步数 $T$ & $2$ & 传播映射 & $\phi_0,\phi_d$：2 层 MLP；$\phi_r$：1 层 MLP \\
+        初始强度 $(\alpha_0,\beta_0)$ & $(5\times10^{-4},5\times10^{-3})$ & 上界 $(\alpha_{\max},\beta_{\max})$ & $(10^{-3},10^{-2})$ \\
+        \hline
+    \end{tabular}
+\end{table}
+
+\subsection{PPO 训练与奖励设计}
+
+第一阶段结束后，固定 $\Theta_{\mathrm C}$，再训练传播模块与 PPO 路由头。每次转发决策以 $H_i^\star(k)$、目的节点描述子和候选邻居状态为策略输入，输出所选下一跳。若同一前景需求的多个流片在一个时隙内请求下一跳决策，则每次决策分别构成一条 PPO 转移，并按流片编号和时隙内决策顺序编号。
+
+第 $m$ 条决策转移的奖励由链路负载感知的本地转发反馈、流级终止反馈和回合级性能反馈构成：
+\begin{equation}
+\hat r_m
+=
+\left(
+r_m^{\mathrm{ca}}
++
+\epsilon_p r_m^{\mathrm{prog}}
+-
+r_m^{\mathrm{safe}}
+\right)
++
+\lambda_f \frac{R_{f(m)}^{\mathrm{term}}}{N_{f(m)}}
++
+\lambda_{\mathrm{ep}} \omega_m R^{\mathrm{ep}} .
+\label{eq:app_ch3_decision_reward}
+\end{equation}
+其中，$r_m^{\mathrm{ca}}$、$r_m^{\mathrm{prog}}$ 和 $r_m^{\mathrm{safe}}$ 分别为所选出向星间链路的拥塞规避反馈、朝向目的节点的转发进展反馈，以及环路倾向或无效动作惩罚。$R_{f(m)}^{\mathrm{term}}$ 为流 $f(m)$ 的终止奖励，$N_{f(m)}$ 为该流的决策次数，$R^{\mathrm{ep}}$ 为回合级性能奖励。系数 $\omega_m$ 根据流大小调整回合级奖励，$\lambda_f$ 和 $\lambda_{\mathrm{ep}}$ 分别控制流级与回合级奖励的权重。延迟奖励写入相应的决策转移后，沿时间顺序执行广义优势估计。此阶段仅更新 $\Theta_{\mathrm R}$ 和 $\Theta_\pi$。
+
+\section{第六章：链路参数与 CIS-R 训练配置}
+
+\subsection{3GPP Ka 频段直视链路的莱斯因子参数}
+\label{app:rician_k_factors}
+
+3GPP TR 38.811 按离散仰角列出了城市、郊区和农村场景下 Ka 频段直视（Line-of-Sight，LOS）链路的莱斯 $K$ 因子统计参数~\cite{3GPP-TR38811}。表~\ref{tab:app_rician_k_factors} 摘录该技术报告表 6.7.2-3b、表 6.7.2-5b 和表 6.7.2-7b 中的 $K$ 因子均值 $\mu_K$ 与标准差 $\sigma_K$，两项参数均以 dB 表示。
+
+\begin{table}[!htp]
+    \centering
+    \bicaption{3GPP Ka 频段 LOS 链路的莱斯 $K$ 因子参数}{Rician $K$-factor parameters for 3GPP Ka-band LOS links}
+    \label{tab:app_rician_k_factors}
+    \scriptsize
+    \setlength{\tabcolsep}{2.8pt}
+    \renewcommand{\arraystretch}{1.15}
+    \resizebox{\textwidth}{!}{%
+    \begin{tabular}{@{}llccccccccc@{}}
+        \toprule
+        传播环境 & 统计参数 & $10^\circ$ & $20^\circ$ & $30^\circ$ & $40^\circ$ & $50^\circ$ & $60^\circ$ & $70^\circ$ & $80^\circ$ & $90^\circ$ \\
+        \midrule
+        城市 & $\mu_K$ & $40.18$ & $23.62$ & $12.48$ & $8.56$ & $7.42$ & $5.97$ & $4.88$ & $4.22$ & $3.81$ \\
+        城市 & $\sigma_K$ & $16.99$ & $18.96$ & $14.23$ & $11.06$ & $11.21$ & $9.47$ & $7.24$ & $5.79$ & $4.25$ \\
+        \midrule
+        郊区 & $\mu_K$ & $8.90$ & $14.00$ & $11.30$ & $9.00$ & $7.50$ & $6.60$ & $5.90$ & $5.50$ & $5.40$ \\
+        郊区 & $\sigma_K$ & $4.40$ & $4.60$ & $3.70$ & $3.50$ & $3.00$ & $2.60$ & $1.70$ & $0.70$ & $0.30$ \\
+        \midrule
+        农村 & $\mu_K$ & $25.43$ & $12.72$ & $8.40$ & $6.52$ & $5.24$ & $4.57$ & $4.02$ & $3.70$ & $3.62$ \\
+        农村 & $\sigma_K$ & $7.04$ & $7.47$ & $7.18$ & $6.88$ & $5.28$ & $4.92$ & $3.40$ & $2.22$ & $2.28$ \\
+        \bottomrule
+    \end{tabular}%
+    }
+\end{table}
+
+第~\ref{chap:semantic}~章的链路模型取表~\ref{tab:app_rician_k_factors} 中的均值 $\mu_K$ 作为式~\eqref{eq:ch6_k_factor} 的 $\bar K_{\mathrm{dB}}(\alpha(t),\mathcal E)$，不再依据 $\sigma_K$ 对 $K$ 因子重复采样。有效仰角不低于 $40^\circ$ 时，区间 $[40^\circ,50^\circ]$、$(50^\circ,60^\circ]$、$(60^\circ,70^\circ]$、$(70^\circ,80^\circ]$ 和 $(80^\circ,90^\circ]$ 依次采用 $50^\circ$、$60^\circ$、$70^\circ$、$80^\circ$ 和 $90^\circ$ 列的均值。选定的 dB 域均值按式~\eqref{eq:ch6_k_factor} 转换为线性功率比，并用于生成归一化莱斯小尺度衰落系数。
+
+\subsection{CIS-R 网络结构与两阶段训练流程}
+\label{app:ch6_network_training}
+
+第~\ref{chap:semantic}~章的 CIS-R 通信模型采用以下网络结构和分阶段训练配置。默认受控实验使用 ImageNet-100 数据集，输入图像尺寸为 $224\times224\times3$，分块尺寸为 $16\times16$，每幅图像包含 $N=196$ 个分块。单分块实值信道维数默认取 $\epsilon=32$，每轮请求 $K=16$ 个分块，最多执行 $R=3$ 轮增量重传，即完整传输过程包括 R0--R3。
+
+\subsubsection{收发端通信模型结构}
+
+星上发送端包括分块映射层、基础语义编码器、轮次嵌入层、空间特征调制（Spatial Feature Transform，SFT）参数生成网络、尺度参数网络和增量语义编码器。各模块结构列于表~\ref{tab:app_ch6_tx_architecture}，总参数量为 $1{,}024{,}992$。
+
+\begin{table}[!htp]
+    \centering
+    \bicaption{CIS-R 星上发送端网络结构}{Network architecture of the CIS-R satellite transmitter}
+    \label{tab:app_ch6_tx_architecture}
+    \scriptsize
+    \setlength{\tabcolsep}{3.2pt}
+    \renewcommand{\arraystretch}{1.13}
+    \begin{tabular}{@{}p{0.18\linewidth}p{0.34\linewidth}p{0.19\linewidth}p{0.19\linewidth}r@{}}
+        \toprule
+        模块 & 网络结构 & 输入维度 & 输出维度 & 参数量 \\
+        \midrule
+        分块映射层 & 二维卷积 $3\rightarrow512$，卷积核 $16\times16$，步长 $16$ & $[B,3,224,224]$ & $[B,196,512]$ & $393{,}728$ \\
+        基础语义编码器 & 全连接层 $512\rightarrow512$，ReLU，全连接层 $512\rightarrow32$ & $[B,196,512]$ & $[B,196,32]$ & $279{,}072$ \\
+        轮次嵌入层 & 嵌入表 $4\times32$ & 轮次索引 & $[B,196,32]$ & $128$ \\
+        SFT 参数生成网络 & 全连接层 $33\rightarrow64$，ReLU，全连接层 $64\rightarrow1024$ & $[B,196,33]$ & 缩放与平移向量 & $68{,}736$ \\
+        尺度参数网络 & 全连接层 $33\rightarrow64$，ReLU，全连接层 $64\rightarrow32$ & $[B,196,33]$ & $[B,196,32]$ & $4{,}256$ \\
+        增量语义编码器 & 全连接层 $512\rightarrow512$，ReLU，全连接层 $512\rightarrow32$ & $[B,196,512]$ & $[B,196,32]$ & $279{,}072$ \\
+        \bottomrule
+    \end{tabular}
+\end{table}
+
+地面接收端包括语义解码器、自适应融合门和反分块映射层，同时配置无可训练参数的反馈评估单元以及参数冻结的 ViT-S/16 下游任务模型，结构见表~\ref{tab:app_ch6_rx_architecture}。地面通信模型包含 $1{,}197{,}571$ 个参数。下游任务模型只提供离线任务监督，不计入 CIS-R 通信模型的参数量。
+
+\begin{table}[!htp]
+    \centering
+    \bicaption{CIS-R 地面接收端网络结构}{Network architecture of the CIS-R ground receiver}
+    \label{tab:app_ch6_rx_architecture}
+    \scriptsize
+    \setlength{\tabcolsep}{3.0pt}
+    \renewcommand{\arraystretch}{1.13}
+    \begin{tabular}{@{}p{0.18\linewidth}p{0.35\linewidth}p{0.18\linewidth}p{0.18\linewidth}r@{}}
+        \toprule
+        模块 & 网络结构或处理方式 & 输入维度 & 输出维度 & 参数量 \\
+        \midrule
+        语义解码器 & 全连接层 $32\rightarrow512$，ReLU，全连接层 $512\rightarrow512$ & $[B,196,32]$ & $[B,196,512]$ & $279{,}552$ \\
+        自适应融合门 & 拼接历史状态与当前增量，全连接层 $1024\rightarrow512$，sigmoid & 两个 $[B,196,512]$ 状态 & $[B,196,512]$ & $524{,}800$ \\
+        反分块映射层 & 二维转置卷积 $512\rightarrow3$，卷积核 $16\times16$，步长 $16$ & $[B,512,14,14]$ & $[B,3,224,224]$ & $393{,}219$ \\
+        反馈评估单元 & 判决裕量梯度归因、评分归一化与 Top-$K$ 分块选择 & $[B,196,512]$ & $[B,196]$ 二进制掩码 & $0$ \\
+        下游任务模型 & ViT-S/16，$12$ 个 Transformer 块和 $6$ 个注意力头，参数冻结 & $[B,3,224,224]$ & $100$ 类判决输出 & $21{,}704{,}164$ \\
+        \bottomrule
+    \end{tabular}
+\end{table}
+
+\subsubsection{两阶段训练流程}
+
+CIS-R 的训练分为两个阶段。第一阶段以图像重构为目标训练基础无线传输链路。第二阶段载入第一阶段保存的基础收发模块，再利用地面任务模型的监督信号训练增量传输与接收合并模块。两阶段均采用 AdamW 优化器，批量大小为 $64$，学习率固定为 $1\times10^{-3}$，训练期间不使用学习率调度器。随机种子均设为 $42$，并启用自动混合精度。其他配置列于表~\ref{tab:app_ch6_training_hyperparameters}。
+
+\begin{table}[!htp]
+    \centering
+    \bicaption{CIS-R 两阶段训练配置}{Two-stage training configuration of CIS-R}
+    \label{tab:app_ch6_training_hyperparameters}
+    \small
+    \setlength{\tabcolsep}{4.2pt}
+    \renewcommand{\arraystretch}{1.15}
+    \begin{tabular}{@{}p{0.27\linewidth}p{0.31\linewidth}p{0.31\linewidth}@{}}
+        \toprule
+        配置项 & 第一阶段 & 第二阶段 \\
+        \midrule
+        优化器 & AdamW & AdamW \\
+        初始学习率 & $1\times10^{-3}$ & $1\times10^{-3}$ \\
+        学习率调度器 & 不使用 & 不使用 \\
+        权重衰减 & $1\times10^{-2}$ & $1\times10^{-4}$ \\
+        批量大小 & $64$ & $64$ \\
+        训练周期数 & $20$ & $15$ \\
+        自动混合精度 & 使用 & 使用 \\
+        梯度裁剪 & 不使用 & 全局梯度范数上限为 $1.0$ \\
+        随机种子 & $42$ & $42$ \\
+        训练目标 & 图像重构均方误差 & 多轮交叉熵损失与预测熵正则项 \\
+        码率损失 & 不适用 & 关闭，$\beta_{\mathrm{rate}}=0$ \\
+        输出检查点 & \texttt{base\_tx.pth}、\texttt{base\_rx.pth} & \texttt{final\_tx.pth}、\texttt{final\_rx.pth} \\
+        \bottomrule
+    \end{tabular}
+\end{table}
+
+\noindent\textbf{（1）第一阶段：基础联合信源信道编码链路训练。}
+
+第一阶段的前向处理过程为
+\begin{equation}
+\mathbf X
+\xrightarrow{f_{\mathrm{pat}}}
+\mathbf P
+\xrightarrow{f_{\mathrm{base}}}
+\mathbf Z^{(0)}
+\xrightarrow{\mathrm{AWGN}}
+\hat{\mathbf Z}^{(0)}
+\xrightarrow{g_{\mathrm{dec}}}
+\mathbf Y^{(0)}
+\xrightarrow{f_{\mathrm{unpat}}}
+\hat{\mathbf X}^{(0)}.
+\label{eq:app_ch6_stage1_flow}
+\end{equation}
+星上侧更新分块映射层和基础语义编码器，地面侧更新语义解码器和反分块映射层，共有 $1{,}345{,}571$ 个可训练参数。损失函数采用式~\eqref{eq:ch6_base_loss} 所示的图像重构均方误差。训练 $20$ 个周期后，星上基础发送模块和地面基础接收模块分别保存为 \texttt{base\_tx.pth} 与 \texttt{base\_rx.pth}。
+
+\noindent\textbf{（2）第二阶段：任务驱动的增量语义重传训练。}
+
+第二阶段载入第一阶段检查点，并冻结分块映射层、基础语义编码器、语义解码器和反分块映射层。地面端 ViT-S/16 的参数同样保持冻结，任务损失梯度则通过该模型回传至接收语义表征，用于更新增量传输与融合模块。第 $r$ 个增量重传轮的处理过程为
+\begin{equation}
+\begin{aligned}
+\mathbf Y^{(r-1)}
+&\xrightarrow{\mathcal T_\phi}
+\mathbf l^{(r-1)}
+\xrightarrow{\text{判决裕量梯度归因}}
+\mathbf M_{\mathrm{hard}}^{(r)},\\
+\left(\mathbf P,\mathbf M_{\mathrm{hard}}^{(r)},\mathbf e_r\right)
+&\xrightarrow{\mathcal F_{\mathrm{tx}}}
+\mathbf Z^{(r)}
+\xrightarrow{\mathrm{AWGN}}
+\hat{\mathbf Z}^{(r)}
+\xrightarrow{g_{\mathrm{dec}}}
+\mathbf U_{\mathrm{sel}}^{(r)}\\
+&\xrightarrow{\text{掩码引导的门控软合并}}
+\mathbf Y^{(r)}
+\xrightarrow{\mathcal T_\phi}
+\mathbf l^{(r)}.
+\end{aligned}
+\label{eq:app_ch6_stage2_flow}
+\end{equation}
+第二阶段更新轮次嵌入层、SFT 参数生成网络、尺度参数网络、增量语义编码器和自适应融合门，共有 $876{,}992$ 个可训练参数。R0--R3 的任务输出按式~\eqref{eq:ch6_loss} 共同构成训练损失，轮次权重为 $[0.1,0.2,0.3,1.0]$，预测熵正则权重为 $0.2$。训练 $15$ 个周期后，星上增量发送模块与地面融合模块分别保存为 \texttt{final\_tx.pth} 和 \texttt{final\_rx.pth}。
+
+\subsubsection{模型参数量汇总}
+
+收发端模型规模和各阶段的可训练参数量列于表~\ref{tab:app_ch6_parameter_summary}。下游任务模型部署在地面端，只在第二阶段提供任务监督；在线传输不向星上发送任务模型参数、任务输出或任务标签。
+
+\begin{table}[!htp]
+    \centering
+    \bicaption{CIS-R 模型参数量与分阶段更新规模}{CIS-R model size and trainable parameters in each stage}
+    \label{tab:app_ch6_parameter_summary}
+    \small
+    \renewcommand{\arraystretch}{1.15}
+    \begin{tabular}{@{}lrrr@{}}
+        \toprule
+        模型部分 & 总参数量 & 第一阶段更新参数量 & 第二阶段更新参数量 \\
+        \midrule
+        星上发送端 & $1{,}024{,}992$ & $672{,}800$ & $352{,}192$ \\
+        地面接收端 & $1{,}197{,}571$ & $672{,}771$ & $524{,}800$ \\
+        CIS-R 通信模型 & $2{,}222{,}563$ & $1{,}345{,}571$ & $876{,}992$ \\
+        地面任务模型 & $21{,}704{,}164$ & $0$ & $0$ \\
+        \bottomrule
+    \end{tabular}
+\end{table}

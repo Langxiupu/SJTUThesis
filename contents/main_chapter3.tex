@@ -469,7 +469,7 @@ H_{i,v}^{t}(k)
 \end{equation}
 系数 $1-\beta w_{i,v}(k)$ 表明，高置信节点更倾向于保留自身的初始校准特征；低置信节点则不受不可靠初值的强约束，可继续通过邻居聚合修正路由表征。
 
-经 $T$ 步传播后，模块输出路由策略输入特征矩阵 $H_i^\star(k)=H_i^T(k)$，将下游拥塞与链路状态信息融入校准状态 $Z_i^\star(k)$。训练时，CaGSR 先经当前状态监督校准并冻结，随后传播模块与下游近端策略优化（Proximal Policy Optimization，PPO）路由头联合训练。该分阶段安排使 $Z_i^\star(k)$ 保持为物理状态估计，$w_i(k)$ 仍与状态估计可信度绑定，而非转为面向策略的注意力权重；PPO 路由头奖励设计与训练配置将在第~\ref{subsec:ch2_training} 节一并给出。
+经 $T$ 步传播后，模块输出路由策略输入特征矩阵 $H_i^\star(k)=H_i^T(k)$，将下游拥塞与链路状态信息融入校准状态 $Z_i^\star(k)$。训练时，CaGSR 先经当前状态监督校准并冻结，随后传播模块与下游近端策略优化（Proximal Policy Optimization，PPO）路由头联合训练。该分阶段安排使 $Z_i^\star(k)$ 保持为物理状态估计，$w_i(k)$ 仍与状态估计可信度绑定，而非转为面向策略的注意力权重；PPO 路由头奖励设计与完整训练配置见附录~\ref{app:ch3_training_details}。
 
 \subsection{工作流程与复杂度分析}
 \label{subsec:ch2_complexity}
@@ -566,49 +566,9 @@ C_i^{\mathrm{on}}(h)
 \subsection{训练实现与统计方法}
 \label{subsec:ch2_training}
 
-CA-LDP 分两个阶段训练。第一阶段优化 CaGSR 参数 $\Theta_{\mathrm C}$，训练对象包括时序先验模块、观测权重与保真权重估计网络、星间链路门控网络、残差校正网络和可学习残差尺度。仿真器在引入状态更新误差前记录 $x_u(k)$，该状态仅作为式~\eqref{eq:ch2_cagsr_loss} 的监督目标。第二阶段固定 $\Theta_{\mathrm C}$，由 PPO 联合优化传播模块参数 $\Theta_{\mathrm R}$ 和路由策略参数 $\Theta_\pi$。LSTM-GREAD 的 LSTM 补全模块使用相同的当前状态监督进行预训练。各方法均采用五阶段课程训练，路由场景从固定短跳需求逐步扩展至 $12$--$30$ 跳随机需求。每种方法的路由策略训练预算均为 $2\times10^6$ 个环境步，评估时选用最后一个训练阶段中验证得分最高的模型检查点。
+CA-LDP 采用两阶段训练。第一阶段利用当前状态监督优化 CaGSR，第二阶段冻结 CaGSR，并由 PPO 联合优化置信度加权传播模块与下一跳路由策略。两阶段优化对象、核心超参数、图修复基线配置和逐决策奖励函数见附录~\ref{app:ch3_training_details}。
 
-\begin{table}[!htp]
-\centering
-\bicaption{CA-LDP核心参数与图修复基线配置}{Core CA-LDP parameters and Graph-restoration baseline configuration}
-\label{tab:ch2_hyperparams}
-\footnotesize
-\setlength{\tabcolsep}{4pt}
-\renewcommand{\arraystretch}{1.14}
-\begin{tabular}{p{0.25\linewidth} p{0.19\linewidth} p{0.25\linewidth} p{0.19\linewidth}}
-\hline
-参数 & 取值 & 参数 & 取值 \\
-\hline
-本地监测半径 $h$ & $5$ & 状态维度 / CaGSR 宽度 & $54$ \\
-状态更新历史长度 $L$ & $4$ & 校准步数 / 步长 & $3$ / $0.05$ \\
-全局图正则化权重 $\lambda_{\mathrm g}$ & $0.02$ & 观测 / 保真权重估计器 & 2 层 MLP，宽 $54$ \\
-图修复权重 / 抖动项 $(\lambda_{\mathrm{NA}},\epsilon_{\mathrm{NA}})$ & $(3\times10^{-4},10^{-6})$ & 固定节点尺度 $\omega_u$ & $\sqrt{1+\epsilon_u}$，$\epsilon_u\in[0,0.05]$ \\
-AoI 衰减 / 失配尺度 $(\mu_f,\mu_m)$ & $(0.1,1.0)$ & 残差尺度 $\gamma_r$ & 可学习，初值 $0.01$ \\
-阶段一学习率 & $5\times10^{-4}$ & 传播隐藏层宽度 & $96$ \\
-传播步数 $T$ & $2$ & 传播映射 & $\phi_0,\phi_d$：2 层 MLP；$\phi_r$：1 层 MLP \\
-初始强度 $(\alpha_0,\beta_0)$ & $(5\times10^{-4},5\times10^{-3})$ & 上界 $(\alpha_{\max},\beta_{\max})$ & $(10^{-3},10^{-2})$ \\
-\hline
-\end{tabular}
-\end{table}
-
-第二阶段的策略输入包括 $H_i^\star(k)$、目的描述子和候选邻居状态，输出为所选下一跳。当同一前景需求的多个流片在一个时隙内请求转发时，每次下一跳选择均记为一条独立的 PPO 转移，并按照流片编号和时隙内决策顺序排列。奖励包含链路负载感知的本地转发反馈、流级终止反馈和回合级性能反馈：
-\begin{equation}
-\hat r_m
-=
-\left(
-r_m^{\mathrm{ca}}
-+
-\epsilon_p r_m^{\mathrm{prog}}
--
-r_m^{\mathrm{safe}}
-\right)
-+
-\lambda_f \frac{R_{f(m)}^{\mathrm{term}}}{N_{f(m)}}
-+
-\lambda_{\mathrm{ep}} \omega_m R^{\mathrm{ep}} ,
-\label{eq:ch2_reward}
-\end{equation}
-其中，$r_m^{\mathrm{ca}}$、$r_m^{\mathrm{prog}}$ 和 $r_m^{\mathrm{safe}}$ 依次表示所选出向链路的拥塞规避反馈、朝向目的节点的转发进展反馈，以及环路或无效动作惩罚。$R_{f(m)}^{\mathrm{term}}$ 为流 $f(m)$ 的终止奖励，$N_{f(m)}$ 为该流的决策次数，$R^{\mathrm{ep}}$ 为回合级性能奖励。系数 $\omega_m$ 根据流大小调整回合奖励，$\lambda_f$ 和 $\lambda_{\mathrm{ep}}$ 分别控制两类延迟反馈的权重。将延迟奖励分配到对应转移后，再沿时间顺序执行广义优势估计。PPO 在该阶段只更新 $\Theta_{\mathrm R}$ 和 $\Theta_\pi$。
+LSTM-GREAD 的 LSTM 补全模块使用相同的当前状态监督进行预训练。各方法均采用五阶段课程训练，路由场景从固定短跳需求逐步扩展至 $12$--$30$ 跳随机需求。每种方法的路由策略训练预算均为 $2\times10^6$ 个环境步，评估时选用最后一个训练阶段中验证得分最高的模型检查点。
 
 每种学习方法只进行一次训练，后续置信区间描述的是固定模型在不同评估种子下的波动，并不包含重复训练引起的不确定性。在同一工作点，各方法使用完全相同的源宿需求、背景业务和状态更新误差。实验先汇总每个种子对应的全部回合，再以种子级结果作为统计样本。主路由结果中的误差棒和“$\pm$”均为 Student-$t$ 95\% 置信区间。
 
