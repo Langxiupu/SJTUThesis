@@ -1,11 +1,11 @@
-\chapter{基于生成式网络态势感知的切片--MAC 分层协作优化框架}
+\chapter{基于生成式网络状态感知的切片--MAC 分层协作优化框架}
 \label{chap:resource}
 
 \section{引言}
 
 在终端接入关系建立后的无线资源调度环节，星上节点需要在业务突发、信道波动和用户竞争下，将有限带宽、功率与时频资源转化为稳定的用户级 QoS 保障能力。LEO 卫星接入网中，单颗卫星的下行带宽与发射功率受星上载荷约束，资源预算不能仅追求聚合吞吐。切片层预算与 MAC 层执行之间的时间尺度差异使聚合吞吐与用户级 QoS 之间存在内在失配：切片层通常只能处理粗粒度业务统计，难以观察时隙级流竞争；MAC 层能够感知实时队列和信道，却受既定切片预算约束。现有切片资源配置方法多以业务需求预测或历史性能反馈为依据，难以判断候选预算对未来 QoS 可行域的影响；MAC 层调度主要围绕聚合吞吐或队列紧迫度展开，难以区分当前预算和信道条件下 QoS 可满足与不可满足的业务流。
 
-面向上述跨时间尺度资源--QoS 映射问题，本章提出面向 LEO-sRAN 的双时间尺度预测调度（Dual-Timescale Predictive Scheduling，DTPS）框架，以带宽与功率预算作为切片层和 MAC 层之间的跨层接口。切片层通过反馈校正的业务--信道演化预测模型，在预算决策前评估不同资源配置对长期 QoS 满足率的支撑能力；MAC 层估计候选业务流满足速率--时延门限所需的最小资源块组和功率开销，仅将 QoS 可满足的业务流纳入调度。Starlink 规模星座仿真显示，DTPS 在过载业务条件下显著提升用户级 QoS 满足率，同时大幅降低平均时延，验证了预测式资源预留与可行性感知调度的有效性。本章成果已授权发明专利``基于分布式TDMA的MAC传输方法以及无线自组织网络系统''和``一种基于容器网络检测的应用调度方法及系统''，并且已撰写成期刊论文``World-Model-Driven Cross-Layer Resource Allocation for Long-Term QoS Provisioning in LEO Satellite RANs''，投稿于Elsevier Computer Networks。
+面向上述跨时间尺度资源--QoS 映射问题，本章提出面向 LEO-sRAN 的双时间尺度预测调度（Dual-Timescale Predictive Scheduling，DTPS）框架，以带宽与功率预算作为切片层和 MAC 层之间的跨层接口。切片层通过反馈校正的业务--信道演化预测模型，在预算决策前评估不同资源配置对长期 QoS 满足率的支撑能力；MAC 层估计候选业务流满足速率--时延门限所需的最小资源块组和功率开销，仅将 QoS 可满足的业务流纳入调度。Starlink 规模星座仿真显示，DTPS 在过载业务条件下显著提升用户级 QoS 满足率，同时大幅降低平均时延，验证了预测式资源预留与可行性感知调度的有效性。本章相关成果已撰写成期刊论文``World-Model-Driven Cross-Layer Resource Allocation for Long-Term QoS Provisioning in LEO Satellite RANs''，投稿于Elsevier Computer Networks。
 
 \section{系统模型与问题建模}
 \label{sec:ch4_sysmodel}
