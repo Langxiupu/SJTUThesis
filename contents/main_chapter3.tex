@@ -1,17 +1,17 @@
-\chapter{多源置信度调控的分布式网络状态感知方法}
+\chapter{多源置信度调控的分布式网络状态感知框架}
 \label{chap:perception}
 
 \section{引言}
 
 在端到端 QoS 保障的网络状态感知环节，星上节点需要在可靠全局状态缺失条件下，依托本地观测与有限跳邻域状态为分布式路由、拥塞规避和资源调度提供可信状态输入。星间链路带内状态更新机制下，拥塞排队、链路误码和拓扑切换会使邻域状态呈现陈旧、缺失或可信度不一致等不准确表现。若将不准确状态直接输入多跳图神经网络聚合，残余估计误差会随邻域特征传播扩散，误导路径选择并诱发业务流向拥塞区域聚集。现有状态恢复与多跳图聚合方法缺少贯穿不准确状态校准与多跳状态传播的置信度接口，难以利用校准阶段得到的状态可信度约束后续邻域聚合过程。
 
-面向上述分布式路由状态输入可靠性问题，本章提出置信度自适应局部分布式处理（Confidence-Adaptive Local Distributed Processing，CA-LDP）框架，将置信度由状态恢复中的局部权重提升为跨阶段接口。CA-LDP 依据状态更新新鲜度、邻域空间相关性与当前观测质量校准不准确状态观测，得到本地网络状态估计及其置信度，随后将校准后置信度传递至多跳传播，使高可信状态在邻域聚合中保留，同时抑制低可信状态对路由特征的干扰。在 Starlink 星座壳层拓扑的受控邻域视图不准确场景下，CA-LDP 在端到端路由性能、状态校准精度和状态更新预算效率方面均显著优于现有基线方法。本章领域建图相关的成果已于 Space Information Networks 发表论文''A Novel Topology Design Method for Multi-layered Optical Satellite Networks``。完整技术已撰写成期刊论文``Confidence-Adaptive Local Perception for Distributed LEO Satellite Routing under Inaccurate Neighborhood Views''，投稿于Elsevier Future Generation Computer Systems (FGCS)。
+面向上述分布式路由状态输入可靠性问题，本章提出置信度自适应局部分布式处理（Confidence-Adaptive Local Distributed Processing，CA-LDP）框架，将置信度由状态恢复中的局部权重扩展为跨阶段接口。CA-LDP 根据状态更新新鲜度、分组完整性和本地链路状态校准不准确观测，得到本地网络状态估计及其保真权重（即校准置信度）。随后，CA-LDP 利用该权重限制低可信状态向邻居路由特征的传播，并使高可信节点保留自身校准结果。Starlink 壳层星座上的实验表明，CA-LDP 在轻载和中载条件下提高有效传输速率，在全部测试工作点下降低端到端时延，并改善状态校准精度；重载条件下则不再保持速率优势。本章相关成果已撰写成期刊论文``Confidence-Adaptive Local Perception for Distributed LEO Satellite Routing under Degraded Telemetry''，投稿于 Elsevier Future Generation Computer Systems (FGCS)。
 
 
 \section{系统模型}
 \label{sec:ch2_sysmodel}
 
-本节在第~\ref{sec:ch2_arch_comparison} 节确立的纯分布式管控范式下，建模路由决策时刻每颗卫星可获得的本地网络状态信息。在该范式下，星上节点不依赖全网状态同步，而是在以自身为中心的有限跳邻域内接收状态更新，并据此构建供下游决策使用的本地网络状态视图。为刻画邻域视图不准确对该状态视图的影响，本节依次给出网络与拓扑模型、状态更新获取与新鲜度建模、状态观测误差模型与置信度量，并形式化局部感知问题，给出面向后续方案设计的算子分解。
+本节沿用第~\ref{sec:ch2_arch_comparison} 节所述的纯分布式管控范式，研究路由决策时刻单颗卫星能够掌握的本地网络状态。星上节点不进行全网状态同步，只接收以自身为中心的有限跳邻域状态更新，并据此形成供本地路由使用的网络状态视图。下文先建立网络拓扑与状态更新可靠性模型，再给出状态观测误差模型和局部感知的处理环节。
 
 本章核心符号汇总如表~\ref{tab:ch2_symbols} 所示。
 
@@ -33,15 +33,15 @@
 \bottomrule
 \endlastfoot
   $H_{\max},\ C_{\mathrm{ISL}}$ & 路由生存时间预算与标称星间链路容量 & $x_i(k)$ & 卫星 $i$ 的本地状态向量 \\
-  $X_i^{\mathrm{obs}}(k)$ & 不准确状态观测矩阵 & $X_i^h(k)$ & 不可观的当前状态矩阵 \\
+  $X_i^{\mathrm{obs}}(k)$ & 含陈旧或缺失表项的状态更新观测矩阵 & $X_i^h(k)$ & 不可观的当前状态矩阵 \\
   $X_i^{\mathrm{pri}}(k)$ & 短期时序先验 & $\Delta_{i\leftarrow u}(k)$ & 最新译码更新的信息年龄（AoI） \\
-  $b_{i,u}(k)$ & 分组可用性指示 & $B_{\mathrm m},\ p_{\mathrm b}^{(r)},\ \bar p_{\mathrm b}$ & 状态更新分组大小、第 $r$ 跳误码概率与路径平均误码率 \\
-  $\rho_{i,u}(k)$ & 新鲜度评分 & $\mu_f$ & 新鲜度评分的陈旧敏感系数 \\
-  $c_{i,u}(k)$ & 观测—先验融合的观测权重 & $w_{i,u}(k)$ & 校准后置信度 \\
-  $B_i(k),\ E_i(k)$ & 可用性掩蔽算子与陈旧失配残差 & $M_i^R(k)$ & 置信度加权关联矩阵 \\
-  $\lambda_R$ & 全局图校准权重 & $Z_i^\star(k)$ & 校准后网络状态矩阵 \\
+  $b_{i,u}(k),\ \chi_{i,u}^{\mathrm{cur}}(k)$ & 状态更新可用性指示与当前时隙观测指示 & $B_{\mathrm m},\ p_{\mathrm b}^{(r)},\ \bar p_{\mathrm b}$ & 状态更新分组大小、第 $r$ 跳误码概率与路径平均误码率 \\
+  $\rho_{i,u}(k),\ \rho_{i,u}^{\mathrm f}(k),\ \rho_{i,u}^{\mathrm{int}}(k)$ & 综合可靠度、新鲜度可靠度与完整性可靠度 & $\mu_f$ & 状态陈旧敏感系数 \\
+  $c_{i,u}(k)$ & 观测与先验的融合权重 & $w_{i,u}(k)$ & 融合参考的保真权重 \\
+  $B_i(k),\ E_i(k)$ & 可用性掩蔽矩阵与陈旧失配残差 & $M_i^R(k),\ \mathcal L_i^{R,\mathrm n}(k)$ & 设计层加权关联矩阵与部署层归一化图算子 \\
+  $\lambda_{\mathrm g}$ & 全局图正则化权重 & $Z_i^\star(k)$ & 校准后网络状态矩阵 \\
   $H_i^\star(k)$ & 路由策略输入特征矩阵 & $\zeta_{\mathrm{tel}}$ & 分配给状态更新分发的残余链路容量比例 \\
-  $F_{\mathrm{bg}}$ & 背景业务流数量 & $Y_i(k)$ & 自适应观测—先验参考矩阵 \\
+  $\lambda_{\mathrm{bg}}$ & 背景流平均到达率 & $Y_i(k)$ & 自适应观测与先验参考矩阵 \\
   $L,\ L_c,\ T,\ \eta$ & 状态历史长度、校准展开步数、定深传播步数与校准步长 & $\alpha,\ \beta$ & 多跳传播的扩散强度与锚定强度 \\
   $\alpha_0,\ \beta_0,\ \alpha_{\max},\ \beta_{\max}$ & 传播强度初值与裁剪上界 &  &  \\
 \end{longtable}
@@ -49,7 +49,7 @@
 \subsection{网络与拓扑模型}
 \label{subsec:ch2_network_model}
 
-在纯分布式管控范式下，星上节点经星间链路交换本地状态更新，并在以自身为中心的有限跳邻域内完成网络状态获取~\cite{ran-DistributedRoutingGNN-TVT25}。为约束状态更新信令开销，中继卫星仅在 $h$ 跳本地域内借助多点中继（Multi-Point Relaying，MPR）等轻量分发机制转发状态更新~\cite{Qayyum-MPR-HICSS02,Li-OLSR-ICACS23}，中继策略设计与优化不属于本章讨论范围。如图~\ref{fig:ch2_perception_scenario} 所示，观测卫星通过四邻星间链路网格中的直连链路，以及多点中继辅助的多跳转发接收状态更新，形成 $h$ 跳监测拓扑视图，并据此完成星上本地决策。
+在纯分布式管控中，卫星通过星间链路交换本地状态更新，并以自身为中心获取有限跳邻域状态~\cite{ran-DistributedRoutingGNN-TVT25}。为限制状态更新信令开销，中继卫星只在 $h$ 跳本地域内转发更新，可采用多点中继（Multi-Point Relaying，MPR）等轻量分发机制~\cite{Qayyum-MPR-HICSS02,Li-OLSR-ICACS23}。本章不讨论中继节点的选择与调度。如图~\ref{fig:ch2_perception_scenario} 所示，观测卫星从直连星间链路和 MPR 辅助的多跳路径接收状态更新，形成 $h$ 跳监测拓扑视图，并基于该视图执行星上路由决策。
 
 \begin{figure}[!htp]
     \centering
@@ -58,21 +58,21 @@
     \label{fig:ch2_perception_scenario}
 \end{figure}
 
-系统以离散时隙运行，时隙集合记为 $k\in\{0,\ldots,K-1\}$，时隙长度为 $\Delta t$。在每个时隙起始处，卫星依据时隙边界前成功译码的分组更新本地网络状态信息，随后执行本地决策。时隙 $k$ 的 LEO 网络由图 $\mathcal G(k)=(\mathcal V,\mathcal E(k))$ 表示，其中 $\mathcal V$ 为 $N$ 颗卫星构成的节点集，$\mathcal E(k)$ 为时隙 $k$ 处于激活状态的星间链路集合。四邻星间链路网格确定候选邻接关系，链路状态、业务负载与状态更新质量随时隙变化。卫星 $i$ 的本地状态记为 $x_i(k)\in\mathbb R^{d}$，由出向链路利用率、可用容量、链路时延、丢包率与活动链路状态等分量构成。
+系统按离散时隙运行，$k\in\{0,\ldots,K-1\}$，每个时隙长度为 $\Delta t$。时隙开始时，卫星先利用时隙边界前成功译码的分组更新本地网络状态，再执行路由决策。时隙 $k$ 的 LEO 网络表示为 $\mathcal G(k)=(\mathcal V,\mathcal E(k))$，其中 $\mathcal V$ 是由 $N$ 颗卫星组成的节点集，$\mathcal E(k)$ 是该时隙内的激活星间链路集合。四邻星间链路网格给出候选邻接关系，具体链路状态、业务负载和状态更新质量随时隙变化。卫星 $i$ 的本地状态记为 $x_i(k)\in\mathbb R^{d}$，包括出向链路利用率、可用容量、链路时延、丢包率和活动链路状态。
 
 对于卫星 $i$，其 $h$ 跳监测拓扑视图记为 $\mathcal G_i^h(k)=(\mathcal V_i^h(k),\mathcal E_i^h(k))$，其中节点集为
 \begin{equation}
 \mathcal V_i^h(k)=\{i\}\cup\bigcup_{l=1}^{h}\mathcal N_i^{(l)}(k),
 \label{eq:ch2_hhop_view}
 \end{equation}
-$\mathcal N_i^{(l)}(k)$ 表示卫星 $i$ 的 $l$ 跳邻居集合，边集 $\mathcal E_i^h(k)$ 由 $\mathcal V_i^h(k)$ 内节点间的激活星间链路诱导得到。该图构成本章状态校准与多跳聚合的本地计算域。在 +Grid 星间拓扑~\cite{Bhattacherjee-Singla-NetworkTopologyDesign-CCS19} 下，监测视图的节点规模随跳数迅速扩大，而大规模星座中端到端星间转发常需经过十余跳中继~\cite{chen-AnalysisISLLEO-TVT21}。因此，监测半径 $h$ 既需覆盖足够下游状态信息，也需使本地状态处理开销保持可控。
+$\mathcal N_i^{(l)}(k)$ 表示卫星 $i$ 的 $l$ 跳邻居集合，$\mathcal E_i^h(k)$ 由 $\mathcal V_i^h(k)$ 内的激活星间链路构成。该监测视图限定了状态校准和多跳聚合的本地处理范围。在 +Grid 星间拓扑下~\cite{Bhattacherjee-Singla-NetworkTopologyDesign-CCS19}，视图中的节点数随 $h$ 增大，而大规模星座中的端到端转发通常需要十余跳~\cite{chen-AnalysisISLLEO-TVT21}。监测半径过小会遗漏下游链路状态，过大则会增加状态更新和星上处理开销，因此需要在两者之间取值。
 
-\subsection{状态更新获取与新鲜度建模}
+\subsection{状态更新获取与可靠性建模}
 \label{subsec:ch2_acquisition_model}
 
-在带内状态更新机制下，状态更新与业务数据共享同一星间链路，并竞争链路残余服务容量~\cite{chuai-ResourceAllocation-TON19}。这一共享机制使状态更新同时受拥塞排队与链路误码影响，分别表现为更新陈旧和分组不可用两类误差来源，如图~\ref{fig:ch2_reliability_source} 所示。本小节先刻画状态更新沿多跳状态分发路径传播时的排队时延与路径级译码成功概率，再根据更新是否在决策截止前到达且完整译码定义实际可用性、观测状态和信息新鲜度。
+状态更新采用带内传输，与业务数据共享星间链路的残余服务容量~\cite{chuai-ResourceAllocation-TON19}。链路拥塞会延长状态更新的排队时间，链路误码可能使分组无法通过完整性校验。即使分组已经成功译码，缓存状态也会随着时间推移而陈旧。图~\ref{fig:ch2_reliability_source} 给出了这几类状态更新误差。本小节从多跳传输时延和分组译码质量出发，定义分组可用性、信息年龄和状态更新可靠度。
 
-为描述拥塞排队引起的状态更新时延，令 $C_e(k)$、$\eta_e(k)$ 与 $\tau_e^{\mathrm{prop}}(k)$ 分别表示时隙 $k$ 下星间链路 $e$ 的容量、归一化数据面利用率与传播时延。状态更新分组与业务数据共享链路残余服务能力，以上标 $\mathrm{tel}$ 标记状态更新相关量。对具有正残余状态更新服务能力的链路 $e$，其逐跳时延与多跳路径时延建模为
+记 $C_e(k)$、$\eta_e(k)$ 和 $\tau_e^{\mathrm{prop}}(k)$ 分别为时隙 $k$ 内星间链路 $e$ 的容量、归一化数据面利用率和传播时延。状态更新使用业务数据占用后的链路服务能力，相关变量以上标 $\mathrm{tel}$ 区分。若链路 $e$ 仍有可用于状态更新的残余服务能力，其逐跳时延及相应的多跳路径时延为
 \begin{equation}
 \begin{aligned}
 \tau_e^{\mathrm{tel}}(k)
@@ -91,17 +91,7 @@ T_{u\rightarrow i}^{\mathrm{tel}}(k)
 \end{equation}
 其中 $\zeta_{\mathrm{tel}}$ 为分配给状态更新分发的残余链路容量比例，$B_{\mathrm m}$ 为状态更新分组大小，$\mathcal P_{u\rightarrow i}^{\mathrm{tel}}$ 为节点 $u$ 至卫星 $i$ 的状态更新转发路径。
 
-除排队时延外，状态更新还可能因链路误码而无法通过完整性校验。对节点 $u$ 在时隙 $s$ 生成的更新，令 $q_{u\rightarrow i}^{\mathrm{dq}}(s)\in[0,1]$ 表示其在多跳状态分发路径上的路径级译码成功概率。将时隙 $s$ 内的信道衰减、指向抖动与轨道摄动归并为等效逐跳误码概率，在逐跳残余比特误码独立假设下，长度为 $B_{\mathrm m}$ 比特的状态更新分组译码成功概率为
-\begin{equation}
-q_{u\rightarrow i}^{\mathrm{dq}}(s)
-=
-\prod_{r=1}^{l_{ui}}
-\left(1-p_{\mathrm b}^{(r)}(s)\right)^{B_{\mathrm m}},
-\label{eq:ch2_decode_success}
-\end{equation}
-其中 $p_{\mathrm b}^{(r)}(s)$ 为第 $r$ 跳的等效比特误码概率，$l_{ui}$ 为节点 $u$ 至卫星 $i$ 的跳距。当仅可获得路径级平均误码率 $\bar p_{\mathrm b}(s)$ 时，式~\eqref{eq:ch2_decode_success} 简化为 $q_{u\rightarrow i}^{\mathrm{dq}}(s)=(1-\bar p_{\mathrm b}(s))^{l_{ui}B_{\mathrm m}}$。
-
-状态更新的实际可用性由到达时限与分组完整性共同决定。在决策时刻，卫星 $i$ 或持有节点 $u$ 的可用状态更新，或将相应表项视为缺失。引入分组可用性指示 $b_{i,u}(k)$：当且仅当存在由节点 $u$ 在时隙 $s\le k$ 生成的状态更新，其沿状态更新路径传播的时延满足决策截止约束，且该分组通过完整性校验时，置 $b_{i,u}(k)=1$；若更新尚未到达、晚于决策截止时刻到达或未通过完整性校验，则置 $b_{i,u}(k)=0$。因此，$q_{u\rightarrow i}^{\mathrm{dq}}(s)$ 仅刻画完整性校验概率分量，不能单独决定 $b_{i,u}(k)$。可用更新对应一个较早状态 $x_u(s_{i\leftarrow u}^{\star}(k))$，其中 $s_{i\leftarrow u}^{\star}(k)\le k$ 为满足上述到达与完整性条件的最新更新生成时隙。由此，卫星 $i$ 处节点 $u$ 的观测状态定义为
+状态更新是否可用取决于到达时间和分组完整性。路由决策时，卫星 $i$ 可能收到节点 $u$ 的当前更新，也可能只能使用缓存更新；若两者都不存在，则对应状态表项缺失。用 $b_{i,u}(k)=1$ 表示存在可用更新，否则 $b_{i,u}(k)=0$。当前时隙更新在决策截止前到达且成功译码时，置 $\chi_{i,u}^{\mathrm{cur}}(k)=1$；其他情况下置为 $0$。因此，$b_{i,u}(k)=1$ 且 $\chi_{i,u}^{\mathrm{cur}}(k)=0$ 表示卫星使用的是缓存更新。记 $s_{i\leftarrow u}^{\star}(k)\le k$ 为最新成功译码更新的生成时隙，则卫星 $i$ 对节点 $u$ 的观测状态为
 \begin{equation}
 x_{i\leftarrow u}^{\mathrm{obs}}(k)
 =
@@ -111,9 +101,9 @@ x_u(s_{i\leftarrow u}^{\star}(k)), & b_{i,u}(k)=1,\\
 \end{cases}
 \label{eq:ch2_observed_state}
 \end{equation}
-不准确状态观测矩阵记为 $X_i^{\mathrm{obs}}(k)=[x_{i\leftarrow u}^{\mathrm{obs}}(k)]_{u\in\mathcal V_i^h(k)}$。一旦 $b_{i,u}(k)=1$，译码状态即进入后续校准，不再附加与 $q_{u\rightarrow i}^{\mathrm{dq}}(s)$ 相关的额外惩罚；可用译码更新的剩余不确定性主要来自陈旧状态。
+将各节点的观测状态按行排列，得到 $X_i^{\mathrm{obs}}(k)=[x_{i\leftarrow u}^{\mathrm{obs}}(k)]_{u\in\mathcal V_i^h(k)}$。其中，零向量只标记缺失表项，不表示节点的实际网络状态。
 
-为定量衡量已译码更新的陈旧程度，采用信息年龄（Age of Information，AoI）作为时隙级度量~\cite{Yates-AoI-JSAC21}。最新译码状态更新的信息年龄为
+本文采用信息年龄（Age of Information，AoI）衡量已译码更新的陈旧程度~\cite{Yates-AoI-JSAC21}。最新译码状态更新在时隙 $k$ 的 AoI 为
 \begin{equation}
 \Delta_{i\leftarrow u}(k)
 =
@@ -123,30 +113,46 @@ k-s_{i\leftarrow u}^{\star}(k), & b_{i,u}(k)=1,\\
 \end{cases}
 \label{eq:ch2_aoi}
 \end{equation}
-该量表征自状态生成以来经过的时隙数，且不因中继转发而重置。由此，新鲜度评分定义为
-\begin{equation}
-\rho_{i,u}(k)
-=
-\begin{cases}
-\exp\!\left[-\mu_f \Delta_{i\leftarrow u}(k)\right],
-& b_{i,u}(k)=1,\\
-0,
-& b_{i,u}(k)=0,
-\end{cases}
-\label{eq:ch2_freshness}
-\end{equation}
-其中 $\mu_f$ 控制对状态陈旧的敏感度。在该约定下，误码经可用性掩码 $b_i(k)$ 进入后续处理，信息年龄则经新鲜度评分 $\rho_{i,u}(k)$ 作用于状态校准与多跳聚合。
+$\Delta_{i\leftarrow u}(k)$ 从状态生成时隙开始累计，不因中继转发而重置。
 
-对于观测卫星自身，其本地状态直接可得，即 $x_{i\leftarrow i}^{\mathrm{obs}}(k)=x_i(k)$、$b_{i,i}(k)=1$、$\rho_{i,i}(k)=1$ 且 $\Delta_{i\leftarrow i}(k)=0$。卫星 $i$ 处的新鲜度向量与可用性向量分别汇集为 $\rho_i(k)=[\rho_{i,u}(k)]_{u\in\mathcal V_i^h(k)}$ 与 $b_i(k)=[b_{i,u}(k)]_{u\in\mathcal V_i^h(k)}$。令 $M_i(k)\in\mathbb R^{|\mathcal E_i^h(k)|\times|\mathcal V_i^h(k)|}$ 为 $\mathcal G_i^h(k)$ 的关联矩阵：对每条定向边 $e=(u,v)$，其所在行在第 $u$ 列取 $+1$、第 $v$ 列取 $-1$。将网络状态矩阵左乘 $M_i(k)$ 即得图正则化校准所需的边级状态差。此外，卫星 $i$ 还维护短期时序先验 $X_i^{\mathrm{pri}}(k)$，其本地状态处理上下文记为
+链路误码决定状态更新能否通过完整性校验。对于节点 $u$ 在时隙 $s$ 生成的更新，记 $q_{u\rightarrow i}^{\mathrm{dq}}(s)\in[0,1]$ 为多跳状态分发路径上的分组译码成功概率。模型用等效逐跳误码概率统一表征时隙 $s$ 内的信道衰减、指向抖动和轨道摄动。假设各跳残余比特误码条件独立，则长度为 $B_{\mathrm m}$ 比特的状态更新分组具有如下译码成功概率：
+\begin{equation}
+q_{u\rightarrow i}^{\mathrm{dq}}(s)
+=
+\prod_{r=1}^{l_{ui}}
+\left(1-p_{\mathrm b}^{(r)}(s)\right)^{B_{\mathrm m}},
+\label{eq:ch2_decode_success}
+\end{equation}
+其中，$p_{\mathrm b}^{(r)}(s)$ 是第 $r$ 跳的等效比特误码概率，$l_{ui}$ 是节点 $u$ 到卫星 $i$ 的跳距。若只能获得路径平均误码率 $\bar p_{\mathrm b}(s)$，则式~\eqref{eq:ch2_decode_success} 写为 $q_{u\rightarrow i}^{\mathrm{dq}}(s)=(1-\bar p_{\mathrm b}(s))^{l_{ui}B_{\mathrm m}}$。$q_{u\rightarrow i}^{\mathrm{dq}}(s)$ 描述分组通过完整性校验的概率，$b_{i,u}(k)$ 记录路由决策时刻实际得到的接收结果。
+
+状态陈旧程度和分组完整性分别用 $\rho_{i,u}^{\mathrm f}(k)$ 与 $\rho_{i,u}^{\mathrm{int}}(k)$ 表示，二者的乘积定义为综合可靠度 $\rho_{i,u}(k)$：
+\begin{equation}
+\begin{aligned}
+\rho_{i,u}^{\mathrm f}(k)
+&=b_{i,u}(k)\exp\!\left[-\mu_f\Delta_{i\leftarrow u}(k)\right],\\
+\rho_{i,u}^{\mathrm{int}}(k)
+&\in[0,1],\\
+\rho_{i,u}(k)
+&=\rho_{i,u}^{\mathrm f}(k)\rho_{i,u}^{\mathrm{int}}(k),
+\end{aligned}
+\label{eq:ch2_overall_reliability}
+\end{equation}
+其中，$\mu_f$ 决定新鲜度可靠度随 AoI 衰减的速度。当前时隙更新成功译码后，置 $\rho_{i,u}^{\mathrm{int}}(k)=1$；缓存状态继续使用该分组接收时记录的完整性可靠度。没有可用更新时，三类可靠度均为 $0$。这样，链路误码同时影响当前分组的可用性和缓存分组的完整性记录，AoI 则决定新鲜度可靠度。
+
+观测卫星能够直接读取自身状态，因此 $x_{i\leftarrow i}^{\mathrm{obs}}(k)=x_i(k)$、$b_{i,i}(k)=\chi_{i,i}^{\mathrm{cur}}(k)=1$、$\rho_{i,i}(k)=\rho_{i,i}^{\mathrm f}(k)=\rho_{i,i}^{\mathrm{int}}(k)=1$，且 $\Delta_{i\leftarrow i}(k)=0$。将各节点的信息年龄、可用性指示、当前时隙观测指示和可靠度分别排列为向量 $\Delta_i(k)$、$b_i(k)$、$\chi_i^{\mathrm{cur}}(k)$、$\rho_i(k)$、$\rho_i^{\mathrm f}(k)$ 与 $\rho_i^{\mathrm{int}}(k)$。$M_i(k)\in\mathbb R^{|\mathcal E_i^h(k)|\times|\mathcal V_i^h(k)|}$ 是 $\mathcal G_i^h(k)$ 的关联矩阵。对定向边 $e=(u,v)$，对应行的第 $u$ 列为 $+1$，第 $v$ 列为 $-1$，因此 $M_i(k)$ 与网络状态矩阵相乘可得到相邻节点间的状态差。卫星 $i$ 还维护短期时序先验 $X_i^{\mathrm{pri}}(k)$。上述变量组成其本地状态处理上下文：
 \begin{equation}
 \mathcal I_i(k)
 \triangleq
 \left\{
 \mathcal G_i^h(k),
 X_i^{\mathrm{obs}}(k),
-\rho_i(k),
-b_i(k),
 X_i^{\mathrm{pri}}(k),
+\Delta_i(k),
+ b_i(k),
+\chi_i^{\mathrm{cur}}(k),
+\rho_i(k),
+\rho_i^{\mathrm f}(k),
+\rho_i^{\mathrm{int}}(k),
 M_i(k)
 \right\}.
 \label{eq:ch2_context}
@@ -155,27 +161,27 @@ M_i(k)
 \subsection{状态观测误差模型与置信度量}
 \label{subsec:ch2_confidence}
 
-本地感知需要将卫星 $i$ 收集的不准确状态更新转换为 $\mathcal G_i^h(k)$ 上的网络状态视图。在线推理时，当前状态矩阵 $X_i^h(k)=[x_u(k)]_{u\in\mathcal V_i^h(k)}$ 不可观，而直接聚合 $X_i^{\mathrm{obs}}(k)$ 可能使不准确表项沿邻域特征传播，进而模糊拥塞边界、负载失衡与链路质量差异。$X_i^{\mathrm{obs}}(k)$ 与 $X_i^h(k)$ 的偏差来自两类实际误差形式：不可用分组使相应表项从本地状态矩阵中缺失，成功译码但陈旧的分组则提供过时取值。本章将上述效应抽象为两段式观测误差模型
+卫星 $i$ 需要把收集到的状态更新转换为 $\mathcal G_i^h(k)$ 上的本地网络状态视图。在线路由时，当前状态矩阵 $X_i^h(k)=[x_u(k)]_{u\in\mathcal V_i^h(k)}$ 不可直接获得。若对 $X_i^{\mathrm{obs}}(k)$ 进行多跳聚合，陈旧或缺失表项会随邻域状态传播，可能掩盖局部拥塞、负载失衡和链路质量差异。不可用分组造成状态表项缺失，成功译码但已经陈旧的分组则提供过时状态。根据这两类误差，观测矩阵写为
 \begin{equation}
 X_i^{\mathrm{obs}}(k)=B_i(k)X_i^h(k)+E_i(k),
 \label{eq:ch2_obs_error}
 \end{equation}
-其中 $B_i(k)=\mathrm{diag}(b_i(k))\in\mathbb R^{|\mathcal V_i^h(k)|\times|\mathcal V_i^h(k)|}$ 为可用性诱导的掩蔽算子；残差项 $E_i(k)$ 按行定义：当 $b_{i,u}(k)=0$ 时 $E_{i\leftarrow u}(k)=\mathbf 0$，当 $b_{i,u}(k)=1$ 时 $E_{i\leftarrow u}(k)=x_u(s_{i\leftarrow u}^{\star}(k))-x_u(k)$。由此，$B_i(k)$ 表征由到达滞后或译码失败造成的二值可观性，$E_i(k)$ 则对应状态在生成时隙与决策时隙间演化造成的陈旧失配。该结构显式分离可用性掩蔽与陈旧失配，为后续状态校准提供建模基础。
+其中，$B_i(k)=\mathrm{diag}(b_i(k))\in\mathbb R^{|\mathcal V_i^h(k)|\times|\mathcal V_i^h(k)|}$ 是由分组可用性决定的掩蔽矩阵。残差 $E_i(k)$ 按行定义：当 $b_{i,u}(k)=0$ 时，$E_{i\leftarrow u}(k)=\mathbf 0$；当 $b_{i,u}(k)=1$ 时，$E_{i\leftarrow u}(k)=x_u(s_{i\leftarrow u}^{\star}(k))-x_u(k)$。因此，$B_i(k)$ 记录由到达滞后或译码失败造成的状态缺失，$E_i(k)$ 记录状态从生成时隙到决策时隙之间的变化。后续状态校准可据此分别处理缺失表项和陈旧状态。
 
-观测误差结构表明，对监测视图内不同节点状态需要施加不同信任程度。为此，本章区分作用于不同处理环节的三类置信度量。新鲜度评分 $\rho_{i,u}(k)$ 由式~\eqref{eq:ch2_freshness} 给出，在观测与先验融合前度量最新译码更新的陈旧程度；观测权重 $c_{i,u}(k)$ 调节译码观测与时序先验在参考状态构建中的相对贡献；校准后置信度 $w_{i,u}(k)$ 表征融合参考经校准后的可信程度，并供后续多跳聚合使用。三者中，$\rho_{i,u}(k)$ 由状态更新可用性与信息年龄直接确定，$c_{i,u}(k)$ 与 $w_{i,u}(k)$ 则需在状态处理过程中估计。
+监测视图内各节点的状态更新可靠性并不相同。式~\eqref{eq:ch2_overall_reliability} 中，$\rho_{i,u}^{\mathrm f}(k)$ 描述 AoI 引起的新鲜度衰减，$\rho_{i,u}^{\mathrm{int}}(k)$ 描述分组完整性，$\rho_{i,u}(k)$ 是两者的综合结果。状态校准还使用两个内部权重：$c_{i,u}(k)$ 决定译码观测与时序先验在融合参考中的相对占比，$w_{i,u}(k)$ 表示该参考对当前网络状态的可信程度。$w_{i,u}(k)$ 随校准结果传递给多跳聚合模块，用于调节该节点状态对邻域路由特征的影响。三类可靠度来自状态更新接收过程和缓存分组的可靠度记录，$c_{i,u}(k)$ 与 $w_{i,u}(k)$ 由本地状态处理模块估计。
 
 \subsection{问题建模：局部感知目标与算子分解}
 \label{subsec:ch2_problem}
 
-基于上述状态观测误差模型，本地感知需要在每个决策时隙依据本地上下文 $\mathcal I_i(k)$，由译码更新、时序先验、新鲜度评分与图结构空间支撑，估计校准后网络状态矩阵 $Z_i^\star(k)$ 作为不可观当前状态 $X_i^h(k)$ 的近似，并据此构建下游路由策略使用的输入特征矩阵 $H_i^\star(k)$。需强调，本章不直接求解星座尺度全局端到端路由，而是在生存时间（Time-to-Live，TTL）、激活星间链路、残余链路容量与带内状态更新预算约束下，为星上下一跳选择提供可信本地状态输入。$Z_i^\star(k)$ 中各表项由译码观测、时序先验或邻域空间证据等异质来源支撑。状态恢复需判断数值估计是否接近当前物理网络状态，多跳聚合则需判断该估计是否应影响其他节点的路由特征；二者面向问题不同，若混入同一 GNN 聚合环节，校准残余不确定性将被当作等价路由证据继续传播。
+在每个决策时隙，卫星根据本地上下文 $\mathcal I_i(k)$ 估计校准状态 $Z_i^\star(k)$，使其逼近不可观的当前状态 $X_i^h(k)$。估计过程使用译码状态更新、短期时序先验、状态更新可靠度和本地拓扑关联信息。校准结果随后用于生成路由策略的输入特征 $H_i^\star(k)$。这里的问题边界是本地网络状态构建，而不是星座尺度的全局端到端路由优化。TTL、激活星间链路、残余链路容量和带内状态更新预算只限定下游下一跳选择的运行条件。$Z_i^\star(k)$ 的各行可能主要依据译码观测、时序先验或邻域节点状态得到。状态校准需要降低估计值与当前物理状态之间的偏差，多跳聚合则需要控制该估计对其他节点路由特征的影响。若在同一图聚合过程中完成这两项处理，校准后的残余不确定性仍会按相同可靠度继续传播。
 
-为此，本章将本地感知分解为状态校准与置信度约束聚合两个环节。状态校准面向不准确状态观测本身，以 $\mathcal I_i(k)$ 为输入，联合译码观测、时序先验与邻域空间支撑，估计校准后网络状态矩阵 $Z_i^\star(k)$ 及校准后置信向量 $w_i(k)$，目标是在陈旧、缺失或含噪更新下恢复当前物理网络状态。置信度约束聚合面向路由特征构建，在 $w_i(k)$ 条件下对 $Z_i^\star(k)$ 进行多跳聚合，输出路由策略输入特征矩阵 $H_i^\star(k)$，目标是控制校准状态在多跳邻域中的传播强度。该分解将当前状态估计与其对其他节点下一跳判断的影响程度解耦，使校准阶段得到的置信度 $w_i(k)$ 成为二者显式接口，从而避免弱支撑状态在聚合阶段视为等价路由证据，并为后续 CA-LDP 设计提供建模依据。
+局部感知按顺序执行状态校准和置信度约束聚合。状态校准以 $\mathcal I_i(k)$ 为输入，结合译码观测、时序先验、状态更新可靠度和邻域节点状态，输出 $Z_i^\star(k)$ 与保真权重向量 $w_i(k)=[w_{i,u}(k)]_{u\in\mathcal V_i^h(k)}$。其中，$c_{i,u}(k)$ 用于确定译码观测与时序先验的融合比例，$w_{i,u}(k)$ 用于调节融合参考对校准状态的约束强度。随后，多跳聚合模块在 $w_i(k)$ 的约束下传播 $Z_i^\star(k)$，得到路由策略输入特征 $H_i^\star(k)$。两个环节通过 $w_i(k)$ 相连，低可靠度状态对邻域路由特征的影响因而受到限制。
 
 
 \section{CA-LDP 框架设计}
 \label{sec:ch2_design}
 
-基于上述算子分解，CA-LDP 采用“先校准、再约束传播”的两级本地处理结构，如图~\ref{fig:ch2_framework} 所示。置信度自适应图信号修复（CaGSR）模块首先在监测视图内将不准确状态观测校准为当前网络状态估计，并输出校准后置信度；随后，置信度加权多跳传播模块以该置信度约束状态在邻域内的传播强度，构建供下一跳路由策略使用的输入特征。由此，置信度不再停留于状态恢复内部，而是随校准结果进入路由特征构建过程，限制弱支撑状态在多跳聚合中的影响。后续小节依次给出两个模块设计。
+基于上述算子分解，CA-LDP 采用“先校准、再约束传播”的两级本地处理结构，如图~\ref{fig:ch2_framework} 所示。置信度自适应图信号修复（CaGSR）模块首先在监测视图内将不准确状态观测校准为当前网络状态估计，并输出逐节点保真权重；随后，置信度加权多跳传播模块利用该权重约束状态在邻域内的传播强度，构建供下一跳路由策略使用的输入特征。由此，状态可靠度不再只用于状态恢复，还会随校准结果进入路由特征构建过程，以限制弱支撑状态在多跳聚合中的影响。后续小节依次给出两个模块设计。
 
 \begin{figure}[!htp]
     \centering
@@ -187,7 +193,7 @@ X_i^{\mathrm{obs}}(k)=B_i(k)X_i^h(k)+E_i(k),
 \subsection{置信度自适应图信号修复}
 \label{subsec:ch2_cagsr}
 
-CaGSR 对应第~\ref{subsec:ch2_problem} 节定义的校准算子。式~\eqref{eq:ch2_obs_error} 将由 $B_i(k)$ 引起的不可用表项与由 $E_i(k)$ 表示的陈旧失配分离，因此状态校准不能仅依赖单一观测拟合或无差别图平滑，而需同时处理两个层面：一是在译码观测与时序先验之间形成自适应参考，二是在端点可信且状态兼容的边上施加选择性图正则化。基于这一结构，CaGSR 构造自适应参考 $Y_i(k)$、拟合矩阵 $W_i(k)$ 与加权关联矩阵 $M_i^R(k)$，并将校准后网络状态矩阵写为如下优化问题：
+CaGSR 用于实现第~\ref{subsec:ch2_problem} 节定义的状态校准算子。为说明参考拟合与图结构约束之间的关系，先给出如下变分设计目标：
 \begin{equation}
 \begin{aligned}
 Z_i^\star(k)
@@ -205,16 +211,16 @@ Z_i(k)-Y_i(k)
 \\
 &
 +
-\frac{\lambda_R}{2}
+\frac{\lambda_{\mathrm g}}{2}
 \left\|
 M_i^R(k)Z_i(k)
 \right\|_F^2 .
 \end{aligned}
 \label{eq:ch2_cagsr_restoration}
 \end{equation}
-第一项按逐节点置信度将校准状态拟合至融合参考，第二项仅沿端点状态兼容的边施加图变差正则，其中 $\lambda_R>0$ 为全局图校准权重，用于控制参考拟合与图平滑的整体权衡。CA-LDP 进一步在边级调节平滑强度：全局系数 $\lambda_R$ 保持同一监测视图内的整体正则尺度，边级系数 $d_{i,uv}^R(k)$ 依据端点置信度与参考状态兼容性刻画不同星间链路上的相对平滑强度。以下分别给出 $Y_i(k)$、$W_i(k)$ 与 $M_i^R(k)$ 的构造。
+第一项表示校准状态对融合参考的置信度加权拟合，第二项表示可靠度加权的图变差约束，$\lambda_{\mathrm g}=0.02$ 为全局图正则化权重。式~\eqref{eq:ch2_cagsr_restoration} 用于说明 CaGSR 的设计依据。实际部署时，模块不求解该问题的精确最优解，也不直接采用这一二次目标的字面梯度，而是使用下文给出的固定深度可学习更新。
 
-校准过程先为每个监测节点确定参考状态与校准后置信度。状态更新不及时、不完整或含噪时，最新译码观测未必优于时序先验：当本地业务演化缓慢时，陈旧观测仍可提供有效信息；当新译码观测与近期时序动态冲突时，其可信度反而下降。因此，CaGSR 同时估计译码观测在观测与先验参考中的贡献，以及融合参考对校准状态的约束强度。
+\textbf{（1）观测融合与拟合权重分配。} 对监测视图中的每个节点，CaGSR 分别确定译码观测在“观测--先验”融合参考中的占比，以及该融合参考在有限步校准中的拟合强度。两类权重承担不同作用，避免将观测选择与状态约束混为同一置信量。
 
 参照门控循环单元（Gated Recurrent Unit，GRU）结构~\cite{cho-RNNEncoderDecoder-EMNLP14}，时序先验由缓存的校准轨迹生成：
 \begin{equation}
@@ -229,146 +235,138 @@ Z_{i,u}^{\star}(k-L),\ldots,Z_{i,u}^{\star}(k-1)
 \right),
 \label{eq:ch2_cagsr_prior}
 \end{equation}
-其中 $x_{i,u}^{\mathrm{pri}}(k)$ 为预测状态候选，$h_{i,u}^{\mathrm{pri}}(k)$ 概括近期状态演化，$L$ 为状态历史长度。CaGSR 仅在译码观测可用时比较观测与时序先验，以评估新译码观测与近期动态兼容性。观测与先验不一致性定义为条件化的归一化失配度量
-\begin{equation}
-m_{i,u}(k)
-=
-\begin{cases}
-\dfrac{
-\left\|
-x_{i\leftarrow u}^{\mathrm{obs}}(k)
--
-x_{i,u}^{\mathrm{pri}}(k)
-\right\|_2
-}{
-\left\|
-x_{i\leftarrow u}^{\mathrm{obs}}(k)
-\right\|_2
-+
-\left\|
-x_{i,u}^{\mathrm{pri}}(k)
-\right\|_2
-},
-& b_{i,u}(k)=1,\\
-m_{\mathrm{neu}},
-& b_{i,u}(k)=0,
-\end{cases}
-\label{eq:ch2_cagsr_mismatch}
-\end{equation}
-其中，$m_{\mathrm{neu}}\in[0,1]$ 为缺失观测对应的中性失配常数。该定义使零占位缺失表项不参与观测与先验失配计算，而由可用性指示 $b_{i,u}(k)$ 单独表征缺失性并输入置信度估计器。时序先验本身也存在新鲜度差异：由近期校准状态生成的先验通常比由长期未更新缓存外推的先验更具信息量。令 $a_{i,u}^{\mathrm{pri}}(k)$ 表示自上次用于更新节点 $u$ 时序先验的可靠观测以来经过的时隙数，并定义归一化先验年龄 $\bar a_{i,u}^{\mathrm{pri}}(k)=\min\{a_{i,u}^{\mathrm{pri}}(k)/L,1\}$。
-
-置信度估计器的逐节点输入为
-\begin{equation}
-\xi_{i,u}(k)
-=
-\left[
-m_{i,u}(k),
-b_{i,u}(k),
-\rho_{i,u}(k),
-\bar a_{i,u}^{\mathrm{pri}}(k),
-P_h\,h_{i,u}^{\mathrm{pri}}(k)
-\right],
-\label{eq:ch2_cagsr_feature}
-\end{equation}
-其中 $P_h$ 将 GRU 隐状态映射为紧凑时序描述子。该输入用于区分缺失更新、陈旧但仍与先验一致的更新，以及与时序上下文相冲突的新译码观测。估计器输出两个功能不同的隐权重：观测置信度 $c_{i,u}(k)$ 为混合权重，决定译码观测相对于时序先验在参考构建中的贡献；校准后置信度 $w_{i,u}(k)$ 为信任权重，刻画融合参考约束校准状态并参与图正则化的强度。二者由同一状态更新上下文预测，但进入不同计算路径并接收不同梯度：
+其中 $x_{i,u}^{\mathrm{pri}}(k)$ 为预测状态候选，$h_{i,u}^{\mathrm{pri}}(k)$ 概括近期状态演化，$L$ 为状态历史长度。前 $L$ 个时隙的缓存优先采用已有观测补齐，其余位置置零。为简化符号，记 $x_{i,u}^{\mathrm{obs}}(k)\equiv x_{i\leftarrow u}^{\mathrm{obs}}(k)$、$a_{i,u}(k)\equiv\Delta_{i\leftarrow u}(k)$。取信息年龄衰减系数 $\mu_f=0.1$、观测--先验失配尺度 $\mu_m=1.0$，定义
 \begin{equation}
 \begin{aligned}
-\left[o_{i,u}^{c}(k),o_{i,u}^{w}(k)\right]
-&=
-g_{\mathrm{c}}\left(\xi_{i,u}(k)\right),\\
+f_{i,u}(k)&=\exp\!\left[-\mu_f a_{i,u}(k)\right],\\
+m_{i,u}(k)&=\left\|x_{i,u}^{\mathrm{obs}}(k)-x_{i,u}^{\mathrm{pri}}(k)\right\|_2,\\
+\xi_{i,u}(k)&=\big[x_{i,u}^{\mathrm{obs}}(k),x_{i,u}^{\mathrm{pri}}(k),
+\rho_{i,u}(k),\rho_{i,u}^{\mathrm f}(k),\\
+&\qquad \rho_{i,u}^{\mathrm{int}}(k),b_{i,u}(k),
+\log(1+a_{i,u}(k))\big].
+\end{aligned}
+\label{eq:ch2_cagsr_feature}
+\end{equation}
+其中，$f_{i,u}(k)$ 刻画状态更新随信息年龄增长而衰减的时效性，$m_{i,u}(k)$ 反映译码观测与短期状态演化之间的偏差。观测权重先受可靠度上界约束，再由可学习映射作细粒度调整：
+\begin{equation}
+\begin{aligned}
+\bar c_{i,u}(k)
+={}&\operatorname{clip}_{[0,1]}\!\Big(
+b_{i,u}(k)\big[0.05+0.95f_{i,u}(k)e^{-\mu_m m_{i,u}(k)}\big]\\
+&\qquad\times\big[0.5+0.5\rho_{i,u}(k)\big]\Big),\\
 c_{i,u}(k)
-&=
-b_{i,u}(k)\,\sigma\!\left(o_{i,u}^{c}(k)\right),\\
-w_{i,u}(k)
-&=
-\sigma\!\left(o_{i,u}^{w}(k)\right),
+={}&\chi_{i,u}^{\mathrm{cur}}(k)
++\big[1-\chi_{i,u}^{\mathrm{cur}}(k)\big]\\
+&\qquad\times\bar c_{i,u}(k)\sigma\!\left(g_c(\xi_{i,u}(k))\right).
 \end{aligned}
 \label{eq:ch2_cagsr_weight}
 \end{equation}
-其中 $\sigma(\cdot)$ 为 Sigmoid 函数，可用性门控 $b_{i,u}(k)$ 确保缺失观测获得零观测置信度。两个权重不设置独立标签，而是作为可微隐变量，经其在参考融合、拟合约束与图正则化中的作用由状态校准目标学习。逐节点参考与拟合矩阵为
+其中 $\sigma(\cdot)$ 为 Sigmoid 函数。可用性指示 $b_{i,u}(k)$ 使缺失更新不进入观测融合；对于在决策截止前成功译码的当前时隙状态，$\chi_{i,u}^{\mathrm{cur}}(k)=1$，其观测权重固定为 $1$。逐节点融合参考为
 \begin{equation}
 y_{i,u}(k)
 =
-c_{i,u}(k)x_{i\leftarrow u}^{\mathrm{obs}}(k)
+c_{i,u}(k)x_{i,u}^{\mathrm{obs}}(k)
 +
 \left(1-c_{i,u}(k)\right)
 x_{i,u}^{\mathrm{pri}}(k),
 \label{eq:ch2_cagsr_reference}
 \end{equation}
-$Y_i(k)=[y_{i,u}(k)]_{u\in\mathcal V_i^h(k)}$，$W_i(k)=[w_{i,u}(k)]_{u\in\mathcal V_i^h(k)}\mathbf 1_d^\top$。由此，缺失观测由时序先验替代，一致的陈旧观测仍可获得较高观测置信度；当两类候选支撑均较弱时，$w_{i,u}(k)$ 可取较小值，使图结构空间支撑主导校准。
-
-加权关联矩阵 $M_i^R(k)$ 通过强调端点参考可信且状态兼容的边，使图正则化具有选择性。对边 $(u,v)\in\mathcal E_i^h(k)$，归一化参考状态差定义为
+$Y_i(k)=[y_{i,u}(k)]_{u\in\mathcal V_i^h(k)}$。与观测权重不同，有限步校准采用的拟合权重定义为
 \begin{equation}
-\delta_{i,uv}^{y}(k)
-=
-\frac{
-\left\|
-y_{i,u}(k)-y_{i,v}(k)
-\right\|_2
-}{
-\left\|
-y_{i,u}(k)
-\right\|_2
-+
-\left\|
-y_{i,v}(k)
-\right\|_2
-},
-\label{eq:ch2_cagsr_refdiff}
+\begin{aligned}
+q_{i,u}(k)
+={}&\rho_{i,u}(k)\left[0.5+0.25\rho_{i,u}^{\mathrm f}(k)
++0.25\rho_{i,u}^{\mathrm{int}}(k)\right]f_{i,u}(k),\\
+\widetilde w_{i,u}(k)
+={}&\operatorname{clip}_{[0.01,1]}\!\Big(0.1+0.9q_{i,u}(k)
++0.25\tanh\!\left[g_w(\xi_{i,u}(k))\right]\Big),\\
+w_{i,u}(k)
+={}&\chi_{i,u}^{\mathrm{cur}}(k)
++\big[1-\chi_{i,u}^{\mathrm{cur}}(k)\big]\widetilde w_{i,u}(k).
+\end{aligned}
+\label{eq:ch2_cagsr_fidelity}
 \end{equation}
-边级平滑系数由端点权重与参考状态兼容性构造：
+因此，$c_{i,u}(k)$ 决定观测与时序先验的融合比例，$w_{i,u}(k)$ 决定融合参考对校准状态的拟合强度。当前时隙直接可用的状态在两条路径中均取单位权重。记 $W_i(k)=[w_{i,u}(k)]_{u\in\mathcal V_i^h(k)}\mathbf 1_d^\top$。
+
+\textbf{（2）星间链路可靠度门控与归一化图算子。} 对 $(u,v)\in\mathcal E_i^h(k)$，以 $\upsilon_{i,uv}(k)$ 和 $\tau_{i,uv}(k)$ 分别表示归一化链路利用率与传播时延。链路可靠度门控为
 \begin{equation}
+\begin{aligned}
+e_{i,uv}^{R}(k)
+={}&g_e\!\left(\upsilon_{i,uv}(k),\tau_{i,uv}(k),
+\rho_{i,u}(k),\rho_{i,v}(k)\right),\\
+\bar d_{i,uv}^{R}(k)
+={}&\max\!\left\{\epsilon_d,
+\big[1-\upsilon_{i,uv}(k)\big]\rho_{i,u}(k)\rho_{i,v}(k)\right\},\\
 d_{i,uv}^{R}(k)
-=
-w_{i,u}(k)\,w_{i,v}(k)
-\left(
-1-\delta_{i,uv}^{y}(k)
-\right).
+={}&\max\!\left\{\epsilon_d,
+\bar d_{i,uv}^{R}(k)\big[1+0.5\tanh(e_{i,uv}^{R}(k))\big]\right\}.
+\end{aligned}
 \label{eq:ch2_cagsr_edgecoeff}
 \end{equation}
-因此，仅当两端点参考均可信且相互兼容时，边级平滑才保持较高强度。加权关联矩阵为
-\begin{equation}
-M_i^R(k)
-=
-\left(D_i^R(k)\right)^{1/2}M_i(k),
-\quad
-D_i^R(k)
-=
-\mathrm{diag}\!\left(
-d_{i,uv}^R(k)
-\right)_{(u,v)\in\mathcal E_i^h(k)} ,
-\label{eq:ch2_cagsr_incidence}
-\end{equation}
-相应的图变差正则项等价于
-\begin{equation}
-\frac{\lambda_R}{2}
-\sum_{(u,v)\in\mathcal E_i^h(k)}
-d_{i,uv}^{R}(k)
-\left\|
-Z_{i,u}(k)-Z_{i,v}(k)
-\right\|_2^2 ,
-\label{eq:ch2_cagsr_edgereg}
-\end{equation}
-即 $\lambda_R$ 给出全局图校准强度，$d_{i,uv}^{R}(k)$ 给出边级相对平滑强度。
+其中 $\epsilon_d=10^{-4}$，$e_{i,uv}^{R}(k)$ 是由链路利用率、传播时延及端点遥测可靠度共同确定的可学习修正量。该门控不使用参考状态差，也不与端点拟合权重 $w_{i,u}(k)w_{i,v}(k)$ 相乘，从而使链路支撑强度与节点参考拟合保持功能分离。
 
-当 $Y_i(k)$、$W_i(k)$ 与 $M_i^R(k)$ 固定后，式~\eqref{eq:ch2_cagsr_restoration} 为凸二次目标，具有闭式梯度。若在每个路由时隙精确求解该目标，则需调用线性方程组求解器或辅助变量迭代，在线开销难以预先确定。CA-LDP 因而以 $Y_i(k)$ 初始化，即 $Z_i^0(k)=Y_i(k)$，并执行 $L_c$ 步定步长梯度迭代，使每时隙校准开销固定。省略时隙索引 $k$，第 $\ell$ 步更新为
+令 $\epsilon_s=10^{-6}$，归一化可靠度加权图算子定义为
 \begin{equation}
+\begin{aligned}
+s_{i,u}(k)&=\sum_{(p,q)\in\mathcal E_i^h(k):\,u\in\{p,q\}}d_{i,pq}^{R}(k),\\
+\widehat d_{i,uv}^{R}(k)
+&=\frac{d_{i,uv}^{R}(k)}
+{\sqrt{\max\{s_{i,u}(k),\epsilon_s\}\max\{s_{i,v}(k),\epsilon_s\}}},\\
+\left[\mathcal L_i^{R,\mathrm n}(k)Z_i(k)\right]_u
+&=\sum_{v:(u,v)\in\mathcal E_i^h(k)}
+\widehat d_{i,uv}^{R}(k)\big[z_{i,u}(k)-z_{i,v}(k)\big].
+\end{aligned}
+\label{eq:ch2_cagsr_graphop}
+\end{equation}
+式~\eqref{eq:ch2_cagsr_restoration} 中的 $M_i^R(k)$ 仍作为可靠度加权图变差的设计层表示；在线实现不显式构造该矩阵，而是沿本地星间链路稀疏计算 $\mathcal L_i^{R,\mathrm n}(k)Z_i(k)$。
+
+\textbf{（3）残差校正与有限步更新。} CaGSR 先根据链路可靠度形成节点 $u$ 的邻居参考：
+\begin{equation}
+\begin{aligned}
+\kappa_{i,u}(k)&=\sum_{v:(v,u)\in\mathcal E_i^h(k)}d_{i,vu}^{R}(k),\\
+\bar y_{i,u}(k)&=
+\begin{cases}
+\displaystyle \kappa_{i,u}^{-1}(k)
+\sum_{v:(v,u)\in\mathcal E_i^h(k)}d_{i,vu}^{R}(k)y_{i,v}(k),
+&\kappa_{i,u}(k)>0,\\[2mm]
+y_{i,u}(k),&\text{其他情况}.
+\end{cases}
+\end{aligned}
+\label{eq:ch2_cagsr_neighborref}
+\end{equation}
+在此基础上，节点级残差校正写为
+\begin{equation}
+\begin{aligned}
+r_{i,u}^{\mathrm{res}}(k)
+={}&\gamma_r\big[1-w_{i,u}(k)\big]g_r\!\Big(
+y_{i,u}(k),\bar y_{i,u}(k),y_{i,u}(k)-\bar y_{i,u}(k),\\
+&x_{i,u}^{\mathrm{obs}}(k)-x_{i,u}^{\mathrm{pri}}(k),
+\rho_{i,u}(k),a_{i,u}(k),b_{i,u}(k)\Big).
+\end{aligned}
+\label{eq:ch2_cagsr_residual}
+\end{equation}
+其中，$\gamma_r$ 为初值设为 $0.01$ 的可学习标量，$g_r(\cdot)$ 的输出层采用零初始化。残差门控 $1-w_{i,u}(k)$ 使额外校正主要作用于拟合支撑较弱的状态。
+
+令 $S_i(k)=\operatorname{diag}(\chi_{i,u}^{\mathrm{cur}}(k))_{u\in\mathcal V_i^h(k)}$，$R_i^{\mathrm{res}}(k)$ 由各节点残差校正组成。校准初值为
+\begin{equation}
+Z_i^0(k)=S_i(k)X_i^{\mathrm{obs}}(k)
++\big[I-S_i(k)\big]\big[Y_i(k)+R_i^{\mathrm{res}}(k)\big].
+\label{eq:ch2_cagsr_initialization}
+\end{equation}
+省略时隙索引 $k$，第 $\ell$ 步更新为
+\begin{equation}
+\begin{aligned}
+\widetilde Z_i^{\ell+1}
+={}&Z_i^\ell-\eta\left[
+W_i\odot\big(Z_i^\ell-Y_i\big)
++\lambda_{\mathrm g}\mathcal L_i^{R,\mathrm n}Z_i^\ell\right],\\
 Z_i^{\ell+1}
-=
-Z_i^\ell
--
-\eta
-\left[
-W_i^{\odot 2}\odot
-\left(
-Z_i^\ell-Y_i
-\right)
-+
-\lambda_R (M_i^R)^\top M_i^R Z_i^\ell
-\right],
+={}&S_iX_i^{\mathrm{obs}}+(I-S_i)\widetilde Z_i^{\ell+1},
+\quad \ell=0,\ldots,L_c-1.
+\end{aligned}
 \label{eq:ch2_cagsr_update}
 \end{equation}
-其中 $\eta$ 为固定步长，$W_i^{\odot 2}$ 表示逐元素平方，$\lambda_R$ 与式~\eqref{eq:ch2_cagsr_restoration} 中的全局图校准权重一致。$L_c$ 步后输出 $Z_i^\star(k)=Z_i^{L_c}(k)$。该有限步更新不引入额外原始变量或对偶变量，仅需对 $M_i^R(k)$ 及其转置执行稀疏乘法，在线开销由 $L_c$ 固定。校准步数 $L_c$ 取验证集校准损失改善趋于平缓时的最小步数。
+其中，$W_i$ 沿状态维度广播节点拟合权重，拟合项对 $W_i$ 采用一次加权。本文取 $L_c=3$、$\eta=0.05$。低置信状态主要通过式~\eqref{eq:ch2_cagsr_residual} 所示残差路径获得校正；归一化图项提供另一条由本地拓扑支撑的校正路径，但不与 $w_{i,u}(k)$ 相乘。由于链路门控和节点拟合权重均使用端点遥测可靠度，两条路径并非统计独立，其实际贡献还取决于可学习输出及相邻状态差。每一步更新后均通过 $S_i(k)$ 恢复当前时隙直接可用的状态，防止可靠现时状态被邻居聚合改写。经过 $L_c$ 步后，输出 $Z_i^\star(k)=Z_i^{L_c}(k)$。
 
 CaGSR 参数以当前物理状态为监督离线训练。训练时，仿真器记录真实当前物理状态 $x_u(k)$，并仅将其用作校准目标。对小批量 $\mathcal B$，训练损失为
 \begin{equation}
@@ -397,12 +395,12 @@ x_{i,u}^{\mathrm{pri}}(k)-x_u(k)
 \end{aligned}
 \label{eq:ch2_cagsr_loss}
 \end{equation}
-其中校准损失 $\mathcal L_{\mathrm{cal}}$ 驱动展开校准输出逼近当前物理状态，先验损失 $\mathcal L_{\mathrm{pri}}$ 直接监督 GRU 先验，$\lambda_{\mathrm{pri}}$ 平衡二者。置信权重 $c_{i,u}(k)$ 与 $w_{i,u}(k)$ 不设置独立标签，而是经其在参考融合、拟合约束与图正则化中的可微作用优化。在线推理时，已训练的 GRU 先验与置信度估计器保持固定，各卫星以相同 $L_c$ 步本地校准算子计算 $Z_i^\star(k)$。
+其中校准损失 $\mathcal L_{\mathrm{cal}}$ 驱动固定深度展开后的状态逼近当前物理状态，先验损失 $\mathcal L_{\mathrm{pri}}$ 直接监督 GRU 时序先验，$\lambda_{\mathrm{pri}}$ 用于平衡两项损失。$c_{i,u}(k)$ 与 $w_{i,u}(k)$ 不设置单独标签，而是通过观测融合和参考拟合中的可微作用共同学习；残差校正网络、链路门控网络及拟合权重估计网络也在同一固定深度算子中联合训练。在线运行时冻结上述参数，各卫星均执行相同的 $L_c$ 步本地校准。
 
 \subsection{置信度加权多跳传播}
 \label{subsec:ch2_propagation}
 
-传播模块作用于校准后网络状态矩阵 $Z_i^\star(k)$ 与校准后置信向量 $w_i(k)$。对每个节点 $v\in\mathcal V_i^h(k)$，先将校准物理状态与其置信度投影至路由策略隐特征空间：
+传播模块作用于校准后网络状态矩阵 $Z_i^\star(k)$ 与保真权重向量 $w_i(k)$。对每个节点 $v\in\mathcal V_i^h(k)$，先将校准物理状态与对应保真权重投影至路由策略隐特征空间：
 \begin{equation}
 H_{i,v}^{0}(k)
 =
@@ -460,9 +458,18 @@ H_{i,v}^{t}(k)
 \end{equation}
 其中 $\alpha=\mathrm{softplus}(a_\alpha)$ 与 $\beta=\mathrm{softplus}(a_\beta)$ 为可学习正传播强度，并在训练与推理中裁剪至固定上界 $\alpha\le\alpha_{\max}$、$\beta\le\beta_{\max}$。
 
-式~\eqref{eq:ch2_prop_diffusion}--\eqref{eq:ch2_prop_update} 直接服务于邻域视图不准确场景下的路由特征构建。发送端权重 $w_{i,u}(k)$ 控制节点 $u$ 的校准状态能否作为可靠路由证据向外传播，从而抑制弱支撑链路负载或队列状态污染邻居视图；接收端锚定项 $R_{i,v}^{t}(k)$ 则使高置信节点保留自身可靠的拥塞与链路质量证据，避免在多跳聚合中被远端不确定状态过度覆盖。当所有置信度均接近 $1$ 时，该传播形式简化为校准特征上的标准反应--扩散式图聚合；当某节点置信度较低时，其向外影响被削弱，但仍可利用邻居状态修正自身路由特征。
+发送端权重的作用可由两种边界情况说明。当所有节点均满足 $w_{i,u}(k)=1$ 时，式~\eqref{eq:ch2_prop_update} 退化为校准特征上的常规反应--扩散式图聚合；当节点 $u$ 满足 $w_{i,u}(k)=0$ 时，其状态不再通过式~\eqref{eq:ch2_prop_diffusion} 向外传播，但仍可接收邻居提供的校正。进一步令 $\phi_d(x)=x$，节点 $u$ 的隐特征扰动 $\epsilon_u^t$ 在一步传播后仅以 $\alpha w_{i,u}(k)\epsilon_u^t$ 的幅度影响邻居 $v$。因此，将置信度置于发送端可以直接限制低置信节点对外部路由表征的干扰；若改用接收端权重，低置信发送节点仍可能显著改变高置信接收节点的特征。
 
-经 $T$ 步传播后，模块输出路由策略输入特征矩阵 $H_i^\star(k)=H_i^T(k)$，将下游拥塞与链路状态信息融入校准状态 $Z_i^\star(k)$。训练时，CaGSR 先经当前状态监督校准并冻结，随后传播模块与下游近端策略优化（Proximal Policy Optimization，PPO）路由头联合训练。该分阶段安排使 $Z_i^\star(k)$ 保持为物理状态估计，$w_i(k)$ 仍与状态估计可信度绑定，而非转为面向策略的注意力权重；PPO 路由头奖励设计与训练配置将在第~\ref{subsec:ch2_training} 节一并给出。
+对锚定项，令 $\phi_r(x)=x$，并定义相对初始校准特征的偏移 $\widetilde H_{i,v}^{t}(k)\triangleq H_{i,v}^{t}(k)-H_{i,v}^{0}(k)$。将式~\eqref{eq:ch2_prop_reaction} 代入式~\eqref{eq:ch2_prop_update}，可得
+\begin{equation}
+\widetilde H_{i,v}^{t+1}(k)
+=\big[1-\beta w_{i,v}(k)\big]\widetilde H_{i,v}^{t}(k)
++\alpha D_{i,v}^{t}(k).
+\label{eq:ch2_prop_contraction}
+\end{equation}
+系数 $1-\beta w_{i,v}(k)$ 表明，高置信节点更倾向于保留自身的初始校准特征；低置信节点则不受不可靠初值的强约束，可继续通过邻居聚合修正路由表征。
+
+经 $T$ 步传播后，模块输出路由策略输入特征矩阵 $H_i^\star(k)=H_i^T(k)$，将下游拥塞与链路状态信息融入校准状态 $Z_i^\star(k)$。训练时，CaGSR 先经当前状态监督校准并冻结，随后传播模块与下游近端策略优化（Proximal Policy Optimization，PPO）路由头联合训练。该分阶段安排使 $Z_i^\star(k)$ 保持为物理状态估计，$w_i(k)$ 仍与状态估计可信度绑定，而非转为面向策略的注意力权重；PPO 路由头奖励设计与完整训练配置见附录~\ref{app:ch3_training_details}。
 
 \subsection{工作流程与复杂度分析}
 \label{subsec:ch2_complexity}
@@ -476,9 +483,10 @@ H_{i,v}^{t}(k)
 \KwOut{路由策略输入特征矩阵 $H_i^\star(k)$}
 由校准状态缓存生成时序先验 $X_i^{\mathrm{pri}}(k)$\;
 估计 $c_i(k)$ 与 $w_i(k)$，在 $\mathcal V_i^h(k)$ 上构造 $Y_i(k)$ 与 $W_i(k)$\;
-在 $\mathcal E_i^h(k)$ 上计算 $d_{i,uv}^R(k)$，形成 $M_i^R(k)=(D_i^R(k))^{1/2}M_i(k)$，并初始化 $Z_i^0(k)=Y_i(k)$\;
+在 $\mathcal E_i^h(k)$ 上计算 $d_{i,uv}^R(k)$ 与 $\mathcal L_i^{R,\mathrm n}(k)$，并生成 $R_i^{\mathrm{res}}(k)$\;
+按式~\eqref{eq:ch2_cagsr_initialization} 完成带当前状态投影的初始化\;
 \For{$\ell=0$ \KwTo $L_c-1$}{
-  按式~\eqref{eq:ch2_cagsr_update} 执行一步图校准，更新 $Z_i^{\ell+1}(k)$\;
+  按式~\eqref{eq:ch2_cagsr_update} 执行一步图校准及当前状态投影\;
 }
 置 $Z_i^\star(k)=Z_i^{L_c}(k)$，按式~\eqref{eq:ch2_prop_input} 计算 $H_i^0(k)$\;
 \For{$t=0$ \KwTo $T-1$}{
@@ -492,7 +500,7 @@ H_{i,v}^{t}(k)
 n_i(h)=2h^2+2h+1,\qquad e_i(h)=\Theta(h^2)
 \label{eq:ch2_view_size}
 \end{equation}
-个节点与边。每时隙开销由三类本地操作主导：监测节点上的时序先验生成、定步长图正则化状态校准，以及定深置信度加权多跳聚合。令 $C_p$ 为先验生成与置信度估计的逐节点开销，$C_d$ 与 $C_r$ 分别为传播模块的逐边聚合映射与逐节点锚定映射开销，则卫星 $i$ 在线处理开销为
+个节点与边。每时隙开销由三类本地操作主导：监测节点上的时序先验与权重生成、固定步数的残差及归一化图状态校准，以及固定深度的置信度加权多跳聚合。图运算沿星间链路逐边稀疏累加，不显式构造 $M_i^R(k)$ 或其转置，因此每个校准步的复杂度仍为 $\mathcal O(n_i(h)+e_i(h))$。令 $C_p$ 为先验生成与权重估计的逐节点开销，$C_d$ 与 $C_r$ 分别为传播模块的逐边聚合映射与逐节点锚定映射开销，则卫星 $i$ 在线处理开销为
 \begin{equation}
 \begin{aligned}
 C_i^{\mathrm{on}}(h)
@@ -505,139 +513,125 @@ C_i^{\mathrm{on}}(h)
 \end{aligned}
 \label{eq:ch2_complexity}
 \end{equation}
-在特征维度、模型宽度与部署参数 $L$、$L_c$、$T$ 固定时，式~\eqref{eq:ch2_complexity} 随 $C_i^{\mathrm{on}}(h)=\mathcal O(h^2)$ 增长。因此，在线计算仅随本地监测半径增长，而与全局星座规模无关。这一局部性使 CA-LDP 区别于开销随网络规模增长的全网状态同步，也区别于计算量随求解精度与图状态变化波动的自适应迭代图传播方法。校准与聚合均采用固定的本地步数，因而可在状态更新不及时、不完整或含噪时提供可预测的星上计算开销。
+在特征维度、模型宽度与部署参数 $L$、$L_c$、$T$ 固定时，式~\eqref{eq:ch2_complexity} 满足 $C_i^{\mathrm{on}}(h)=\mathcal O(h^2)$。因此，单星在线计算量随本地监测半径增长，而与全局星座规模无关。与全网状态同步相比，该处理方式不随星座节点总数直接扩展；与迭代次数受求解精度和图状态影响的方法相比，固定的 $L_c$ 和 $T$ 使单时隙图处理级数保持不变。需要说明的是，该结论针对固定监测半径和四邻星间链路拓扑下的单星计算量，不表示模型性能可直接迁移至其他星座规模或星间链路拓扑；实际处理时延仍取决于星载计算平台。
 
 
 \section{仿真结果与分析}
 \label{sec:ch2_experiments}
 
-本节在大规模 Starlink 壳层星座上对 CA-LDP 开展星座级仿真评估。首先给出实验参数设置与训练实现细节，随后在受控邻域视图不准确场景下评估端到端路由性能并开展模块消融，继而单独考察状态校准精度，最后分析状态更新预算与本地感知半径的部署敏感性。本章将路由作为分布式星上决策的下游应用，因此路由性能可作为检验邻域视图不准确条件下本地状态感知质量的指标。
+本节在大规模 Starlink 壳层星座上评估 CA-LDP。实验覆盖完整的业务负载--误码率组合，同时考察模块消融、状态校准与权重响应、部署参数敏感性、冻结模型在未见部署条件下的表现，以及实际推理时延与显存占用。各方法采用相同的路由策略配置，性能差异主要来自路由决策前采用的本地状态处理方法。
 
 \subsection{实验参数设置}
 \label{subsec:ch2_exp_setup}
 
-仿真采用含 $72$ 个轨道面、每面 $22$ 颗卫星、共 $1584$ 颗卫星的 Starlink 壳层星座，轨道高度为 $550$~km，倾角为 $53^\circ$~\cite{lai-StarryNet-NSDI23,chen-AnalysisISLLEO-TVT21}。星间链路采用 +Grid 式四邻网格，每颗卫星维护两条同轨链路与两条邻轨链路，并禁用跨缝邻轨链路，以避免反向相对运动引起的链路不稳定~\cite{chen-AnalysisISLLEO-TVT21,Bhattacherjee-Singla-NetworkTopologyDesign-CCS19}；每条激活星间链路标称容量为 $C_{\mathrm{ISL}}=1$~Gbps~\cite{Gioulis-OpticalISLModel-Photonics25}。仿真覆盖全星座范围：背景业务、邻域视图不准确因素与前景路由回合均在全网生成，而每颗卫星仅观测其本地 $h$ 跳监测视图。
+仿真采用一个 Starlink 壳层，共含 $72$ 个轨道面，每个轨道面部署 $22$ 颗卫星，卫星总数为 $1584$。轨道高度和倾角分别为 $550$~km 和 $53^\circ$~\cite{lai-StarryNet-NSDI23,chen-AnalysisISLLEO-TVT21}。星间链路按照 +Grid 四邻网格连接，每颗卫星维护两条同轨链路和两条邻轨链路。跨缝邻轨链路因反向相对运动而容易失稳，仿真中将其关闭~\cite{chen-AnalysisISLLEO-TVT21,Bhattacherjee-Singla-NetworkTopologyDesign-CCS19}。每条激活星间链路的标称容量为 $C_{\mathrm{ISL}}=1$~Gbps~\cite{Gioulis-OpticalISLModel-Photonics25}。背景业务、状态更新误差和前景路由回合均在完整星座上生成，但每颗卫星只能获取自身的 $h$ 跳监测视图。本节结果因而限定于跨缝链路关闭的单壳层 +Grid 拓扑，尚未覆盖含层间链路的多壳层星座和非规则星间拓扑。
 
-前景路由负载与背景拥塞分别生成。参照 SaTE 的区域级业务需求模型~\cite{wuhao-SaTE-SIGCOMM25}，背景业务建模为 $64$ 个地球固定区域间的流体需求；每回合包含 $F_{\mathrm{bg}}=1000$ 条背景流，其活动时长服从均值 $2$~s 的指数分布，活动需求沿定向星间链路累积形成时变背景负载。对轻、中、重三档业务负载，施加全局缩放因子使 $95$ 分位星间链路利用率分别匹配 $0.30$、$0.65$ 与 $0.85$。每个前景回合包含一条源宿需求：源卫星均匀采样，源宿跳距服从 $[12,30]$ 跳上形状参数为 $1.5$ 的截断离散 Pareto 分布，平均距离约 $18.7$ 跳；需求大小服从形状参数 $1.5$、尺度 $1$~MB、支撑 $[1,1024]$~MB 的截断 Pareto 分布，并划分为定长流。邻域视图不准确程度由上述三档业务负载与三档误码率（BER）共同控制：好信道 $p_b\in[10^{-8},10^{-7}]$、中等信道 $p_b\in[10^{-7},10^{-6}]$、差信道 $p_b\in[10^{-6},10^{-5}]$，每回合各星间链路独立从对应对数均匀区间采样 BER。三档负载与三档 BER 形成九类受控邻域视图不准确工作点。其余固定参数列于表~\ref{tab:ch2_sim_params}。
+前景路由需求与背景拥塞独立生成。背景业务参照 SaTE 的区域级业务需求模型~\cite{wuhao-SaTE-SIGCOMM25}，由 $64$ 个地球固定区域之间的流体需求构成。背景流服从平均到达率 $\lambda_{\mathrm{bg}}=100$ 流/s 的泊松到达过程，持续时间服从均值为 $2$~s 的指数分布。仿真器每 $0.1$~s 更新一次活动流集合和定向星间链路负载。通过全局缩放背景需求，将轻、中、重三档负载下星间链路利用率的 $95$ 分位数分别设为 $0.30$、$0.65$ 和 $0.85$。
+
+每个前景回合只注入一条源宿需求。源卫星从全星座中均匀采样，源宿跳距服从取值范围为 $[12,30]$ 跳、形状参数为 $1.5$ 的截断离散 Pareto 分布，平均跳距约为 $18.7$；目的卫星再从对应的跳距壳层中均匀选取。业务需求大小服从截断 Pareto 分布，其形状参数为 $1.5$、尺度为 $1$~MB、取值范围为 $[1,1024]$~MB。每条需求被划分为 $512$~KB 的定长流片，并进入定向星间链路的先进先出队列。在每个时隙内，链路可用容量扣除带内状态更新开销和背景业务占用后，得到前景业务的服务速率，队列据此按先进先出顺序传输流片。该设置关注单条受控前景需求的流片串行传输及其与背景业务的容量竞争，不考虑多条空间分布式前景需求的联合选路、共享链路资源分配和公平性。
+
+三档业务负载分别与三档 BER 组合。好、中、差信道条件对应 $p_b\in[10^{-8},10^{-7}]$、$p_b\in[10^{-7},10^{-6}]$ 和 $p_b\in[10^{-6},10^{-5}]$。每个回合开始时，各星间链路从对应的对数均匀区间独立采样一次 BER，并在回合内保持不变。这里的 BER 用于描述等效误码对分组完整性的影响，未模拟突发误码和相邻链路之间的相关衰落。三档负载与三档 BER 组成九个受控状态更新误差场景，其余参数见表~\ref{tab:ch2_sim_params}。
 
 \begin{table}[!htp]
 \centering
-\bicaption{仿真场景与业务参数}{Simulation scenario and traffic parameters}
+\bicaption{主要仿真参数}{Key simulation parameters}
 \label{tab:ch2_sim_params}
 \footnotesize
-\setlength{\tabcolsep}{6pt}
-\renewcommand{\arraystretch}{1.3}
-\begin{tabular}{p{0.52\linewidth} p{0.32\linewidth}}
+\setlength{\tabcolsep}{5pt}
+\renewcommand{\arraystretch}{1.16}
+\begin{tabular}{p{0.56\linewidth} p{0.30\linewidth}}
 \hline
 参数 & 取值 \\
 \hline
 星座规模 & $1584$ 颗卫星 \\
 时隙长度 / 回合时长 & $10$ ms / $10$ s \\
-评估随机种子 / 每种子回合数 & $5$ / $100$ \\
+评估随机种子 / 每种子回合数 & $15$ / $30$ \\
 生存时间 $H_{\max}$ & $50$ 跳 \\
 标称星间链路容量 $C_{\mathrm{ISL}}$ & $1$ Gbps \\
-每回合背景流数 & $1000$ \\
+背景流平均到达率 & $100$ 流/s \\
+背景流平均持续时间 & $2$ s \\
+背景负载更新间隔 & $0.1$ s \\
 源宿距离 & $[12,30]$ 跳 Pareto 分布 \\
 前景需求大小 & $[1,1024]$ MB Pareto 分布 \\
-前景流大小 & $512$ KB \\
+前景流片大小 & $512$ KB \\
 状态更新分组大小 $B_{\mathrm m}$ & $12000$ bit \\
 状态更新服务比例 $\zeta_{\mathrm{tel}}$ & $5\times10^{-4}$ \\
+新鲜度系数 $\mu_f$ & $0.1$ \\
 \hline
 \end{tabular}
 \end{table}
 
-在相同网络条件、业务负载、邻域视图不准确分布、动作空间、奖励函数与训练预算下，将 CA-LDP 与四种代表性本地状态处理方案进行对比。所有方法均采用相同的 PPO 下一跳路由策略，使对比集中于路由决策前对不准确本地状态输入的处理方式。GRLR-GCN~\cite{zhang-GRLR-TVT25} 对不准确观测直接施加残差 GCN 聚合；GAT-RL~\cite{rao-DGAIEDRL-IoTJ25} 在相同不准确输入上采用边感知多头图注意力编码器；LSTM-GREAD 将 LSTM 预测器~\cite{Hochreiter-LongShortTermMemory-NC97} 与 GREAD 式反应扩散编码器~\cite{choi-GREAD-ICML23} 相结合，但其传播阶段不以校准后置信度为条件；NA-GSR-GCN~\cite{Yang-NodeAdaptiveRegularization-GSP25} 在 GCN 路由编码器前施加确定性 Laplacian 正则化状态补全，但缺少置信度自适应的观测与先验融合以及置信度加权多跳聚合。
+对比实验保持网络条件、业务负载、状态更新误差、动作空间、奖励函数和训练预算一致。GRLR-GCN~\cite{zhang-GRLR-TVT25} 直接对不准确观测执行残差 GCN 聚合。GAT-RL~\cite{rao-DGAIEDRL-IoTJ25} 使用边感知多头图注意力网络编码相同输入。LSTM-GREAD 将 LSTM 预测器~\cite{Hochreiter-LongShortTermMemory-NC97} 与 GREAD 式反应--扩散图编码器~\cite{choi-GREAD-ICML23} 结合，但传播时不使用状态校准保真权重。NA-GSR-GCN~\cite{Yang-NodeAdaptiveRegularization-GSP25} 先通过确定性 Laplacian 正则化修复状态，再由 GCN 编码路由特征，其中不含自适应观测--先验融合和置信度加权多跳传播。四种基线与 CA-LDP 均采用同一 PPO 下一跳路由策略。
 
-\subsection{训练实现细节与奖励设计}
+\subsection{训练实现与统计方法}
 \label{subsec:ch2_training}
 
-CA-LDP 采用两阶段训练。阶段一在当前状态监督下优化 CaGSR 参数 $\Theta_{\mathrm C}$，包括 GRU 先验、时序投影 $P_h$ 与置信度估计器。仿真器记录真实物理状态 $x_u(k)$，并仅将其用作式~\eqref{eq:ch2_cagsr_loss} 的校准目标；置信权重 $c_{i,u}(k)$ 与 $w_{i,u}(k)$ 作为展开校准算子内部的可微隐变量优化，不设置独立标签。阶段二冻结 $\Theta_{\mathrm C}$，由 PPO 联合优化传播模块参数 $\Theta_{\mathrm R}$ 与路由头参数 $\Theta_\pi$。PPO 路由头仅作为统一下游决策器，用于在相同动作空间、奖励函数与训练预算下评估不同本地状态输入质量，不作为本章的独立算法贡献。为公平起见，LSTM-GREAD 的 LSTM 补全模块也在相同当前状态监督下预训练，NA-GSR-GCN 采用确定性图修复求解器，GRLR-GCN 与 GAT-RL 直接接收不准确观测并经 PPO 优化。所有路由策略采用相同的五阶段课程式训练，由固定短跳路由逐步过渡至完整的 $12$--$30$ 跳随机设置。每种方法的路由策略训练预算均为 $2\times10^6$ 个环境步，并以末阶段验证得分最优的模型检查点用于评估。CA-LDP 的核心结构与优化超参数列于表~\ref{tab:ch2_hyperparams}。
+CA-LDP 采用两阶段训练。第一阶段利用当前状态监督优化 CaGSR，第二阶段冻结 CaGSR，并由 PPO 联合优化置信度加权传播模块与下一跳路由策略。两阶段优化对象、核心超参数、图修复基线配置和逐决策奖励函数见附录~\ref{app:ch3_training_details}。
 
-\begin{table}[!htp]
-\centering
-\bicaption{CA-LDP 模型结构与训练参数}{Model structure and training parameters of CA-LDP}
-\label{tab:ch2_hyperparams}
-\footnotesize
-\setlength{\tabcolsep}{5pt}
-\renewcommand{\arraystretch}{1.3}
-\begin{tabular}{p{0.30\linewidth} p{0.16\linewidth} p{0.28\linewidth} p{0.14\linewidth}}
-\hline
-参数 & 取值 & 参数 & 取值 \\
-\hline
-本地监测半径 $h$ & $5$ & 新鲜度系数 $\mu_f$ & $0.1$ \\
-状态维度 / CaGSR 宽度 & $54$ & 状态历史长度 $L$ & $4$ \\
-校准展开步数 / 步长 & $3$ / $0.05$ & 全局图校准权重 $\lambda_R$ & $0.02$ \\
-置信度估计器 & 2 层 MLP，宽 $54$ & 阶段一学习率 & $5\times10^{-4}$ \\
-传播步数 $T$ & $3$ & 传播隐藏层宽度 & $64$ \\
-初始强度 $(\alpha_0,\beta_0)$ & $(0.2,0.3)$ & 强度上界 $(\alpha_{\max},\beta_{\max})$ & $(1.0,1.0)$ \\
-传播映射 & \multicolumn{3}{l}{$\phi_0,\phi_d$：2 层 MLP；$\phi_r$：1 层 MLP} \\
-\hline
-\end{tabular}
-\end{table}
+LSTM-GREAD 的 LSTM 补全模块使用相同的当前状态监督进行预训练。各方法均采用五阶段课程训练，路由场景从固定短跳需求逐步扩展至 $12$--$30$ 跳随机需求。每种方法的路由策略训练预算均为 $2\times10^6$ 个环境步，评估时选用最后一个训练阶段中验证得分最高的模型检查点。
 
-阶段二中，PPO 的策略输入由路由特征矩阵 $H_i^\star(k)$、目的描述子与候选邻居状态构成，动作为所选下一跳。由于一个时隙可能包含多条活动流的路由决策，每条活动转发决策连同其流标识与时序决策索引存为一条 PPO 转移。统一奖励由本地转发反馈、流级终止反馈与回合级性能构成：
-\begin{equation}
-\hat r_m
-=
-\left(
-r_m^{\mathrm{ca}}
-+
-\epsilon_p r_m^{\mathrm{prog}}
--
-r_m^{\mathrm{safe}}
-\right)
-+
-\lambda_f \frac{R_{f(m)}^{\mathrm{term}}}{N_{f(m)}}
-+
-\lambda_{\mathrm{ep}} \omega_m R^{\mathrm{ep}} ,
-\label{eq:ch2_reward}
-\end{equation}
-其中 $r_m^{\mathrm{ca}}$、$r_m^{\mathrm{prog}}$ 与 $r_m^{\mathrm{safe}}$ 分别表示拥塞规避、目的进展和安全约束反馈；$R_{f(m)}^{\mathrm{term}}$ 与 $R^{\mathrm{ep}}$ 分别为流级终止奖励和回合级性能奖励。系数 $\omega_m$、$\epsilon_p$、$\lambda_f$ 与 $\lambda_{\mathrm{ep}}$ 用于统一各项反馈尺度。将延迟奖励分配至相应决策转移后，沿时序转移序列应用广义优势估计（Generalized Advantage Estimation，GAE），PPO 仅更新 $\Theta_{\mathrm R}$ 与 $\Theta_\pi$。
+每种学习方法只进行一次训练，后续置信区间描述的是固定模型在不同评估种子下的波动，并不包含重复训练引起的不确定性。在同一工作点，各方法使用完全相同的源宿需求、背景业务和状态更新误差。实验先汇总每个种子对应的全部回合，再以种子级结果作为统计样本。主路由结果中的误差棒和“$\pm$”均为 Student-$t$ 95\% 置信区间。
+
+每个工作点均按评价指标选取均值最优的基线，并与 CA-LDP 进行配对比较。传输速率差记为 $\Delta R=R_{\mathrm{CA}}-R_{\mathrm{base}}$，时延差记为 $\Delta D=D_{\mathrm{base}}-D_{\mathrm{CA}}$，两者为正时均表示 CA-LDP 占优。种子级配对差值用于计算均值和 Student-$t$ 95\% 置信区间，同时通过所有符号翻转进行双侧精确配对置换检验。业务传输成功率、传输速率和时延构成三个预先设定的检验族，每个检验族包含九个 $p$ 值，并分别采用 Holm 方法校正。
 
 \subsection{路由性能与消融分析}
 \label{subsec:ch2_exp_routing}
 
- 首先评估状态更新同时受拥塞排队与链路误码影响时的端到端路由性能。三档业务负载与三档 BER 构成 $3\times3$ 受控邻域视图不准确工作点；为避免重复展示，主结果选取三档负载下的中等 BER，以及中等负载下的好、差 BER，共五个非重复工作点。在 $50$ 跳 TTL 预算下，各方法的业务传输成功率均接近饱和，因此平均传输速率与端到端时延更能区分邻域视图不准确场景下的路由质量。如图~\ref{fig:ch2_exp1_rate} 所示，CA-LDP 在五个工作点上均取得最高平均传输速率。相较各条件下的最优基线，业务负载由轻到重时，CA-LDP 的速率增益由 $10.8\%$ 和 $9.4\%$ 收敛至 $4.8\%$，说明重负载下链路争用压缩了各方法的可提升空间，但置信度约束传播仍能保留有效下游拥塞信息。沿信道质量维度观察，CA-LDP 在好、中、差 BER 下分别提升 $8.0\%$、$9.4\%$ 与 $9.7\%$，增益未随误码加重而消失，表明校准后置信度能够降低缺失或含噪状态更新对下一跳选择的干扰。图中误差棒显示，轻载和中载下部分方法的速率区间较为接近，因而该组结果更应解读为跨负载、跨 BER 工作点的稳定均值优势，而不是单个场景中的绝对间隔。五个非重复工作点平均后，CA-LDP 达到 $104.8$~Mbps，较平均速率最高的基线 GAT-RL 高 $9.0\%$。这些数值说明，速率提升主要来自不准确状态输入的处理方式：先校准状态观测，再用置信度约束多跳传播，比直接聚合不准确观测或解耦式状态补全更适合大规模 LEO 多跳路由。
+在 $50$ 跳生存时间约束下，各方法的业务传输成功率均已接近饱和。除 LSTM-GREAD 在轻负载、差 BER 条件下为 $99.84\%\pm0.34\%$ 外，其余基线工作点以及 CA-LDP 的九个工作点均达到 $100.00\%$。九项成功率比较在 Holm 校正后均不显著，$p_{\mathrm{Holm}}=1.0$。各路由策略共享目的描述子和候选节点相对目的位置，即使拥塞状态更新不准确，仍能获得基本的方向性转发信息。基于这一结果，图~\ref{fig:ch2_exp1_rate} 和表~\ref{tab:ch2_exp1_delay} 主要比较有效传输速率和端到端时延。
 
 \begin{figure}[!htp]
 \centering
-\includegraphics[width=0.72\linewidth]{figures/chapter2/exp1_rate_overall.pdf}
-\bicaption{邻域视图不准确条件下CA-LDP的平均传输速率性能}{Average transmission rate performance of CA-LDP under inaccurate neighborhood views}
+\includegraphics[width=\linewidth]{figures/chapter2/fig0805返修/exp1_rate_full_grid.pdf}
+\bicaption{完整业务负载--BER组合下的平均有效传输速率}{Average effective transmission rate over the complete traffic-load--BER combinations}
 \label{fig:ch2_exp1_rate}
 \end{figure}
 
-表~\ref{tab:ch2_exp1_delay} 给出与速率增益一致的时延下降。CA-LDP 在各条件下较最优基线降低端到端时延 $6.7\%$--$11.1\%$，平均降低 $8.9\%$（$89.6$~ms 对 $98.3$~ms）；其在所有条件下的最大时延为 $92.3$~ms（轻负载），仍低于任一基线的最小时延 $95.6$~ms（GAT-RL 中负载）。
+从图~\ref{fig:ch2_exp1_rate} 可以看出，CA-LDP 在轻负载和中负载的六个工作点上均获得最高平均传输速率。相对各工作点的最优基线，其增益为 $6.63\%$--$8.82\%$，平均为 $7.47\%$。进入重负载后，CA-LDP 的平均速率比相应最优基线低 $1.14\%$--$6.43\%$。在重负载、差 BER 工作点，CA-LDP 和 GAT-RL 的平均速率分别为 $88.63$~Mbps 和 $94.02$~Mbps，配对差值为 $-5.40$~Mbps，95\% 置信区间为 $[-9.49,-1.31]$~Mbps，$p_{\mathrm{Holm}}=0.0243$。重负载、好 BER 下也存在显著差异；重负载、中等 BER 下的置信区间则包含零。因此，CA-LDP 的速率增益主要出现在轻负载和中负载场景，不能将其解释为对全部状态更新误差条件均有效。
 
 \begin{table}[!htp]
 \centering
-\bicaption{端到端传输时延（ms）}{End-to-end transmission delay (ms)}
+\bicaption{完整业务负载--BER组合下的端到端分组传输时延及配对统计}{End-to-end packet transmission delay and paired statistics over the complete traffic-load--BER combinations}
 \label{tab:ch2_exp1_delay}
-\footnotesize
-\setlength{\tabcolsep}{6pt}
-\renewcommand{\arraystretch}{1.3}
-\begin{tabular}{lccccc}
+\scriptsize
+\setlength{\tabcolsep}{2.4pt}
+\renewcommand{\arraystretch}{1.12}
+\resizebox{\textwidth}{!}{%
+\begin{tabular}{llccccc cc}
 \hline
-& \multicolumn{3}{c}{业务负载} & \multicolumn{2}{c}{误码率} \\
-方法 & 轻 & 中 & 重 & 好 & 差 \\
+& & \multicolumn{5}{c}{端到端时延（ms）} & \multicolumn{2}{c}{CA-LDP 配对差值（95\% CI）} \\
+负载 & BER & GRLR-GCN & GAT-RL & LSTM-GREAD & NA-GSR-GCN & CA-LDP & $\Delta R$（Mbps） & $\Delta D$（ms） \\
 \hline
-GRLR-GCN   & 105.3 & 97.4 & 99.6 & 98.5 & 101.3 \\
-GAT-RL     & 105.2 & 95.6 & 96.9 & 97.8 & 99.5 \\
-LSTM-GREAD & 103.8 & 96.1 & 96.0 & 96.8 & 99.6 \\
-NA-GSR-GCN & 105.6 & 96.0 & 98.5 & 97.8 & 100.0 \\
-CA-LDP     & $\mathbf{92.3}$ & $\mathbf{86.6}$ & $\mathbf{89.6}$ & $\mathbf{89.0}$ & $\mathbf{90.5}$ \\
+轻 & 好 & $97.47\pm8.55$ & $97.09\pm8.45$ & $97.16\pm7.99$ & $97.32\pm8.28$ & $\mathbf{93.25\pm8.08}$ & $8.73\,[6.38,11.07]^{***}$ & $3.83\,[2.28,5.39]^{**}$ \\
+轻 & 中 & $97.98\pm4.78$ & $96.73\pm4.78$ & $97.23\pm4.64$ & $97.28\pm4.56$ & $\mathbf{91.36\pm5.07}$ & $6.58\,[5.44,7.71]^{***}$ & $5.37\,[3.55,7.19]^{***}$ \\
+轻 & 差 & $97.15\pm7.71$ & $96.47\pm7.67$ & $96.54\pm7.01$ & $96.37\pm7.58$ & $\mathbf{92.28\pm7.31}$ & $7.44\,[5.75,9.14]^{***}$ & $4.09\,[2.45,5.74]^{**}$ \\
+中 & 好 & $103.19\pm7.18$ & $102.19\pm7.28$ & $101.83\pm7.01$ & $103.98\pm7.26$ & $\mathbf{96.47\pm6.89}$ & $8.37\,[6.00,10.74]^{***}$ & $5.36\,[2.88,7.84]^{**}$ \\
+中 & 中 & $100.64\pm9.91$ & $99.14\pm9.69$ & $99.19\pm10.56$ & $99.74\pm8.42$ & $\mathbf{94.54\pm6.92}$ & $6.32\,[3.33,9.31]^{**}$ & $4.59\,[0.93,8.26]^{**}$ \\
+中 & 差 & $94.25\pm4.22$ & $94.69\pm4.49$ & $95.02\pm4.56$ & $94.45\pm5.42$ & $\mathbf{89.80\pm4.87}$ & $6.47\,[4.52,8.41]^{***}$ & $4.45\,[3.17,5.73]^{***}$ \\
+重 & 好 & $99.61\pm5.78$ & $96.66\pm5.10$ & $96.68\pm5.09$ & $98.92\pm5.97$ & $\mathbf{93.95\pm6.00}$ & $-5.78\,[-8.55,-3.00]^{***}$ & $2.71\,[1.09,4.33]^{**}$ \\
+重 & 中 & $97.03\pm6.63$ & $95.87\pm6.55$ & $95.29\pm6.63$ & $97.73\pm6.90$ & $\mathbf{89.59\pm6.32}$ & $-1.01\,[-5.05,3.04]$ & $5.70\,[2.82,8.58]^{**}$ \\
+重 & 差 & $95.24\pm7.96$ & $93.74\pm7.15$ & $93.98\pm7.77$ & $94.66\pm7.83$ & $\mathbf{88.46\pm6.80}$ & $-5.40\,[-9.49,-1.31]^{*}$ & $5.28\,[2.98,7.57]^{**}$ \\
 \hline
-\end{tabular}
+\end{tabular}}
+\\[1mm]
+\begin{minipage}{0.98\textwidth}
+\scriptsize
+注：基线表示每个指标和工作点上均值最优的方法，正差值表示 CA-LDP 占优。采用种子级双侧精确配对置换检验，并在每个九工作点指标族内进行 Holm 校正。$^{*}p_{\mathrm{Holm}}<0.05$，$^{**}p_{\mathrm{Holm}}<0.01$，$^{***}p_{\mathrm{Holm}}<0.001$。
+\end{minipage}
 \end{table}
 
-进一步在重负载与中等 BER 下开展模块级消融，此时更新陈旧与分组不可用两类状态观测误差同时存在。在相同网络条件、业务负载、动作空间、奖励函数与 PPO 训练预算下，将完整 CA-LDP 与三个变体对比：去除状态校准变体禁用 CaGSR，并直接将 $X_i^{\mathrm{obs}}(k)$ 送入传播模块；去除置信加权变体保留 CaGSR 但固定 $w_{i,u}(k)=1$，使传播简化为无权 GREAD 式更新；去除多跳聚合变体移除传播模块，令 PPO 路由头直接作用于 $Z_i^\star(k)$。由于平均源宿距离约为 $18.7$ 跳，本实验以平均跳数评估策略能否维持高效路径选择。结果列于表~\ref{tab:ch2_ablation}。
+表~\ref{tab:ch2_exp1_delay} 给出了九个工作点的端到端时延。CA-LDP 在所有工作点上的平均时延均最低，相对对应最优基线降低 $2.81\%$--$5.98\%$，平均降幅为 $4.75\%$。在重负载、差 BER 工作点，GAT-RL 和 CA-LDP 的平均时延分别为 $93.74$~ms 和 $88.46$~ms；配对降幅为 $5.28$~ms，95\% 置信区间为 $[2.98,7.57]$~ms，$p_{\mathrm{Holm}}=0.0020$。结合该工作点的传输速率结果可知，CA-LDP 以一定的速率损失换取了较低时延。这种 QoS 权衡在轻负载和中负载场景中并未出现。
+
+需要说明的是，各工作点独立采样源宿需求，业务组成与负载、BER 设置共同影响最终结果，因此绝对性能不一定随负载或 BER 单调变化。配对实验只保证同一工作点内各方法面对相同的业务需求和状态更新误差，跨工作点的数值变化不能归因于某个单一因素。完整网格实验能够支持两个结论：CA-LDP 的传输速率收益随业务负载而变化，而其时延优势在九个受测工作点上保持一致。
+
+模块消融在重负载、中等 BER 条件下进行。完整 CA-LDP 与三个变体采用相同的网络条件、业务需求、动作空间、奖励函数和 PPO 训练预算。去除状态校准时，禁用 CaGSR，并将 $X_i^{\mathrm{obs}}(k)$ 直接送入传播模块。去除置信加权时，保留 CaGSR，但固定 $w_{i,u}(k)=1$。去除长程聚合时，移除传播模块，由 PPO 路由头直接处理 $Z_i^\star(k)$。
 
 \begin{table}[!htp]
 \centering
-\bicaption{重负载与中等 BER 下的消融实验}{Ablation study under heavy load and medium BER}
+\bicaption{重负载与中等BER下的模块消融结果}{Ablation results under heavy traffic and moderate BER}
 \label{tab:ch2_ablation}
 \footnotesize
-\setlength{\tabcolsep}{8pt}
-\renewcommand{\arraystretch}{1.3}
+\setlength{\tabcolsep}{7pt}
+\renewcommand{\arraystretch}{1.2}
 \begin{tabular}{lcccc}
 \hline
 变体 & 丢弃率（\%） & 平均跳数 & 时延（ms） & 有效传输速率（Mbps） \\
@@ -645,33 +639,33 @@ CA-LDP     & $\mathbf{92.3}$ & $\mathbf{86.6}$ & $\mathbf{89.6}$ & $\mathbf{89.0
 完整 CA-LDP & $\mathbf{0.0}$ & $\mathbf{18.67}$ & $\mathbf{89.67}$ & $\mathbf{90.66}$ \\
 去除状态校准 & 0.0 & 19.82 & 105.91 & 89.57 \\
 去除置信加权 & 0.0 & 19.09 & 99.42 & 87.05 \\
-去除多跳聚合 & 88.9 & 29.32 & -- & 7.32 \\
+去除长程聚合 & 88.9 & 29.32 & -- & 7.32 \\
 \hline
 \end{tabular}
 \\[1mm]
 \begin{minipage}{0.92\linewidth}
 \footnotesize
-注：“--”表示成功传输样本过于稀疏、不足以提供有代表性的时延统计；有效传输速率将失败流计为零速率样本。
+注：“--”表示成功传输样本过少，无法给出有代表性的时延统计；有效传输速率将失败业务计为零速率样本。
 \end{minipage}
 \end{table}
 
-表~\ref{tab:ch2_ablation} 区分了三个组件在重负载与中等 BER 下的作用。移除多跳聚合后，业务流丢弃率升至 $88.9\%$，有效传输速率降至 $7.32$~Mbps，且成功样本不足以给出稳定时延统计。这说明在平均源宿距离约为 $18.7$ 跳的设置下，仅依赖校准后的局部状态无法支撑长距离转发，路由策略需要多跳状态传播来提前感知下游链路拥塞。移除状态校准时，丢弃率仍为 $0.0\%$，有效传输速率只由 $90.66$~Mbps 降至 $89.57$~Mbps，但平均跳数由 $18.67$ 增至 $19.82$，端到端时延由 $89.67$~ms 增至 $105.91$~ms，表明陈旧和缺失状态更新首先会造成绕路与排队等待。移除置信加权后，业务流仍可送达，但有效传输速率降至 $87.05$~Mbps，低于去除状态校准时的 $89.57$~Mbps；这说明弱支撑状态若按同等可靠度参与传播，会干扰下一跳选择中的链路质量判断。整体来看，多跳聚合决定长跳路径的可达性，状态校准压低时延，置信加权进一步改善传输效率，三者共同构成 CA-LDP 在邻域视图不准确场景下的性能来源。
+表~\ref{tab:ch2_ablation} 中，移除长程聚合后，业务丢弃率升至 $88.9\%$，有效传输速率仅为 $7.32$~Mbps。可见，在仅能获取本地观测的条件下，长程聚合直接影响多跳业务能否持续向目的节点转发。禁用 CaGSR 后，平均跳数由 $18.67$ 增至 $19.82$，时延由 $89.67$~ms 增至 $105.91$~ms，说明状态校准能够减弱陈旧和缺失状态对拥塞感知转发的干扰。固定 $w_{i,u}(k)=1$ 时，有效传输速率降至 $87.05$~Mbps；这意味着将弱支撑状态与高可信状态等权传播会影响下一跳选择。上述消融结果说明，状态校准和置信度约束传播需要配合使用。
 
-\subsection{状态校准精度}
+\subsection{状态校准精度与权重响应}
 \label{subsec:ch2_exp_calib}
 
-消融结果表明状态校准直接影响转发效率。为隔离这一作用，本节在状态进入路由传播模块或 PPO 决策前评估 CaGSR 的状态校准质量。评价指标为校准估计 $Z_i^\star(k)$ 与不可观当前状态 $X_i^h(k)$ 之间的归一化均方根误差（NRMSE）。依据式~\eqref{eq:ch2_obs_error} 的观测误差模型，分别报告陈旧表项与缺失表项误差。其中，原始观测直接使用 $X_i^{\mathrm{obs}}(k)$，仅时序方法使用不含图正则的时序先验，图修复方法采用固定 Laplacian 正则化补全求解器。
+状态校准精度在路由特征传播和 PPO 决策之前单独测量。评价指标为 $Z_i^\star(k)$ 与不可观当前状态 $X_i^h(k)$ 之间的归一化均方根误差（NRMSE），统计范围包括陈旧表项、缺失表项和全部表项。原始观测方案直接使用 $X_i^{\mathrm{obs}}(k)$，仅时序方案使用不含图正则化的时序先验。图修复基线求解 $(B+\lambda_{\mathrm{NA}}D_{\omega}LD_{\omega}+\epsilon_{\mathrm{NA}}I)Z=BX_i^{\mathrm{obs}}$，其中 $B$ 为二值可用性，$D_\omega$ 包含固定节点权重，这些权重不随状态更新新鲜度变化。
 
 \begin{table}[!htp]
 \centering
-\bicaption{路由特征聚合前的状态校准 NRMSE}{State calibration NRMSE before routing feature aggregation}
+\bicaption{路由特征传播前的状态校准NRMSE}{State calibration NRMSE before routing-feature propagation}
 \label{tab:ch2_calib}
 \footnotesize
 \setlength{\tabcolsep}{6pt}
-\renewcommand{\arraystretch}{1.3}
+\renewcommand{\arraystretch}{1.2}
 \begin{tabular}{lccc}
 \hline
-方法 & 陈旧 & 缺失 & 整体 \\
+方法 & 陈旧表项 & 缺失表项 & 全部表项 \\
 \hline
 原始观测 & $0.248\pm0.008$ & $2.740\pm0.005$ & $2.575\pm0.026$ \\
 仅时序 & $0.222\pm0.007$ & $0.302\pm0.044$ & $0.292\pm0.039$ \\
@@ -679,51 +673,132 @@ CA-LDP     & $\mathbf{92.3}$ & $\mathbf{86.6}$ & $\mathbf{89.6}$ & $\mathbf{89.0
 CaGSR & $\mathbf{0.202\pm0.006}$ & $\mathbf{0.270\pm0.044}$ & $\mathbf{0.261\pm0.039}$ \\
 \hline
 \end{tabular}
+\\[1mm]
+\begin{minipage}{0.92\linewidth}
+\footnotesize
+注：对每个评估种子和表项类别，汇集五个工作点的节点级归一化平方误差后计算 NRMSE；表中为种子级 NRMSE 的均值 $\pm$ 样本标准差。
+\end{minipage}
 \end{table}
 
- 表~\ref{tab:ch2_calib} 给出了路由特征聚合前的状态校准误差。原始观测的整体 NRMSE 为 $2.575$，其中缺失表项误差达到 $2.740$，明显高于陈旧表项的 $0.248$，说明分组不可用是未校准状态的主要误差来源。固定图修复可将缺失误差降至 $0.316$，但其陈旧误差仍为 $0.248$，与原始观测相同；仅时序方法在陈旧与缺失两类表项上分别达到 $0.222$ 和 $0.302$，整体误差为 $0.292$，是本表中最强基线。CaGSR 在三项指标上均最低，陈旧、缺失与整体 NRMSE 分别为 $0.202$、$0.270$ 和 $0.261$；相较仅时序基线，三类误差分别降低 $9.2\%$、$10.4\%$ 与 $10.7\%$，相较图修复的整体误差降低 $15.1\%$。这一结果说明，CaGSR 的收益不只来自缺失表项补全，还来自对陈旧译码状态的校正。图~\ref{fig:ch2_exp3_calib} 进一步给出邻域视图不准确程度变化下的校准误差。随 BER 由好到差变化，CaGSR 的均值始终低于仅时序和图修复；随业务负载升高，CaGSR 在重负载下仍保持最低均值，而图修复的误差棒明显变宽。该现象说明，固定图平滑在拥塞导致的状态更新陈旧更严重时稳定性较弱，容易把不可靠邻域状态引入本地估计。
+表~\ref{tab:ch2_calib} 中，原始观测的误差主要集中在缺失表项。图修复将缺失表项 NRMSE 降至 $0.316$，但其二值可用性对所有已接收更新采用相同的拟合权重，不能依据 AoI 调整陈旧观测的作用。在 $\lambda_{\mathrm{NA}}=3\times10^{-4}$ 时，图修复的陈旧表项 NRMSE 仍为 $0.248$。CaGSR 根据 AoI、状态更新可靠度和观测--先验偏差处理不同输入，其三类表项误差均为最低。与最优基线“仅时序”相比，CaGSR 的陈旧、缺失和整体 NRMSE 分别降低 $9.2\%$、$10.4\%$ 和 $10.7\%$；与图修复相比，整体 NRMSE 降低 $15.1\%$。
 
 \begin{figure}[!htp]
 \centering
-\includegraphics[width=\linewidth]{figures/chapter2/exp3_calib_combined_1x2.pdf}
-\bicaption{不同BER与链路拥塞对CaGSR状态校准误差的影响}{Impact of different BER levels and link congestion on CaGSR state calibration error}
+\includegraphics[width=\linewidth]{figures/chapter2/fig0805返修/exp3_calib_combined_1x2.png}
+\bicaption{BER与背景负载变化下的状态校准NRMSE}{State calibration NRMSE under BER and background-load variations}
 \label{fig:ch2_exp3_calib}
 \end{figure}
 
-\subsection{敏感性分析}
-\label{subsec:ch2_exp_sensitivity}
+图~\ref{fig:ch2_exp3_calib} 比较了不同状态更新误差条件下的校准结果。随着 BER 恶化，CaGSR 的平均误差始终最低；在重负载条件下，其跨种子波动也较小。相比之下，图修复基线在重负载下的误差棒明显增大。其节点权重固定不变，不能随 AoI 和状态更新可靠度调整，因此陈旧状态更容易影响相邻节点的状态估计。
 
 \begin{figure}[!htp]
 \centering
-\begin{subfigure}[t]{0.44\linewidth}
+\includegraphics[width=0.86\linewidth]{figures/chapter2/fig0805返修/r1c4_weight_response.pdf}
+\bicaption{观测权重与保真权重随AoI、观测--先验偏差和状态更新可用性的变化}{Learned observation and fidelity weights versus AoI, observation--prior mismatch, and state-update availability}
+\label{fig:ch2_weight_response}
+\end{figure}
+
+为观察式~\eqref{eq:ch2_cagsr_weight} 和式~\eqref{eq:ch2_cagsr_fidelity} 所定义权重的实际响应，实验固定训练后的 CaGSR 参数，并统计逐节点状态更新样本。AoI 分析取 $1$--$12$ 个时隙，这部分样本占全部陈旧样本的 $84.5\%$。观测--先验偏差按照陈旧样本的分位数划分区间。缺失表项的偏差由占位值产生，并非有效译码观测，因此不参与偏差分箱。
+
+图~\ref{fig:ch2_weight_response} 中，两类权重均随 AoI 增大而减小。当 AoI 从 $1$ 个时隙增至 $12$ 个时隙时，观测权重由 $0.372\pm0.015$ 降至 $0.036\pm0.002$，保真权重由 $0.976\pm0.004$ 降至 $0.364\pm0.003$；AoI 与 $w_{i,u}(k)$ 的 Pearson 相关系数为 $-0.87$。按观测--先验偏差分箱后，两类权重在前四个区间内持续下降，却在最高 $5\%$ 区间出现回升。该区间的平均 AoI 为 $4.02$ 个时隙，低于前一区间的 $8.39$ 个时隙，因而不能只用偏差解释尾部回升。当前、陈旧和缺失表项的平均 $(c,w)$ 分别为 $(1,1)$、$(0.134\pm0.004,0.591\pm0.009)$ 和 $(0,0.350)$。当前状态掩码将当前表项的权重直接设为 $1$。缺失表项没有成功译码的状态，因此 $c=0$；由时序先验得到的参考状态仍参与状态校准和多跳传播，所以 $w$ 不为零。
+
+\subsection{部署参数敏感性}
+\label{subsec:ch2_exp_sensitivity}
+
+状态更新服务比例实验采用重负载、中等 BER，并令 $\zeta_{\mathrm{tel}}\in\{2\times10^{-4},5\times10^{-4},10^{-3}\}$，训练后的各模块和路由预算保持不变。减小 $\zeta_{\mathrm{tel}}$ 会降低状态更新分发速率，使本地状态更容易陈旧。图~\ref{fig:ch2_exp4_zeta} 给出了平均有效传输速率，非零业务丢弃率标注在对应方法附近。当预算降至 $2\times10^{-4}$ 时，CA-LDP 的速率仍达到 $86.08$~Mbps，且没有业务丢弃，比该条件下的最优基线高 $9.0\%$。与默认值 $5\times10^{-4}$ 相比，状态更新预算缩减 $2.5$ 倍后，CA-LDP 的速率下降 $4.8\%$，降幅小于 LSTM-GREAD 和 GRLR-GCN。将 $\zeta_{\mathrm{tel}}$ 提高至 $10^{-3}$ 后，速率增益已经较小。
+
+本地感知半径取 $h\in\{1,3,5,7\}$，其余设置保持不变。有效传输速率从 $h=1$ 时的 $84.14$~Mbps 增至 $h=3$ 时的 $88.65$~Mbps，并在 $h=5$ 时达到 $90.42$~Mbps，比单跳视图提高 $7.5\%$。当 $h$ 继续增至 $7$ 时，速率只提高 $0.80\%$，达到 $91.14$~Mbps，而时延由 $89.63$~ms 增至 $94.39$~ms。与此同时，远端状态分组数由 $60$ 增至 $112$，分组跳状态更新量由 $330$~KB 增至 $840$~KB，约为原来的 $2.5$ 倍。远端节点的状态更新需要经过更多转发跳数，到达时更容易陈旧或丢失。置信度加权传播又会降低这些弱支撑状态的权重，因此扩大感知范围带来的有效路由信息逐渐减少。综合传输速率、时延和状态更新开销，本章后续采用 $h=5$。
+
+\begin{figure}[!htp]
+\centering
+\begin{subfigure}[t]{0.45\linewidth}
     \centering
-    \includegraphics[width=\linewidth]{figures/chapter2/exp4_zeta_sensitivity.pdf}
+    \includegraphics[width=\linewidth]{figures/chapter2/fig0805返修/exp4_zeta_sensitivity.pdf}
     \caption{状态更新预算 $\zeta_{\mathrm{tel}}$}
     \label{fig:ch2_exp4_zeta}
 \end{subfigure}
 \hfill
-\begin{subfigure}[t]{0.48\linewidth}
+\begin{subfigure}[t]{0.49\linewidth}
     \centering
-    \includegraphics[width=\linewidth]{figures/chapter2/exp4_perception_radius.pdf}
+    \includegraphics[width=\linewidth]{figures/chapter2/fig0805返修/exp4_perception_radius.pdf}
     \caption{本地感知半径 $h$}
     \label{fig:ch2_exp4_radius}
 \end{subfigure}
-\bicaption{状态更新预算与本地感知半径对CA-LDP传输速率和状态感知开销的影响}{Impact of state-update budget and local perception radius on CA-LDP transmission rate and state-perception overhead}
+\bicaption{重负载与中等BER下的部署参数敏感性}{Deployment-parameter sensitivity under heavy traffic and moderate BER}
 \label{fig:ch2_exp4_sensitivity}
 \end{figure}
 
-本节考察 CA-LDP 在部署期状态更新预算与监测半径变化下的稳定性。
+\subsection{未见部署条件下的冻结模型评估}
+\label{subsec:ch2_exp_ood}
 
- 首先在重负载与中等 BER 下评估状态更新服务比例 $\zeta_{\mathrm{tel}}$ 的影响，令 $\zeta_{\mathrm{tel}}\in\{2\times10^{-4},5\times10^{-4},10^{-3}\}$，并保持已训练的状态校准、置信度传播和 PPO 路由头不变。依据式~\eqref{eq:ch2_state_update_delay}，较小的 $\zeta_{\mathrm{tel}}$ 会降低状态更新分发速率，使本地状态视图更容易陈旧。图~\ref{fig:ch2_exp4_zeta} 给出平均传输速率，并在受影响方法旁标注非零丢弃率。预算降至 $2\times10^{-4}$ 时，CA-LDP 仍达到 $86.08$~Mbps 且保持零丢弃，较该预算下的最优基线高 $9.0\%$；GRLR-GCN、GAT-RL 与 NA-GSR-GCN 则均出现非零丢弃率。相对默认预算 $5\times10^{-4}$，当 $\zeta_{\mathrm{tel}}$ 缩减 $2.5$ 倍时，CA-LDP 的速率损失为 $4.8\%$，小于 LSTM-GREAD 与 GRLR-GCN 的相应损失。这一趋势与表~\ref{tab:ch2_ablation} 的消融结果一致：状态更新变陈旧时，校准后置信度可抑制弱支撑状态对路由决策的影响。继续将 $\zeta_{\mathrm{tel}}$ 提高至 $10^{-3}$ 只带来有限额外增益，因此 $5\times10^{-4}$ 已能在不额外占用带内状态更新容量的条件下提供实用工作点。
+训练数据已经覆盖业务负载和 BER 的 $3\times3$ 组合，在这些区间内增加测试点仍属于训练范围内评估。为了考察模型在部署配置变化后的性能，本节选取训练期间固定不变的状态更新服务比例和前景流片大小作为测试变量。测试过程中，CaGSR、传播模块、PPO 路由头和归一化参数均保持冻结，在线推理也不访问仿真器真值。$X_i^h(k)$ 仅在推理结束后用于计算 NRMSE。
 
- 随后在相同重负载与中等 BER 设置下，仅改变 CA-LDP 的本地感知半径 $h$，令 $h\in\{1,3,5,7\}$，并保持已训练的 CaGSR、置信度加权传播模块与 PPO 路由头不变。由于平均源宿距离约为 $18.7$ 跳，增大 $h$ 可向本地下一跳决策提供更多下游链路状态。本实验报告有效平均传输速率，即将失败流计为零速率样本；各半径下业务传输成功率均为 $100\%$，因此该指标主要反映转发效率。状态感知开销采用状态更新分发的分组跳量度量：由 $\ell$ 跳节点生成的状态更新贡献 $\ell B_{\mathrm m}$ 比特带内传输，故开销正比于 $B_{\mathrm m}\sum_{\ell=1}^{h}\ell|\mathcal N_i^{(\ell)}|$；四邻网格下 $h=1,3,5,7$ 分别对应 $6$、$84$、$330$ 与 $840$~KB。
+两项测试均在重负载、中等 BER 条件下完成。状态更新服务比例从默认值 $5\times10^{-4}$ 提高到 $5\times10^{-3}$ 后，当前、陈旧和缺失表项所占比例分别由 $1.77\%$、$9.74\%$ 和 $88.49\%$ 变为 $10.43\%$、$21.90\%$ 和 $67.67\%$，两种分布的总变差距离为 $0.208$。较高的状态更新服务比例使更多更新能够在路由决策截止前到达，同时也占用了更多带内容量，留给前景业务的传输资源随之减少。另一项测试将流片大小从 $512$~KB 增至 $1$~MB，但保持各条前景需求的总数据量不变。在 150 组配对业务中，平均流片数由 $4.84$ 减少到 $2.80$，平均实际流片载荷由 $448.3$~KB 增至 $759.0$~KB，路由决策粒度相应变粗。
 
-图~\ref{fig:ch2_exp4_radius} 表明，扩大本地视图可提升路由效率，但收益在 $h=5$ 附近开始饱和。有效传输速率由 $h=1$ 的 $84.14$~Mbps 升至 $h=3$ 的 $88.65$~Mbps，并在 $h=5$ 达到 $90.42$~Mbps，较单跳视图提升 $7.5\%$。这说明单跳邻居观测不足以支撑长跳分布式路由，因为业务流进入争用区域前需要提前感知下游拥塞。继续由 $h=5$ 扩展至 $h=7$ 时，速率仅增加 $0.80\%$（至 $91.14$~Mbps），但端到端时延由 $89.63$~ms 增至 $94.39$~ms。与此同时，远端状态分组数由 $60$ 增至 $112$，分组跳状态更新量由 $330$~KB 增至 $840$~KB，约增加 $2.5$ 倍。由于状态更新经带内分发并与数据业务共享星间链路资源，继续扩大视图会明显抬高在线监测开销。综合速率、时延与状态感知开销，$h=5$ 是更合适的部署点：它获取了单跳视图之外的大部分路由收益，同时避免了 $h=7$ 带来的高状态感知负担。
+\begin{table}[!htp]
+\centering
+\bicaption{未见部署条件下冻结模型的状态校准与路由性能}{Frozen-model calibration and routing performance under unseen deployment conditions}
+\label{tab:ch2_frozen_ood}
+\footnotesize
+\setlength{\tabcolsep}{3pt}
+\renewcommand{\arraystretch}{1.13}
+\resizebox{\textwidth}{!}{%
+\begin{tabular}{lcccccc}
+\hline
+& \multicolumn{3}{c}{状态校准 NRMSE} & \multicolumn{3}{c}{路由性能} \\
+设置 & 陈旧 & 缺失 & 整体 & 成功率（\%） & 速率（Mbps） & 时延（ms） \\
+\hline
+分布内：$512$~KB，$\zeta_{\mathrm{tel}}=5\times10^{-4}$
+& $0.236\pm0.015$ & $0.344\pm0.197$ & $0.332\pm0.180$
+& $100.00\pm0.00$ & $90.42\pm1.82$ & $89.63\pm3.12$ \\
+状态更新服务偏移：$512$~KB，$\zeta_{\mathrm{tel}}=5\times10^{-3}$
+& $0.214\pm0.007$ & $0.344\pm0.227$ & $0.306\pm0.184$
+& $100.00\pm0.00$ & $82.46\pm3.77$ & $98.68\pm5.10$ \\
+大流片偏移：$1$~MB，$\zeta_{\mathrm{tel}}=5\times10^{-4}$
+& $0.241\pm0.027$ & $0.339\pm0.164$ & $0.325\pm0.144$
+& $100.00\pm0.00$ & $80.18\pm4.40$ & $125.24\pm2.56$ \\
+\hline
+\end{tabular}}
+\end{table}
 
-上述实验仍基于若干受控建模假设。状态更新分发采用固定多点中继模型，具体中继选择与状态更新调度不作为优化变量；分组完整性模型采用逐跳独立误码近似，未显式刻画光星间链路中的突发误码与相关衰落；CaGSR 在离线阶段利用仿真器记录的当前物理状态进行监督，在线部署时则不访问该真值；本章还固定 $h$、$L_c$ 与 $T$ 等部署参数，用于隔离本地状态感知质量对路由性能的影响。上述设定限定了本章结论适用范围，后续仍需结合状态更新调度、在线校准和更细粒度链路误码模型进一步验证。
+表~\ref{tab:ch2_frozen_ood} 中，当 $\zeta_{\mathrm{tel}}=5\times10^{-3}$ 时，缺失表项 NRMSE 仍为 $0.344$。整体 NRMSE 的下降主要源于缺失表项占比减少，并不能说明冻结校准器本身获得了更高精度。业务传输成功率维持在 $100\%$，但传输速率下降 $8.8\%$，端到端时延增加 $10.1\%$。这组结果反映了带内状态更新与前景业务对星间链路容量的竞争。
+
+在 $1$~MB 流片条件下，整体、陈旧和缺失表项的配对 NRMSE 差值的 95\% 置信区间分别为 $[-0.0513,0.0373]$、$[-0.0299,0.0384]$ 和 $[-0.0444,0.0358]$，三个区间均包含零，没有观察到校准误差系统性升高。不过，增大流片仍使传输速率下降 $11.3\%$，端到端时延增加 $39.7\%$，但 150 条业务均未超时或丢弃。由两项未见部署条件的结果可知，冻结模型在不进行在线更新、也不访问部署期真值时，仍能维持缺失状态恢复精度和端到端可达性。状态更新资源占比和业务粒度发生变化后，路由 QoS 仍会随之变化。
+
+\subsection{实测推理时延与显存占用}
+\label{subsec:ch2_exp_profile}
+
+本研究尚未在具有代表性的星载处理器上部署模型，因此推理开销暂在 NVIDIA RTX A6000 上测量。测试使用 PyTorch 2.11.0、CUDA 13.0、FP32 推理和批大小 $1$，输入取自中负载、中等 BER 条件下的评估轨迹。完成 $200$ 次预热后，分别记录两个处理阶段的 $2000$ 次同步墙钟时间。第一阶段执行时序先验生成和 CaGSR 状态校准，第二阶段执行多跳传播与确定性 PPO 策略推理。测量区间不包含仿真器侧的图构建和网络演化。这里的 A6000 数据只作为实验室测试结果，不能代替星载处理器上的实测数据。
+
+\begin{table}[!htp]
+\centering
+\bicaption{NVIDIA RTX A6000上的推理时延与显存占用}{Measured inference latency and GPU memory consumption on the NVIDIA RTX A6000}
+\label{tab:ch2_profile}
+\footnotesize
+\setlength{\tabcolsep}{7pt}
+\renewcommand{\arraystretch}{1.14}
+\begin{tabular}{lccccc}
+\hline
+推理阶段 & 均值 & 中位数 & P95 & P99 & 最大值 \\
+\hline
+时序先验与 CaGSR 校准 & $2.806$ & $2.722$ & $3.358$ & $3.517$ & $8.575$ \\
+多跳传播与 PPO 策略推理 & $1.906$ & $1.891$ & $1.997$ & $2.060$ & $2.562$ \\
+\hline
+显存指标 & \multicolumn{5}{c}{已分配显存（MiB）} \\
+\hline
+预热后基线 & \multicolumn{5}{c}{$10.14$} \\
+峰值 & \multicolumn{5}{c}{$20.81$} \\
+相对基线增量 & \multicolumn{5}{c}{$10.67$} \\
+\hline
+\end{tabular}
+\end{table}
+
+根据表~\ref{tab:ch2_profile}，状态感知阶段和单次下一跳推理的 P99 时延分别为 $3.517$~ms 和 $2.060$~ms，最大值分别为 $8.575$~ms 和 $2.562$~ms。在 A6000 上，状态感知阶段的最大时延低于 $10$~ms 仿真时隙。测试期间的峰值显存为 $20.81$~MiB，较预热后基线增加 $10.67$~MiB。CA-LDP 包含 $231{,}176$ 个参数，约为 $0.23$ 百万。这些数据给出了固定传播步数、批大小为 $1$ 时的实验室运行开销。由于硬件平台不同，它们不能用于判断 CA-LDP 能否在星载处理器上满足 $10$~ms 时限，仍需在选定的星载计算平台上开展硬件在环测试。
+
+上述实验建立在以下受控条件下：状态更新采用固定的多点中继分发方式，中继选择和状态更新调度不参与联合优化；分组完整性模型采用逐跳独立误码近似，没有描述光星间链路中的突发误码和空间相关失效；CaGSR 只在离线训练时使用仿真器记录的当前物理状态，在线推理无法访问该状态；主要路由实验每次仅注入一条受控前景需求，没有模拟多条前景需求并发时的联合路由和公平性。因此，本章结论应在这些实验条件下理解。
 
 \section{本章小结}
 
-本章面向端到端 QoS 保障中的网络状态感知环节，针对星间链路拥塞、传输误码与状态更新滞后导致的邻域视图不准确问题，提出置信度自适应局部分布式处理（CA-LDP）框架，为星上分布式路由、拥塞规避与资源调度提供可信本地多跳状态输入。CA-LDP 将本地状态感知分解为状态校准与置信度约束传播两个环节：置信度自适应图信号修复（CaGSR）模块联合译码观测、时序先验、邻域空间支撑和信息新鲜度，将不准确状态观测校准为当前物理网络状态估计并输出校准置信度；置信度加权多跳传播模块将该置信度传递至路由特征构建过程，抑制低可信状态在邻域聚合中的传播强度。与现有状态恢复和多跳聚合解耦方法不同，本章方法使状态校准阶段形成的可信度进一步约束校准状态在多跳聚合中的传播强度，从而在不依赖全网状态同步的条件下构建可信本地多跳网络视图。
+本章针对星间链路拥塞、传输误码和状态更新滞后造成的邻域视图不准确问题，提出置信度自适应局部分布式处理（CA-LDP）框架。CaGSR 在译码观测与时序先验之间分配观测权重，并结合星间链路可靠度门控、低保真残差校正、归一化图运算和当前状态投影，得到当前网络状态估计及逐节点保真权重。置信度加权多跳传播模块进一步在发送端限制低可信状态的外向传播，在接收端保留高可信节点的初始校准特征。两个模块通过保真权重相连，使状态校准中形成的可靠性信息能够直接约束路由特征传播。
 
-在 1584 颗卫星的 Starlink 星座及邻域视图不准确场景的综合评估中，CA-LDP 较图注意力强化学习路由方法（GAT-RL）将平均传输速率提升 $9.0\%$，端到端时延降低 $8.9\%$，路由成功率接近 $100\%$。五个非重复工作点平均后，CA-LDP 的平均传输速率达到 $104.8$~Mbps；状态校准实验中，CaGSR 较仅时序方法将整体归一化均方根误差降低 $10.7\%$，较固定 Laplacian 图修复方法降低 $15.1\%$。在状态更新预算缩减 $2.5$ 倍的受限条件下，CA-LDP 仍达到 $86.08$~Mbps 且保持零丢弃，而 GRLR-GCN、GAT-RL 与 NA-GSR-GCN 出现非零丢弃率；本地感知半径 $h=5$ 相较单跳视图将有效传输速率提升 $7.5\%$，继续扩展至 $h=7$ 仅带来 $0.80\%$ 的额外速率增益，却使分组跳状态更新量由 $330$~KB 增至 $840$~KB，说明状态感知范围存在速率收益与在线开销之间的实用工作点。
+在 1584 颗卫星的 Starlink 壳层星座上，CA-LDP 在轻载和中载的六个负载--BER 工作点上将有效传输速率提高 $6.63\%$--$8.82\%$，平均增益为 $7.47\%$；重载下的平均速率则比最优基线低 $1.14\%$--$6.43\%$。CA-LDP 在九个工作点上均取得最低平均端到端时延，降幅为 $2.81\%$--$5.98\%$，平均为 $4.75\%$，且全部工作点保持 $100\%$ 业务传输成功率。CaGSR 相对仅时序方法将整体 NRMSE 降低 $10.7\%$，相对图修复方法降低 $15.1\%$。冻结模型在状态更新服务比例和流片大小变化时仍保持缺失状态恢复精度与端到端可达性，但路由速率和时延会随带内资源分配与业务粒度变化。A6000 测量得到状态感知阶段 $3.517$~ms 的 P99 时延和 $20.81$~MiB 的峰值显存，为后续星载平台测试提供了实验室参考，但不能替代星载处理器上的硬件在环测试。
