@@ -1,11 +1,11 @@
-\chapter{基于生成式网络态势感知的切片--MAC 分层协作优化框架}
+\chapter{基于生成式网络状态感知的切片--MAC 分层协作优化框架}
 \label{chap:resource}
 
 \section{引言}
 
 在终端接入关系建立后的无线资源调度环节，星上节点需要在业务突发、信道波动和用户竞争下，将有限带宽、功率与时频资源转化为稳定的用户级 QoS 保障能力。LEO 卫星接入网中，单颗卫星的下行带宽与发射功率受星上载荷约束，资源预算不能仅追求聚合吞吐。切片层预算与 MAC 层执行之间的时间尺度差异使聚合吞吐与用户级 QoS 之间存在内在失配：切片层通常只能处理粗粒度业务统计，难以观察时隙级流竞争；MAC 层能够感知实时队列和信道，却受既定切片预算约束。现有切片资源配置方法多以业务需求预测或历史性能反馈为依据，难以判断候选预算对未来 QoS 可行域的影响；MAC 层调度主要围绕聚合吞吐或队列紧迫度展开，难以区分当前预算和信道条件下 QoS 可满足与不可满足的业务流。
 
-面向上述跨时间尺度资源--QoS 映射问题，本章提出面向 LEO-sRAN 的双时间尺度预测调度（Dual-Timescale Predictive Scheduling，DTPS）框架，以带宽与功率预算作为切片层和 MAC 层之间的跨层接口。切片层通过反馈校正的业务--信道演化预测模型，在预算决策前评估不同资源配置对长期 QoS 满足率的支撑能力；MAC 层估计候选业务流满足速率--时延门限所需的最小资源块组和功率开销，仅将 QoS 可满足的业务流纳入调度。Starlink 规模星座仿真显示，DTPS 在过载业务条件下显著提升用户级 QoS 满足率，同时大幅降低平均时延，验证了预测式资源预留与可行性感知调度的有效性。本章成果已授权发明专利``基于分布式TDMA的MAC传输方法以及无线自组织网络系统''和``一种基于容器网络检测的应用调度方法及系统''，并且已撰写成期刊论文``World-Model-Driven Cross-Layer Resource Allocation for Long-Term QoS Provisioning in LEO Satellite RANs''，投稿于Elsevier Computer Networks。
+面向上述跨时间尺度资源--QoS 映射问题，本章提出面向 LEO-sRAN 的双时间尺度预测调度（Dual-Timescale Predictive Scheduling，DTPS）框架，以带宽与功率预算作为切片层和 MAC 层之间的跨层接口。切片层通过反馈校正的业务--信道演化预测模型，在预算决策前评估不同资源配置对长期 QoS 满足率的支撑能力；MAC 层估计候选业务流达到综合 QoS 效用门限所需的最小资源块组和功率开销，仅将综合 QoS 效用可达到门限的业务流纳入调度。Starlink 规模星座仿真显示，DTPS 在过载业务条件下显著提升用户级 QoS 满足率，同时大幅降低平均时延，验证了预测式资源预留与可行性感知调度的有效性。本章相关成果已撰写成期刊论文``World-Model-Driven Cross-Layer Resource Allocation for Long-Term QoS Provisioning in LEO Satellite RANs''，投稿于Elsevier Computer Networks。
 
 \section{系统模型与问题建模}
 \label{sec:ch4_sysmodel}
@@ -44,7 +44,7 @@
   $\xi_{c_i},\ b_r,\ b_d,\ S_i^{\min}$ & 速率/时延权重、sigmoid 陡度系数与 QoS 满足门限 & $\bar C,\ \bar S_i,\ \eta_W,\ \eta_P$ & 长期加权资源消耗、长期 QoS 满足与带宽/功率消耗权重 \\
   $\mathbf{P1},\ \mathbf{P2},\ \mathbf{P3}$ & 原始多星问题、切片预算子问题与 MAC 调度子问题 & $o_{s,k},\ \boldsymbol\zeta_{s,c}(k)$ & POMDP 观测与切片观测状态 \\
   $\mathbf a_s(k),\ \mathbf m_s(k),\ \mathcal M_s(k)$ & 切片动作、本地关联调整与可行调整集 & $\boldsymbol h_k,\ \boldsymbol z_k$ & 历史服务状态记忆与不确定服务状态变量 \\
-  $p_\theta,\ q_\theta$ & 历史状态预测网络与反馈状态校正网络 & $\rho_s(k),\ \hat C_s,\ \hat\rho_s,\ \hat S_{s,c}^{\mathrm{slice}}$ & QoS 违背率、预测预留代价、预测 QoS 违背率与预测切片满足 \\
+  $p_\theta,\ q_\theta$ & 历史状态预测网络与反馈状态校正网络 & $\rho_s(k),\ \eta_{\mathrm{QoS}},\ \hat C_s,\ \hat\rho_s,\ \hat S_{s,c}^{\mathrm{slice}}$ & QoS 违背率、用户级 QoS 满足率、预测预留代价、预测 QoS 违背率与预测切片满足 \\
   $\mathcal L_{\mathrm{pred}},\ \mathcal L_{\mathrm{dyn}},\ \mathcal L_{\mathrm{wm}},\ \beta$ & 预测损失、状态预测一致性损失、世界模型总损失与权衡系数 & $R_s(k),\ \gamma_{\mathrm d},\ \epsilon_s^{\max}$ & 切片奖励、折扣因子与最大可容忍 QoS 违背率 \\
   $\pi_\psi,\ V_\omega$ & 切片策略网络与价值函数网络 & $\mathcal I_{s,c}(k),\ \mathcal I_{s,c}^{\mathrm{fea}}(t)$ & 切片应用流集合与可行流集合 \\
   $i,\ y_i(t),\ \pi_i,\ q_i$ & 应用流索引、调度指示、QCI 优先级值与 QCI/5QI 标识 & $r_i^{\mathrm{req}}(t),\ n_i^{\min}(t),\ p_i^{\min}(t)$ & 满足 QoS 所需最小速率、最小 RBG 数与最小发射功率 \\
@@ -102,7 +102,7 @@ A_i(t)\sim\mathrm{Poisson}(\lambda_{m_i}\Delta t),\quad \forall i\in\mathcal I,\
 \end{equation}
 其中 $\Delta t$ 为时隙时长，到达率 $\lambda_{m_i}=r_{m_i}^{\min}/\ell$ 与业务类型 $m_i$ 的最小吞吐量需求相匹配，$\ell$ 为平均分组长度。
 
-二值 QoS 指示只能记录门限是否被违背，无法反映当前服务状态相对速率--时延门限的裕度。为使切片层预测预算变化下的 QoS 退化趋势，并使 MAC 层反演满足门限所需的最小服务速率，本章采用以业务门限为中心的连续 QoS 效用函数。该函数围绕所需速率与时延逼近阶跃门限，同时提供有界且光滑的 QoS 评分~\cite{sun-ResourceSlicing-systemJournal20}。记业务流 $i$ 在时隙 $t$ 的实际速率与时延分别为 $r_i(t)$ 与 $d_i(t)$，速率效用定义为
+二值 QoS 指示只能记录综合 QoS 效用门限是否被违背，无法反映当前服务状态相对该门限的裕度。为使切片层预测预算变化下的 QoS 退化趋势，并使 MAC 层反演达到门限所需的最小服务速率，本章采用以业务门限为中心的连续 QoS 效用函数。该函数围绕所需速率与时延逼近阶跃门限，同时提供有界且光滑的 QoS 评分~\cite{sun-ResourceSlicing-systemJournal20}。记业务流 $i$ 在时隙 $t$ 的实际速率与时延分别为 $r_i(t)$ 与 $d_i(t)$，速率效用定义为
 \begin{equation}\label{eq:ch4_rateutil}
 S_i^\text{rate}(t)=\sigma\!\left(b_r\big(r_i(t)-r_{m_i}^{\min}\big)\right),
 \end{equation}
@@ -150,7 +150,7 @@ d_i^\text{prop}(t)=\frac{\delta_{i,s}(t)}{c},
 \begin{equation}\label{eq:ch4_queuedelay}
 d_i^\text{queue}(t)=\frac{\lambda_{m_i}}{\mu_i(t)\left(\mu_i(t)-\lambda_{m_i}\right)}.
 \end{equation}
-该排队时延用于 QoS 效用评估的解析近似，而非显式队列控制状态；第~\ref{subsec:ch4_mac}~节将复用该近似，在给定候选服务速率下计算时延，并确定满足速率--时延联合 QoS 门限所需的最小速率。
+该排队时延用于 QoS 效用评估的解析近似，而非显式队列控制状态；第~\ref{subsec:ch4_mac}~节将复用该近似，在给定候选服务速率下计算时延，并确定综合 QoS 效用达到门限所需的最小速率。
 
 \subsection{长期资源消耗最小化问题}
 \label{subsec:ch4_problem}
@@ -197,7 +197,16 @@ LEO-sRAN 无线资源管理需要在满足异构用户业务需求的同时降�
 \begin{equation}\label{eq:ch4_viol}
 \rho_s(k)=\frac{1}{|\mathcal I_s(k)|}\sum_{i\in\mathcal I_s(k)}\mathbf 1\!\left(\bar S_i(k)<S_i^{\min}\right),
 \end{equation}
-其中 $\bar S_i(k)=\frac{1}{N_\text{MAC}}\sum_{t\in\mathcal T_k}S_i(t)$ 为流 $i$ 在间隔 $k$ 内的平均 QoS 效用；将求和范围限于 $\mathcal I_{s,c}(k)$ 即得切片级违背率 $\rho_{s,c}(k)$。由于间隔 $k+\tau$ 的流级效用在预算决策时不可得，预测 QoS 违背率 $\hat\rho_s(k+\tau)$ 定义为对 $\rho_s(k+\tau)$ 的模型估计，由第~\ref{subsec:ch4_worldmodel}~节世界模型的预测分支输出。卫星 $s$ 的预测预留代价定义为
+其中 $\bar S_i(k)=\frac{1}{N_\text{MAC}}\sum_{t\in\mathcal T_k}S_i(t)$ 为流 $i$ 在间隔 $k$ 内的平均 QoS 效用；将求和范围限于 $\mathcal I_{s,c}(k)$ 即得切片级违背率 $\rho_{s,c}(k)$。后续实验采用全网用户级 QoS 满足率汇总各卫星和切片间隔的流级结果：
+\begin{equation}\label{eq:ch4_qos_satisfaction}
+\eta_{\mathrm{QoS}}
+=\frac{\displaystyle\sum_k\sum_{s\in\mathcal S}\sum_{i\in\mathcal I_s(k)}
+\mathbf 1\!\left(\bar S_i(k)\ge S_i^{\min}\right)}
+{\displaystyle\sum_k\sum_{s\in\mathcal S}\left|\mathcal I_s(k)\right|}.
+\end{equation}
+在式~\eqref{eq:ch4_qos_satisfaction}~中，$\mathcal I_s(k)$ 计入间隔 $k$ 内由卫星 $s$ 服务的活跃业务流，每个“业务流--切片间隔”样本具有相同权重。对单颗卫星的单个切片间隔，满足率等于 $1-\rho_s(k)$；全网指标按活跃业务流数量对不同卫星和切片间隔加权汇总。每次独立随机运行分别计算 $\eta_{\mathrm{QoS}}$，图表报告 $10$ 次运行的均值。据此，后续所称“用户级 QoS 满足率”以活跃业务流为统计对象，用于衡量用户所承载业务流的综合 QoS 覆盖程度。
+
+由于间隔 $k+\tau$ 的流级效用在预算决策时不可得，预测 QoS 违背率 $\hat\rho_s(k+\tau)$ 定义为对 $\rho_s(k+\tau)$ 的模型估计，由第~\ref{subsec:ch4_worldmodel}~节世界模型的预测分支输出。卫星 $s$ 的预测预留代价定义为
 \begin{equation}\label{eq:ch4_predcost}
 \hat C_s(k+\tau)=\eta_W\sum_{c\in\mathcal C}\frac{\hat W_{s,c}(k+\tau)}{W_s}+\eta_P\sum_{c\in\mathcal C}\frac{\hat P_{s,c}(k+\tau)}{P_s^{\max}},
 \end{equation}
@@ -235,7 +244,7 @@ LEO-sRAN 无线资源管理需要在满足异构用户业务需求的同时降�
 \section{双时间尺度预测调度框架}
 \label{sec:ch4_dtps}
 
-本节给出双时间尺度预测调度（DTPS）框架。DTPS 实现切片层与 MAC 层跨层协作：切片层为 MAC 层提供能实现 QoS 保证的长期带宽与功率预算，MAC 层在该预算约束下执行 QoS 可行流调度，并将 QoS 违背率、已实现速率、时延和资源占用回传切片层，用于下一切片间隔的服务状态校正。本节先给出总体框架，再阐述两个模块的内部机制，并分析工作流与复杂度。
+本节给出双时间尺度预测调度（DTPS）框架。DTPS 实现切片层与 MAC 层跨层协作：切片层为 MAC 层提供能实现 QoS 保障的长期带宽与功率预算，MAC 层在该预算约束下执行 QoS 可行流调度，并将 QoS 违背率、已实现速率、时延和资源占用回传切片层，用于下一切片间隔的服务状态校正。本节先给出总体框架，再阐述两个模块的内部机制，并分析工作流与复杂度。
 
 \subsection{总体框架设计}
 \label{subsec:ch4_overview}
@@ -371,7 +380,7 @@ R_s(k)=w_1\frac{1}{|\mathcal C|}\sum_{c\in\mathcal C}S_{s,c}^{\mathrm{slice}}(k)
 \subsection{QCI 优先级背包 MAC 调度}
 \label{subsec:ch4_mac}
 
-生成式切片资源预留提升了切片层异构 QoS 保障的长期可行性。快时间尺度问题是在给定切片级带宽与功率预算下执行业务流 MAC 调度：调度器需确定当前时隙服务的业务流，并保证选中流以所消耗资源满足其 QoS 需求。以李雅普诺夫方法为代表的队列型指标适合刻画长期拥塞压力，但不足以单独判断当前时隙 QoS 可行性；高队列权重并不意味着业务流在当前信道与切片预算下能够满足速率--时延门限。服务此类业务流可能耗费稀缺 RBG 或功率，却仍不能带来 QoS 满足。本节不再最大化队列加权吞吐或额外求解连续功率分配问题，而是将 MAC 层调度形式化为先进行 QoS 可行性筛选、再进行优先级加权资源选择的两步资源选择问题。
+生成式切片资源预留提升了切片层异构 QoS 保障的长期可行性。快时间尺度问题是在给定切片级带宽与功率预算下执行业务流 MAC 调度：调度器需确定当前时隙服务的业务流，并保证选中流以所消耗资源达到综合 QoS 效用门限。以李雅普诺夫方法为代表的队列型指标适合刻画长期拥塞压力，但不足以单独判断当前时隙 QoS 可行性；高队列权重并不意味着业务流在当前信道与切片预算下能够达到综合 QoS 效用门限。服务此类业务流可能耗费稀缺 RBG 或功率，却仍不能带来 QoS 满足。本节不再最大化队列加权吞吐或额外求解连续功率分配问题，而是将 MAC 层调度形式化为先进行 QoS 可行性筛选、再进行优先级加权资源选择的两步资源选择问题。
 
 \textbf{最小 RBG--功率需求估计.} 调度器在资源选择前，先将每条业务流的 QoS 需求转化为最小 RBG--功率需求。这一映射在 LEO-sRAN 中可解析处理，因为下行信道由大尺度传播损耗主导：给定卫星星历与终端位置，星地距离可在较短 MAC 时隙内预测，相应信道增益 $h_{i,s}(t)$ 可由大尺度路径损耗模型估计。记卫星 $s$ 在时隙 $t$ 为业务流 $i$ 分配 $n_i(t)$ 个 RBG，对应带宽为 $B_i(n_i)=n_iB_g$，则在 RBG 数 $n_i(t)$ 与发射功率 $p_i(t)$ 下，流 $i$ 的传输速率为
 \begin{equation}\label{eq:ch4_apprate}
@@ -516,16 +525,20 @@ VR 卸载 & $10$~Mbps & $30$~ms & $68$ \\
 
 负载实验采用 GeoLite2~\cite{maxmind_geolite2_2021} 的 IP--位置数据库，在目标区域内识别出 46 个潜在用户并假定其在区域内均匀分布；初始时每个用户按第~\ref{subsec:ch4_network}~节的规则接入可见范围内距离最近的卫星，运行期间的关联调整方式见下文方法设置。为刻画异构业务需求，允许每个物理用户产生至多两条逻辑应用流，每条流属于表~\ref{tab:ch4_traffic} 中四类业务之一，采样频率分别为 $45\%$、$30\%$、$15\%$ 与 $10\%$，故 46 个物理用户至多产生 92 条候选流。业务在 MAC 时隙级按式~\eqref{eq:ch4_arrival} 生成；为改变业务负载，引入激活比 $\rho$ 与到达缩放因子 $\kappa$：$\rho$ 决定 92 条候选流中活跃流的占比，$\kappa$ 缩放各活跃流的到达强度，即活跃流 $i$ 的到达率为 $\lambda_i(t)=\kappa\lambda_{m_i}$、否则为 $0$。据此在轻、中、重与过载四档负载下评估网络性能，$(\rho,\kappa)$ 分别取 $(0.40,0.8)$、$(0.55,0.9)$、$(0.70,1.0)$ 与 $(0.90,1.1)$。
 
+本文所称过载是相对于卫星可用带宽、发射功率、RBG 数量及活跃业务流 QoS 需求定义的持续资源竞争状态，而非单指用户数量增加。在过载配置 $(\rho,\kappa)=(0.90,1.1)$ 下，约 $90\%$ 的候选业务流同时处于活跃状态，每条活跃流的平均到达强度为其标称值的 $1.1$ 倍；卫星总带宽、最大发射功率与 RBG 数量仍保持表~\ref{tab:ch4_params}~所列取值，使多业务流在固定无线资源上限下持续竞争，并形成队列积压与 QoS 违背压力。
+
 突发实验通过 On--Off 机制刻画时隙级信道与业务波动：每颗卫星以概率 $p_b$ 进入突发态，低、中、高三档不确定性对应 $p_b\in\{0.005,0.015,0.05\}$；突发期内到达率与服务速率分别缩放为 $\lambda_i(t)=\nu_i(t)\kappa\lambda_{m_i}$ 与 $r_i(t)=\eta_s(t)\hat r_i(t)$，其中 $\nu_i(t)\sim\mathcal U[1,1.5]$、$\eta_s(t)\sim\mathcal U[0.7,1]$。在该多时间尺度结构下，业务到达与流级 QoS 指标在快 MAC 尺度波动，而切片级资源预算在每个切片间隔内保持不变。
 
 其余为效用与算法参数。QoS 效用经 sigmoid 函数评估，平滑系数 $b_r=14$、$b_d=18$，满足门限 $S_i^{\min}=0.9$。式~\eqref{eq:ch4_avgcost} 与式~\eqref{eq:ch4_predcost} 中带宽消耗权重 $\eta_W$ 高于功率消耗权重 $\eta_P$（取值见表~\ref{tab:ch4_params}），以体现 QoS 受限卫星接入场景中速率--时延满足优先于节省功率的取向：较小的功率权重允许调度器在必要时增用发射功率以满足业务需求，同时仍抑制不必要的功率消耗。其余参数汇总于表~\ref{tab:ch4_params}~\cite{zhang-JointBeamformingResAlloc-SAGIN-TCOM20,wang-UserSelectionMIMO-TVT21,cybertwin-ModeSelection-LEO-IoTJ22,zhang-RISMIMO-LEO-IoTJ25,hua-GANDRL-ResourceSlicing-JSAC20}。
 
-DTPS 框架与若干代表性基线对比。TDRL-RSUA~\cite{liu-reconfigurableRAN-TCCN25} 经带动作掩蔽的 PPO 优化切片级带宽与功率预算，因其不含原生 MAC 层调度器，故与文献~\cite{chai-ResAllocRANSlicing-Lyapunov-TVT25} 的时延感知李雅普诺夫资源分配方法结合以执行时隙级调度。由于用户--卫星关联不在上述基线的设计范围内，各基线在运行期间统一采用文献~\cite{Nguyen-JointAssocResAlloc-TWC24} 的负载自适应关联方案，在切片间隔间联合考虑链路质量与卫星负载更新用户--卫星关联；DTPS 不依赖该外部关联方案，而是经 $\mathbf{P2}$ 中的本地关联调整 $\mathbf m_s(k)$ 在可见邻星间迁移过载业务流。RL-JRSS~\cite{wu-LearnSlicing-JCIN21} 经问题分解协调切片预留与用户调度，由 PPO 处理切片级资源分配、背包匹配执行用户调度。TDRL-RSUA 与 RL-JRSS 均增设切片级功率分配动作头，以保证多维资源控制下的公平对比。为比较世界模型与传统序列建模，另实现一个 LSTM 增强基线，在强化学习切片策略前编码历史观测。LACO~\cite{zaozi-laco-5G-TWC21} 以 QoS 违背驱动的多臂赌博机更新切片带宽份额，同样与文献~\cite{chai-ResAllocRANSlicing-Lyapunov-TVT25} 的李雅普诺夫调度器结合执行 MAC 层。DQN-MAC~\cite{AlQwider-DQN5GNR-ICC22} 作为非切片基线，以深度 Q 网络直接将用户映射至资源块，发射功率在活跃资源块上均匀分配。所有数值结果均在 10 次独立随机种子运行上平均。
+DTPS 框架与若干代表性基线对比。TDRL-RSUA~\cite{liu-reconfigurableRAN-TCCN25} 面向超密集 LEO 卫星 RAN，采用带动作掩蔽的 PPO 优化慢时间尺度切片带宽与功率预算，是近期学习型卫星网络切片方法的代表。由于原始 TDRL-RSUA 不含完整的流级 MAC 调度器，本文将其与文献~\cite{chai-ResAllocRANSlicing-Lyapunov-TVT25} 的时延感知李雅普诺夫资源分配方法结合，由后者依据队列、信道与时延状态执行时隙级 RBG 和功率分配。该组合覆盖“慢时间尺度学习型切片预算--快时间尺度队列感知 MAC 调度”技术路线，与 DTPS 的两层控制对象和执行周期相对应，因此作为本章的主要强基线之一。
+
+由于用户--卫星关联不在上述基线的设计范围内，各基线在运行期间统一采用文献~\cite{Nguyen-JointAssocResAlloc-TWC24} 的负载自适应关联方案，在切片间隔间联合考虑链路质量与卫星负载更新用户--卫星关联；DTPS 则经 $\mathbf{P2}$ 中的本地关联调整 $\mathbf m_s(k)$ 在可见邻星间迁移过载业务流。RL-JRSS~\cite{wu-LearnSlicing-JCIN21} 经问题分解协调切片预留与用户调度，由 PPO 处理切片级资源分配、背包匹配执行用户调度。TDRL-RSUA 与 RL-JRSS 均增设切片级功率分配动作头，以保证多维资源控制下的可比性。为比较世界模型与传统序列建模，另实现一个 LSTM 增强基线，在强化学习切片策略前编码历史观测。LACO~\cite{zaozi-laco-5G-TWC21} 以 QoS 违背驱动的多臂赌博机更新切片带宽份额，并与文献~\cite{chai-ResAllocRANSlicing-Lyapunov-TVT25} 的李雅普诺夫调度器结合执行 MAC 层资源分配。DQN-MAC~\cite{AlQwider-DQN5GNR-ICC22} 作为非切片基线，以深度 Q 网络直接将用户映射至资源块，发射功率在活跃资源块上均匀分配。所有方法采用相同的业务与信道模型、卫星总带宽、发射功率上限、RBG 配置和负载参数，并在同一组 $10$ 个独立随机种子所生成的业务与信道条件下评估。
 
 \subsection{不同业务负载下的整体性能}
 \label{subsec:ch4_exp_load}
 
- 图~\ref{fig:ch4_exp_load} 比较不同业务负载下的 QoS 满足率、资源消耗、平均传输速率与平均时延，用于检验预测式切片预算和 QoS 可行性 MAC 执行能否在业务竞争增强时维持用户级 QoS。随负载由轻载升至过载，各基线的 QoS 满足率均出现下降；DTPS 的下降更缓，轻载下实现完全 QoS 满足，过载下仍保持 $80.8\%$。相比之下，TDRL-RSUA 由 $96.4\%$ 降至 $33.0\%$，说明仅在切片层追求资源分配收益难以承受流级竞争加剧。重载下这一差异更直观：TDRL-RSUA 取得最高平均传输速率 $1.615$~Mbps，但 QoS 满足率仅为 $38.6\%$。这表明聚合速率与异构 QoS 门限保障并不等价，面向吞吐或队列紧迫度的调度可能优先服务高速率流，却无法保证被调度业务同时满足速率和时延约束。DTPS 先依据预测 QoS 压力确定切片级预算，再在 MAC 执行前筛选流级可行业务，因此能把有限带宽和功率更多转化为满足 QoS 的业务流。
+ 图~\ref{fig:ch4_exp_load} 比较不同业务负载下的 QoS 满足率、资源消耗、平均传输速率与平均时延，用于检验预测式切片预算和 QoS 可行性 MAC 执行能否在业务竞争增强时维持用户级 QoS。随负载由轻载升至过载，各基线的 QoS 满足率均出现下降；DTPS 的下降更缓，轻载下实现完全 QoS 满足，过载下仍保持 $80.8\%$。相比之下，TDRL-RSUA 由 $96.4\%$ 降至 $33.0\%$，说明仅在切片层追求资源分配收益难以承受流级竞争加剧。重载下这一差异更直观：TDRL-RSUA 取得最高平均传输速率 $1.615$~Mbps，但 QoS 满足率仅为 $38.6\%$。这表明聚合速率与异构 QoS 保障并不等价，面向吞吐或队列紧迫度的调度可能优先服务高速率流，却无法保证被调度业务的综合 QoS 效用达到门限。DTPS 先依据预测 QoS 压力确定切片级预算，再在 MAC 执行前筛选流级可行业务，因此能把有限带宽和功率优先用于综合 QoS 效用可达到门限的业务流。
 
 \begin{figure}[!htp]
     \centering
@@ -534,7 +547,7 @@ DTPS 框架与若干代表性基线对比。TDRL-RSUA~\cite{liu-reconfigurableRA
     \label{fig:ch4_exp_load}
 \end{figure}
 
- 时延与资源消耗进一步揭示各方法的调度取舍。过载下，TDRL-RSUA 与 LACO 分别产生 $591.0$~ms 和 $597.8$~ms 的平均时延，说明其资源分配未能及时抑制队列积压；DTPS 将平均时延限制在 $78.3$~ms。RL-JRSS 的平均时延更低，为 $35.8$~ms，但其 QoS 满足率略低于 DTPS，反映出更保守的业务准入和调度选择。DTPS 在过载下的加权资源消耗为 $0.839$，高于部分基线；这一开销需要与 QoS 满足率一起理解。对于带宽和功率受限的 LEO-sRAN，资源效率不能只看聚合吞吐峰值或最低时延，而应看单位预留资源能够支撑多少业务流满足其速率--时延门限。DTPS 消耗更多预算，但换来更大的 QoS 可满足业务集合，因此其资源使用方式更符合用户级 QoS 保障目标。
+ 时延与资源消耗进一步揭示各方法的调度取舍。过载下，TDRL-RSUA 与 LACO 分别产生 $591.0$~ms 和 $597.8$~ms 的平均时延，说明其资源分配未能及时抑制队列积压；DTPS 将平均时延限制在 $78.3$~ms。RL-JRSS 的平均时延更低，为 $35.8$~ms，但其 QoS 满足率略低于 DTPS，反映出更保守的业务准入和调度选择。DTPS 在过载下的加权资源消耗为 $0.839$，高于部分基线；这一开销需要与 QoS 满足率一起理解。对于带宽和功率受限的 LEO-sRAN，资源效率不能只看聚合吞吐峰值或最低时延，而应看单位预留资源能够支撑多少业务流达到综合 QoS 效用门限。DTPS 消耗更多预算，但也扩大了综合 QoS 效用可达到门限的业务流集合，因此其资源使用方式更符合用户级 QoS 保障目标。
 
 \subsection{业务突发下的鲁棒性}
 \label{subsec:ch4_exp_burst}
@@ -548,7 +561,7 @@ DTPS 框架与若干代表性基线对比。TDRL-RSUA~\cite{liu-reconfigurableRA
     \label{fig:ch4_exp_burst}
 \end{figure}
 
- 基线算法对 $p_b$ 的变化更敏感。DQN-MAC 的 QoS 满足率由 $82.3\%$ 降至 $72.1\%$，原因在于直接的用户级 RB 映射缺少切片级缓冲，难以吸收突发到达带来的流级竞争。TDRL-RSUA 由 $88.7\%$ 降至 $82.8\%$，说明反应式切片控制难以及时修正突发业务引起的 MAC 竞争和预算不可行风险。LACO 在 $72.0\%$--$76.4\%$ 间波动，主要因为赌博机式预算调整只依据已观测 QoS 违背更新带宽份额，无法预测当前预算对后续服务状态的影响。RL-JRSS 依靠联合切片--调度结构维持在 $90.2\%$--$91.5\%$，但缺少经 MAC 反馈校正的服务状态前向预测，仍低于 DTPS。时延结果也支持这一判断：LACO 的平均时延由 $261.1$~ms 升至 $315.3$~ms，DQN-MAC 由 $32.6$~ms 升至 $38.5$~ms；DTPS、RL-JRSS 与 TDRL-RSUA 的平均时延均低于 $11$~ms，但只有 DTPS 同时保持最高 QoS 满足率。可见，突发业务下的关键不是压低单一时延指标，而是通过反馈校正的预算预测和可行性感知 MAC 执行，持续维持满足速率--时延门限的业务集合。
+ 基线算法对 $p_b$ 的变化更敏感。DQN-MAC 的 QoS 满足率由 $82.3\%$ 降至 $72.1\%$，原因在于直接的用户级 RB 映射缺少切片级缓冲，难以吸收突发到达带来的流级竞争。TDRL-RSUA 由 $88.7\%$ 降至 $82.8\%$，说明反应式切片控制难以及时修正突发业务引起的 MAC 竞争和预算不可行风险。LACO 在 $72.0\%$--$76.4\%$ 间波动，主要因为赌博机式预算调整只依据已观测 QoS 违背更新带宽份额，无法预测当前预算对后续服务状态的影响。RL-JRSS 依靠联合切片--调度结构维持在 $90.2\%$--$91.5\%$，但缺少经 MAC 反馈校正的服务状态前向预测，仍低于 DTPS。时延结果也支持这一判断：LACO 的平均时延由 $261.1$~ms 升至 $315.3$~ms，DQN-MAC 由 $32.6$~ms 升至 $38.5$~ms；DTPS、RL-JRSS 与 TDRL-RSUA 的平均时延均低于 $11$~ms，但只有 DTPS 同时保持最高 QoS 满足率。突发业务下需要同时观察时延和 QoS 满足率，并通过反馈校正的预算预测与可行性感知 MAC 执行，维持综合 QoS 效用达到门限的业务流集合。
 
 \subsection{生成式切片资源预留机制的消融分析}
 \label{subsec:ch4_exp_ablation}
@@ -613,6 +626,6 @@ DTPS 框架与若干代表性基线对比。TDRL-RSUA~\cite{liu-reconfigurableRA
 
 \section{本章小结}
 
-本章面向终端接入关系建立后的无线资源调度环节，针对慢时间尺度切片资源预算与快时间尺度 MAC 层流级调度相互脱节、候选预算对未来用户级 QoS 支撑能力难以前瞻评估的问题，提出双时间尺度预测调度（DTPS）框架。DTPS 以带宽与功率预算为跨层接口，将单星切片--MAC 资源分配分解为切片层 QoS 可行域保障与 MAC 层时隙级调度。慢时间尺度生成式切片资源预留模块通过反馈校正的业务--信道演化预测模型，评估候选预算对长期 QoS 满足率的影响；快时间尺度 QCI 优先级背包调度模块估计候选流满足速率--时延联合门限所需最小 RBG--功率开销，并在固定切片预算下选取优先级加权可行业务流集合。与现有方法依赖业务需求预测或历史性能反馈、MAC 层调度围绕聚合吞吐或队列紧迫度展开不同，本章方法通过候选预算长期效果前瞻评估和 MAC 层流级 QoS 可行性测试，建立“切片预算配置--MAC 层执行--用户级 QoS 满足”的跨时间尺度闭环，使有限带宽与发射功率优先服务于具备 QoS 满足条件的业务流。
+本章面向终端接入关系建立后的无线资源调度环节，针对慢时间尺度切片资源预算与快时间尺度 MAC 层流级调度相互脱节、候选预算对未来用户级 QoS 支撑能力难以前瞻评估的问题，提出双时间尺度预测调度（DTPS）框架。DTPS 以带宽与功率预算为跨层接口，将单星切片--MAC 资源分配分解为切片层 QoS 可行域保障与 MAC 层时隙级调度。慢时间尺度生成式切片资源预留模块通过反馈校正的业务--信道演化预测模型，评估候选预算对长期 QoS 满足率的影响；快时间尺度 QCI 优先级背包调度模块估计候选流达到综合 QoS 效用门限所需的最小 RBG--功率开销，并在固定切片预算下选取优先级加权可行业务流集合。与现有方法依赖业务需求预测或历史性能反馈、MAC 层调度围绕聚合吞吐或队列紧迫度展开不同，本章方法通过候选预算长期效果前瞻评估和 MAC 层流级 QoS 可行性测试，建立“切片预算配置--MAC 层执行--用户级 QoS 满足”的跨时间尺度闭环，使有限带宽与发射功率优先服务于综合 QoS 效用可达到门限的业务流。
 
-Starlink 星座仿真中，在过载业务下，DTPS 较基于 PPO 切片与 Lyapunov优化的MAC 调度方法将用户级 QoS 满足率提升 $47.8$ 个百分点，平均时延保持在 $78.3$ ms；突发不确定性增强时，QoS 满足率维持在 $97.6\%$ 以上。具体而言，DTPS 将过载业务下的用户级 QoS 满足率维持在 $80.8\%$；同一场景下，TDRL-RSUA 与 LACO 的平均时延分别为 $591.0$~ms 和 $597.8$~ms。突发鲁棒性方面，DQN-MAC 由 $82.3\%$ 降至 $72.1\%$，TDRL-RSUA 由 $88.7\%$ 降至 $82.8\%$。固定切片预算下的 MAC 层调度对比表明，QoS 可行性测试使重载下的满足率由 Lyapunov-MAC 的 $55.5\%$ 提升至 Lyapunov-Knapsack 的 $78.6\%$，再结合 QCI 优先级加权选择可提升至 $90.5\%$，验证了流级 QoS 可行性测试是提升资源效率的关键。
+Starlink 星座仿真结果表明，在过载业务下，DTPS 的用户级 QoS 满足率为 $80.8\%$，TDRL-RSUA、RL-JRSS、LACO 与 DQN-MAC 四种基线为 $33.0\%$--$56.3\%$。与采用 PPO 切片资源分配和 Lyapunov MAC 调度的 TDRL-RSUA 组合基线相比，DTPS 将 QoS 满足率提高 $47.8$ 个百分点，平均时延为 $78.3$~ms。突发不确定性增强时，DTPS 仍将 QoS 满足率维持在 $97.6\%$ 以上。同一过载场景下，TDRL-RSUA 与 LACO 的平均时延分别为 $591.0$~ms 和 $597.8$~ms。突发鲁棒性方面，DQN-MAC 由 $82.3\%$ 降至 $72.1\%$，TDRL-RSUA 由 $88.7\%$ 降至 $82.8\%$。固定切片预算下的 MAC 层调度对比表明，QoS 可行性测试使重载下的满足率由 Lyapunov-MAC 的 $55.5\%$ 提升至 Lyapunov-Knapsack 的 $78.6\%$，再结合 QCI 优先级加权选择可提升至 $90.5\%$，验证了流级 QoS 可行性测试是提升资源效率的关键。
