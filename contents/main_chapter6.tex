@@ -236,14 +236,14 @@ CIS-R 包含三个模块：决策敏感分块优先级评估、反馈条件化�
 \begin{figure}[!htp]
     \centering
     \includegraphics[width=\linewidth]{figures/chapter6/figs/overview.jpg}
-    \bicaption{CIS-R 框架及多轮交互过程。基础传输完成后，地面接收端依据当前任务判决确定优先重传的分块位置，并回传紧凑的二进制掩码。星上发送端只为请求位置生成增量语义载荷，地面接收端在后续重传轮中选择性更新语义软缓存中的对应分块}{Overview of CIS-R. Following the base transmission, the ground station receiver prioritizes patch locations according to its current task decision and returns a compact binary mask. The satellite generates a semantic increment for the requested locations, and the receiver selectively updates the corresponding entries in its semantic soft buffer over subsequent retransmission rounds}
+    \bicaption{CIS-R 框架与多轮交互过程}{CIS-R framework and multi-round interaction}
     \label{fig:ch6_system_model}
 \end{figure}
 
 \subsection{框架总览}
 \label{subsec:ch6_protocol}
 
-CIS-R 的非对称收发结构见图~\ref{fig:ch6_system_model}。星上发送端配置分块映射 $f_{\mathrm{pat}}$、基础编码器 $f_{\mathrm{base}}$ 和轻量反馈条件化增量语义编码模块 $\mathcal F_{\mathrm{tx}}$；地面接收端配置语义解码器 $g_{\mathrm{dec}}$、门控语义软合并模块 $\mathcal F_{\mathrm{rx}}$、冻结的任务模型 $\mathcal T_\phi$ 和决策敏感分块选择单元。基础轮负责建立初始语义软缓存。此后每当缓存更新一次，地面端就依据当前任务判决重新生成分块掩码，经反向控制链路发送至卫星；星上发送端据此构造下一轮增量负载，地面端则用同一掩码限定软合并位置。这样一来，后续传输的分块集合会随接收状态逐轮调整。
+CIS-R 非对称收发结构见图~\ref{fig:ch6_system_model}。星上发送端配置分块映射 $f_{\mathrm{pat}}$、基础编码器 $f_{\mathrm{base}}$ 和轻量反馈条件化增量语义编码模块 $\mathcal F_{\mathrm{tx}}$；地面接收端配置语义解码器 $g_{\mathrm{dec}}$、门控语义软合并模块 $\mathcal F_{\mathrm{rx}}$、冻结的任务模型 $\mathcal T_\phi$ 和决策敏感分块选择单元。基础轮建立初始语义软缓存。此后每次缓存更新，地面端依据当前任务判决重新生成分块掩码，经反向控制链路发至卫星；星上发送端据此构造下一轮增量负载，地面端用同一掩码限定软合并位置。后续传输的分块集合随接收状态逐轮调整。
 
 具体的多轮收发顺序见算法~\ref{algo:ch6_cis}。
 
@@ -425,14 +425,14 @@ R0--R3 的任务输出共同参与式~\eqref{eq:ch6_loss} 的计算，相应轮�
 \subsection{增量重传轮数上限的选择}
 \label{subsec:ch6_round_limit}
 
-为确定后续实验的重传轮数上限，图~\ref{fig:ch6_round_limit} 给出 SNR 为 $0$ 和 $5$~dB 时独立训练的 $R_{\max}=20$ 模型。$5$~dB 下，准确率由 R0 的 $57.32\%$ 升至 R3 的 $68.90\%$，R10 达到 $72.54\%$；而 R12 至 R20 只从 $73.06\%$ 升到 $73.56\%$，后八轮累计增益 $0.50$ 个百分点。
+为确定后续实验的重传轮数上限，图~\ref{fig:ch6_round_limit} 给出 $\epsilon=32$、$K=16$，SNR 为 $0$ 和 $5$~dB 时独立训练的 $R_{\max}=20$ 模型。$5$~dB 下，准确率由 R0 的 $57.32\%$ 升至 R3 的 $68.90\%$，R10 达到 $72.54\%$；而 R12 至 R20 只从 $73.06\%$ 升到 $73.56\%$，后八轮累计增益 $0.50$ 个百分点。
 
 $0$~dB 下基础语义表征受到的信道噪声影响更严重，准确率由 R0 的 $11.30\%$ 升至 R3 的 $30.20\%$，到 R20 时为 $52.36\%$。可见低 SNR 链路需要更长的增量重传过程。后续实验统一取 $R=3$，在固定的前向传输与反馈预算下考察前几轮的任务性能增益。还需注明的是，图~\ref{fig:ch6_round_limit} 用的是独立训练的 $R_{\max}=20$ 模型，其 R3 数值并不代表后续默认三轮模型的结果，两组实验各自对应不同的最大重传轮数设置。
 
 \begin{figure}[!htp]
     \centering
     \includegraphics[width=0.88\linewidth]{figures/chapter6/figs/round_sensitivity_r20.pdf}
-    \bicaption{ImageNet-100 上扩展增量重传轮数时的分类准确率（$\epsilon=32$，$K=16$，SNR 为 $0$ 和 $5$~dB）}{Accuracy over extended retransmission rounds on ImageNet-100 with $\epsilon=32$ and $K=16$ at SNRs of $0$ and $5$~dB}
+    \bicaption{不同增量重传轮数下的分类准确率}{Classification accuracy versus the number of incremental retransmission rounds}
     \label{fig:ch6_round_limit}
 \end{figure}
 
@@ -444,7 +444,7 @@ $0$~dB 下基础语义表征受到的信道噪声影响更严重，准确率由 
 \begin{figure}[!htp]
     \centering
     \includegraphics[width=0.88\linewidth]{figures/chapter6/figs/snr_accuracy_comparison_eps32.pdf}
-    \bicaption{ImageNet-100 上不同信噪比下的 Top-1 分类准确率。SwinJSCC 与 CIS-R R0 的 CBR 为 $0.020833$，CIS-R R3 的累计 CBR 为 $0.025935$}{Top-1 accuracy versus SNR on ImageNet-100. SwinJSCC and CIS-R R0 use CBR $0.020833$, while CIS-R R3 uses cumulative CBR $0.025935$}
+    \bicaption{不同信噪比下的 Top-1 分类准确率}{Top-1 classification accuracy versus SNR}
     \label{fig:ch6_snr_accuracy}
 \end{figure}
 
@@ -480,7 +480,7 @@ $0$~dB 下基础语义表征受到的信道噪声影响更严重，准确率由 
 \begin{figure}[!htp]
     \centering
     \includegraphics[width=0.86\linewidth]{figures/chapter6/figs/epsilon_accuracy_cbr_tradeoff.pdf}
-    \bicaption{ImageNet-100 上不同单分块信道维数对应的准确率与 CBR 权衡（SNR $=5$~dB，$K=16$，各轨迹包含 R0--R3）}{Accuracy--CBR trade-off on ImageNet-100 at SNR $=5$~dB with $K=16$, where each trajectory contains R0--R3}
+    \bicaption{不同单分块信道维数下的准确率--CBR 关系}{Accuracy--CBR trade-off under different channel dimensions per patch}
     \label{fig:ch6_accuracy_cbr}
 \end{figure}
 
@@ -496,7 +496,7 @@ $0$~dB 下基础语义表征受到的信道噪声影响更严重，准确率由 
 \begin{figure}[!htp]
     \centering
     \includegraphics[width=0.88\linewidth]{figures/chapter6/figs/roundwise_ablation_nobits.pdf}
-    \bicaption{ImageNet-100 上 CIS-R 关键模块的逐轮消融结果（$\epsilon=32$，$K=16$，SNR $=5$~dB，各变体具有相同的逐轮通信预算）}{Round-wise component ablation on ImageNet-100 with $\epsilon=32$, $K=16$, and SNR $=5$~dB under the same per-round communication budget}
+    \bicaption{CIS-R 关键模块的逐轮消融结果}{Round-wise ablation of CIS-R components}
     \label{fig:ch6_ablation_roundwise}
 \end{figure}
 
@@ -507,7 +507,7 @@ $0$~dB 下基础语义表征受到的信道噪声影响更严重，准确率由 
 \begin{figure}[!htp]
     \centering
     \includegraphics[width=\linewidth]{figures/chapter6/figs/feedback_mask_vis_paper.pdf}
-    \bicaption{决策敏感分块优先级示例。该样例在 R0 分类错误，在 R3 分类正确；R0 后的归因图用于生成首轮反馈，掩码给出 R1--R3 的请求位置}{Decision-sensitive patch prioritization for an example that is incorrect at R0 and correct at R3. The attribution map after R0 guides the first retransmission, while the masks show the selected locations in R1--R3}
+    \bicaption{决策敏感分块优先级示例}{Example of decision-sensitive patch prioritization}
     \label{fig:ch6_feedback_mask}
 \end{figure}
 
@@ -530,7 +530,7 @@ $0$~dB 下基础语义表征受到的信道噪声影响更严重，准确率由 
         \caption{R3 准确率与累计 CBR}
         \label{fig:ch6_k_cbr}
     \end{subfigure}
-    \bicaption{不同单轮请求分块数下的任务准确率与前向链路开销（$\epsilon=32$，SNR $=5$~dB）}{Task accuracy and forward-link overhead under different numbers of selected patches at $\epsilon=32$ and SNR $=5$~dB}
+    \bicaption{不同单轮请求分块数下的准确率与前向链路开销}{Task accuracy and forward-link overhead versus the number of requested patches}
     \label{fig:ch6_k_sensitivity}
 \end{figure}
 
