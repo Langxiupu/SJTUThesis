@@ -569,6 +569,27 @@ $0$~dB 下基础语义表征受到的信道噪声影响更严重，准确率由 
 
 仿真随星地斜距更新自由空间路径损耗、平均 SINR 和传播时延，并根据传播环境与瞬时仰角采样莱斯小尺度衰落。聚合同频干扰功率固定为 $0.06P_{\mathrm N}$。链路模型未计入阴影衰落、云雾衰减、大气气体吸收、对流层闪烁和降雨衰减。因此，本节结果只用于比较各传输方法在相同链路配置下的相对性能，不应解释为计及全部星地传播效应后的绝对链路性能。
 
+\begin{figure}[!htp]
+    \centering
+    \begin{subfigure}[t]{0.48\linewidth}
+        \centering
+        \includegraphics[width=\linewidth]{figures/chapter6/figs/representative_pass_task_accuracy.pdf}
+        \caption{任务准确率 / Task accuracy}
+        \label{fig:ch6_representative_pass_accuracy}
+    \end{subfigure}
+    \hfill
+    \begin{subfigure}[t]{0.48\linewidth}
+        \centering
+        \includegraphics[width=\linewidth]{figures/chapter6/figs/representative_pass_channel_conditions.pdf}
+        \caption{信道条件 / Channel conditions}
+        \label{fig:ch6_representative_pass_channel}
+    \end{subfigure}
+    \bicaption{代表性卫星过境过程的任务准确率与信道条件}{Task accuracy and channel conditions during a representative satellite pass}
+    \label{fig:ch6_representative_pass}
+\end{figure}
+
+\paragraph{Stable Cumulative Gains Under Time-Varying Channels} 图~\ref{fig:ch6_representative_pass} 记录了一个代表性有效链路区间内的信道变化和逐轮任务准确率。卫星仰角从 $40.00^\circ$ 升至 $58.61^\circ$ 后回落，瞬时 SNR 随大尺度链路增益和小尺度衰落在 $0.46$--$5.33$~dB 之间波动。在这一过程中，R0--R3 的平均 Top-1 准确率依次为 $45.05\%$、$48.96\%$、$56.99\%$ 和 $61.34\%$。三轮增量重传将平均准确率提高了 $16.29$ 个百分点；全部采样点上的 R3 准确率均高于 R0，最小增益为 $2.07$ 个百分点。按瞬时 SNR 进一步划分四分位区间，在最低四分位（SNR $\leq 2.66$~dB）内，R0 和 R3 的平均准确率分别为 $40.43\%$ 和 $56.77\%$，增益为 $16.34$ 个百分点；在最高四分位（SNR $\geq 3.89$~dB）内，两者分别为 $48.79\%$ 和 $64.76\%$，增益为 $15.98$ 个百分点。两个 SNR 区间的增益仅相差 $0.36$ 个百分点，CIS-R 的累计重传收益在不同链路质量下保持稳定。R3 准确率在整个过境区间内的标准差为 $4.52$ 个百分点，相比 R0 的 $7.33$ 个百分点下降 $38.3\%$。平均准确率提升与时间维度上的波动收敛表明，接收端驱动的增量重传能够缓解时变星地信道对任务性能的影响。
+
 每轮传输的平均 SINR、莱斯小尺度衰落系数和传播时延均由当前星地斜距与仰角确定。CIS-R 与随机分块变体采用相同的前向和反馈负载，并在每幅图像、每轮传输上共享同一信道实现。SwinJSCC 使用相同的业务样本与有效链路区间，但只进行一次前向传输。当 $\epsilon=32$ 时，ImageNet-100 和 CIFAR-100 上完整 R0--R3 的任务处理时延分别为 $49.10$~ms 和 $44.31$~ms，等权平均为 $46.71$~ms。仿真不计排队时延。平均端到端时延定义为
 \begin{equation}\label{eq:ch6_e2e_latency}
 T_{\mathrm{E2E}}^{\mathrm{avg}}
