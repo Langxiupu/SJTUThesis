@@ -571,6 +571,35 @@ $0$~dB 下基础语义表征受到的信道噪声影响更严重，准确率由 
 
 \begin{figure}[!htp]
     \centering
+    \begin{subfigure}[t]{0.47\linewidth}
+        \centering
+        \includegraphics[width=\linewidth]{figures/chapter6/figs/nine_scenario_beijing.pdf}
+        \caption{北京（Beijing）}
+        \label{fig:ch6_nine_scenario_beijing}
+    \end{subfigure}
+    \hfill
+    \begin{subfigure}[t]{0.47\linewidth}
+        \centering
+        \includegraphics[width=\linewidth]{figures/chapter6/figs/nine_scenario_kashi.pdf}
+        \caption{喀什（Kashi）}
+        \label{fig:ch6_nine_scenario_kashi}
+    \end{subfigure}
+
+    \vspace{0.8em}
+    \begin{subfigure}[t]{0.47\linewidth}
+        \centering
+        \includegraphics[width=\linewidth]{figures/chapter6/figs/nine_scenario_sanya.pdf}
+        \caption{三亚（Sanya）}
+        \label{fig:ch6_nine_scenario_sanya}
+    \end{subfigure}
+    \bicaption{不同地理位置与传播环境下的任务准确率}{Task accuracy across geographic locations and propagation environments}
+    \label{fig:ch6_nine_scenario_generalization}
+\end{figure}
+
+\paragraph{Consistent Gains Across Locations and Channel Environments} 作为前述默认统计口径的例外，图~\ref{fig:ch6_nine_scenario_generalization} 中每个地面站与传播环境组合均在 $4$ 条留出卫星过顶轨迹上独立测试。柱高为四次过顶聚合准确率的均值，误差线为样本标准差。九个组合场景下，CIS-R R3 和 SwinJSCC 的平均 Top-1 准确率分别为 $61.96\%$ 和 $34.76\%$，相差 $27.20$ 个百分点。逐场景计算后，CIS-R R3 的准确率优势为 $24.72$--$30.76$ 个百分点；其均值减去一个标准差后，仍比 SwinJSCC 的均值加上一个标准差至少高 $18.00$ 个百分点。北京、喀什和三亚的平均优势分别为 $27.45$、$27.33$ 和 $26.84$ 个百分点，最大差值仅为 $0.61$ 个百分点。城市、郊区和农村环境下的平均优势分别为 $24.96$、$29.83$ 和 $26.83$ 个百分点。CIS-R 在三处地面站和三类传播环境中均保持同量级的性能优势，支持其跨地理位置和跨信道条件的泛化能力；全部九个场景的任务准确率均显著高于 SwinJSCC。
+
+\begin{figure}[!htp]
+    \centering
     \begin{subfigure}[t]{0.45\linewidth}
         \centering
         \includegraphics[width=\linewidth]{figures/chapter6/figs/representative_pass_task_accuracy.pdf}
