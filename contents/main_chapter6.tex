@@ -598,6 +598,27 @@ $0$~dB 下基础语义表征受到的信道噪声影响更严重，准确率由 
 
 作为前述默认统计口径的例外，图~\ref{fig:ch6_nine_scenario_generalization} 中每个地面站与传播环境组合均在 $4$ 条留出卫星过顶轨迹上独立测试。柱高为四次过顶聚合准确率的均值，误差线为样本标准差。九个组合场景下，CIS-R R3 和 SwinJSCC 的平均 Top-1 准确率分别为 $61.96\%$ 和 $34.76\%$，相差 $27.20$ 个百分点。逐场景计算后，CIS-R R3 的准确率优势为 $24.72$--$30.76$ 个百分点；其均值减去一个标准差后，仍比 SwinJSCC 的均值加上一个标准差至少高 $18.00$ 个百分点。北京、喀什和三亚的平均优势分别为 $27.45$、$27.33$ 和 $26.84$ 个百分点，最大差值仅为 $0.61$ 个百分点。城市、郊区和农村环境下的平均优势分别为 $24.96$、$29.83$ 和 $26.83$ 个百分点。CIS-R 在三处地面站和三类传播环境中均保持同量级的性能优势，支持其跨地理位置和跨信道条件的泛化能力；全部九个场景的任务准确率均显著高于 SwinJSCC。
 
+用户干扰实验选在喀什郊区场景。由图~\ref{fig:ch6_nine_scenario_generalization} 可知，在喀什对应的三类传播环境中，CIS-R R3 在郊区场景的无干扰准确率最高，为 $63.23\%$。采用这一基线性能较好的场景，可尽量减小卫星覆盖几何和小尺度衰落引起的波动，使实验主要考察用户干扰带来的变化。有干扰时取 $P_{\mathrm I}=0.06P_{\mathrm N}$，等效 SINR 降低 $0.25$~dB，其余设置保持不变。表~\ref{tab:ch6_kashi_suburban_interference} 给出 $4$ 条留出卫星过顶轨迹上的准确率均值和样本标准差。
+
+\begin{table}[!htp]
+    \centering
+    \bicaption{喀什郊区场景下有无用户干扰时的任务准确率}{Task accuracy with and without user interference in the Kashi suburban scenario}
+    \label{tab:ch6_kashi_suburban_interference}
+    \small
+    \renewcommand{\arraystretch}{1.12}
+    \setlength{\tabcolsep}{9pt}
+    \begin{tabular}{@{}lccc@{}}
+        \toprule
+        方法 & 无用户干扰（\%） & 有用户干扰（\%） & 相对退化率（\%） \\
+        \midrule
+        CIS-R R3 & $63.23\pm3.85$ & $60.62\pm4.12$ & $4.14$ \\
+        SwinJSCC & $33.74\pm1.39$ & $32.12\pm1.35$ & $4.81$ \\
+        \bottomrule
+    \end{tabular}
+\end{table}
+
+用户干扰使 CIS-R R3 的平均准确率由 $63.23\%$ 降至 $60.62\%$，SwinJSCC 则由 $33.74\%$ 降至 $32.12\%$。考虑到两种方法的无干扰基线不同，以相对于各自基线的退化率衡量干扰影响：CIS-R R3 和 SwinJSCC 分别下降 $4.14\%$ 和 $4.81\%$，前者低 $0.67$ 个百分点。加入干扰后，CIS-R R3 的 Top-1 准确率仍比 SwinJSCC 高 $28.49$ 个百分点。就该传播环境和干扰强度而言，CIS-R 的相对性能退化稍轻。
+
 \begin{figure}[!htp]
     \centering
     \begin{subfigure}[t]{0.45\linewidth}
