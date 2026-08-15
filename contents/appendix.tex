@@ -1,12 +1,9 @@
-\chapter{补充材料}
-\label{app:supplementary_materials}
-
-\section{第三章：CA-LDP 的训练目标与实现参数}
+\chapter{第三章：CA-LDP 的训练目标与实现参数}
 \label{app:ch3_training_details}
 
 第~\ref{chap:perception}~章 CA-LDP 的训练包括 CaGSR 状态校准和近端策略优化（Proximal Policy Optimization，PPO）路由策略训练。相应的训练目标、实现参数和奖励函数说明如下。
 
-\subsection{两阶段训练与核心参数}
+\section{两阶段训练与核心参数}
 
 设 $\Theta_{\mathrm C}$ 为 CaGSR 的可训练参数集合，包括时序先验模块、观测权重与保真权重估计网络、星间链路门控网络、残差校正网络和可学习残差尺度。传播模块的可训练参数记为 $\Theta_{\mathrm R}=\{\theta_0,\theta_d,\theta_r,a_\alpha,a_\beta\}$，PPO 路由头参数记为 $\Theta_\pi$。
 
@@ -37,7 +34,7 @@
     \end{tabular}
 \end{table}
 
-\subsection{PPO 训练与奖励设计}
+\section{PPO 训练与奖励设计}
 
 第一阶段结束后，固定 $\Theta_{\mathrm C}$，再训练传播模块与 PPO 路由头。每次转发决策以 $H_i^\star(k)$、目的节点描述子和候选邻居状态为策略输入，输出所选下一跳。若同一前景需求的多个流片在一个时隙内请求下一跳决策，则每次决策分别构成一条 PPO 转移，并按流片编号和时隙内决策顺序编号。
 
@@ -60,9 +57,62 @@ r_m^{\mathrm{safe}}
 \end{equation}
 其中，$r_m^{\mathrm{ca}}$、$r_m^{\mathrm{prog}}$ 和 $r_m^{\mathrm{safe}}$ 分别为所选出向星间链路的拥塞规避反馈、朝向目的节点的转发进展反馈，以及环路倾向或无效动作惩罚。$R_{f(m)}^{\mathrm{term}}$ 为流 $f(m)$ 的终止奖励，$N_{f(m)}$ 为该流的决策次数，$R^{\mathrm{ep}}$ 为回合级性能奖励。系数 $\omega_m$ 根据流大小调整回合级奖励，$\lambda_f$ 和 $\lambda_{\mathrm{ep}}$ 分别控制流级与回合级奖励的权重。延迟奖励写入相应的决策转移后，沿时间顺序执行广义优势估计。此阶段仅更新 $\Theta_{\mathrm R}$ 和 $\Theta_\pi$。
 
-\section{第六章：链路参数与 CIS-R 训练配置}
+\chapter{第五章：DTPS 切片层观测--动作--奖励定义与训练目标}
 
-\subsection{3GPP Ka 频段直视链路的莱斯因子参数}
+\section{切片层观测、动作与奖励的详细定义}
+\label{app:ch5_obs_action_reward}
+
+第~\ref{chap:resource}~章将慢时间尺度预算决策写成不完整观测下的切片级资源预留过程，其观测、动作与奖励定义如下。
+
+\textbf{观测.} 切片间调度器只能获得粗粒度的切片级服务描述符与统计量，而流级竞争与瞬时 RBG 分配等细粒度 MAC 状态不可见。该观测作为世界模型推断隐含切片状态的输入：
+\begin{equation}\label{eq:ch4_obs}
+o_{s,k}=\big[o_{s,k}^{c},\,o_{s,k}^{u},\,o_{s,k}^{r},\,o_{s,k}^{n}\big],
+\end{equation}
+其中 $o_{s,k}^{c}$ 刻画切片服务能力，$o_{s,k}^{u}$ 概括业务类型需求与 QoS 要求，$o_{s,k}^{r}$ 与 $o_{s,k}^{n}$ 分别刻画卫星负载与供本地关联调整的邻星状态。切片服务能力分量定义为
+\begin{equation}\label{eq:ch4_obs_c}
+o_{s,k}^{c}=\big\{\lambda_{s,c}(k),\,W_{s,c}(k-1),\,P_{s,c}(k-1),\,\rho_{s,c}(k-1)\big\},\quad\forall c\in\mathcal C,
+\end{equation}
+其中 $\lambda_{s,c}(k)$ 为切片类别 $c$ 的聚合业务到达率，$W_{s,c}(k-1)$ 与 $P_{s,c}(k-1)$ 为上一间隔的资源预算，$\rho_{s,c}(k-1)$ 为上一间隔按式~\eqref{eq:ch4_viol} 统计的切片级 QoS 违背率。业务需求分量定义为
+\begin{equation}\label{eq:ch4_obs_u}
+o_{s,k}^{u}=\big\{\lambda_{s,m}(k),\,r_m^{\min},\,d_m^{\max},\,\bar r_{s,m}(k),\,\bar d_{s,m}(k)\big\}_{m\in\mathcal M},
+\end{equation}
+其中 $\lambda_{s,m}(k)$ 为业务类型 $m$ 的聚合到达率，$r_m^{\min}$ 与 $d_m^{\max}$ 为其速率与时延需求，$\bar r_{s,m}(k)$ 与 $\bar d_{s,m}(k)$ 为已实现的平均吞吐与时延。卫星负载分量为 $o_{s,k}^{r}=\{\varrho_s(k),\,\phi_s^{\mathrm{BW}}(k),\,\phi_s^{\mathrm{P}}(k)\}$，其中 $\varrho_s(k)$ 为归一化业务强度，$\phi_s^{\mathrm{BW}}(k)$ 与 $\phi_s^{\mathrm{P}}(k)$ 为剩余资源比。邻星状态分量为 $o_{s,k}^{n}=\{\phi_j^{\mathrm{BW}}(k),\,\phi_j^{\mathrm{P}}(k),\,\bar S_j(k)\}_{j\in\mathcal N_s}$，其中 $\mathcal N_s$ 为卫星 $s$ 的邻星集合。
+
+\textbf{动作.} 间隔 $k$ 的动作为混合决策向量 $\mathbf a_s(k)=\{\mathbf W_s(k),\,\mathbf P_s(k),\,\mathbf m_s(k)\}$，其中 $\mathbf W_s(k)$ 与 $\mathbf P_s(k)$ 为切片预算，$\mathbf m_s(k)\in\mathcal M_s(k)$ 为本地关联调整。可行集 $\mathcal M_s(k)$ 由本地过载业务流、邻星资源状态与可见性约束构造，使切片策略无须重新优化全局关联矩阵即可调整业务分布。动作掩蔽~\cite{Huang-InvalidActionMasking-FLAIRS22}用于保证所选预算与关联调整满足物理资源上限与本地可见性约束。
+
+\textbf{奖励.} 将 $\mathbf{P2}$ 的约束形式写为罚项加权的奖励结构：
+\begin{equation}\label{eq:ch4_reward}
+R_s(k)=w_1\frac{1}{|\mathcal C|}\sum_{c\in\mathcal C}S_{s,c}^{\mathrm{slice}}(k)-w_2R_s^{\mathrm{viol}}(k)-w_3R_s^{\mathrm{cost}}(k),
+\end{equation}
+其中 $w_1$、$w_2$、$w_3$ 为标度系数。首项奖励平均切片效用，$R_s^{\mathrm{viol}}(k)$ 与 $R_s^{\mathrm{cost}}(k)$ 分别惩罚 QoS 违背与过度资源预留。其中 $R_s^{\mathrm{cost}}(k)$ 由归一化的预留切片预算而非实际消耗的时隙级资源计算，使奖励仅在所诱导的 MAC 可行域足以维持流级 QoS 满足时才鼓励策略压缩资源预留。
+
+\section{预测输出与训练损失函数}
+\label{app:ch5_training_loss}
+
+为支撑切片级资源预留，模型需要输出与 $\mathbf{P2}$ 直接相关的通信性能指标，而非仅重构观测状态。以 $(\boldsymbol h_k,\boldsymbol z_k)$ 为输入，模型分别预测当前观测、预留代价、QoS 违背率和切片级 QoS 满足度：
+\begin{equation}\label{eq:ch4_predheads}
+\begin{aligned}
+\hat o_{s,k}&=g_{\theta_o}(\boldsymbol h_k,\boldsymbol z_k), & \hat C_s(k)&=g_{\theta_C}(\boldsymbol h_k,\boldsymbol z_k),\\
+\hat\rho_s(k)&=g_{\theta_\rho}(\boldsymbol h_k,\boldsymbol z_k), & \hat S_{s,c}^{\mathrm{slice}}(k)&=g_{\theta_S}(\boldsymbol h_k,\boldsymbol z_k),\quad\forall c\in\mathcal C.
+\end{aligned}
+\end{equation}
+预测损失定义为
+\begin{equation}\label{eq:ch4_lpred}
+\mathcal L_{\mathrm{pred}}=\sum_k\Big[\ell_o(\hat o_{s,k},o_{s,k})+\ell_C(\hat C_s(k),C_s(k))+\ell_\rho(\hat\rho_s(k),\rho_s(k))+\ell_S(\hat S_s^{\mathrm{slice}}(k),S_s^{\mathrm{slice}}(k))\Big],
+\end{equation}
+其中 $\ell_o$、$\ell_C$、$\ell_\rho$、$\ell_S$ 分别对应观测重构、预留代价估计、QoS 违背预测与切片满足预测，聚合预测切片满足为 $\hat S_s^{\mathrm{slice}}(k)=\frac{1}{|\mathcal C|}\sum_{c\in\mathcal C}\hat S_{s,c}^{\mathrm{slice}}(k)$。为保证未来服务能力预测与真实 MAC 反馈校正后的状态一致，引入历史预测分布与反馈校正分布之间的 Kullback--Leibler（KL）散度约束：
+\begin{equation}\label{eq:ch4_ldyn}
+\mathcal L_{\mathrm{dyn}}=\sum_k D_{\mathrm{KL}}\!\left(q_\theta(\boldsymbol z_k\mid\boldsymbol h_k,o_{s,k})\,\big\|\,p_\theta(\boldsymbol z_k\mid\boldsymbol h_k)\right).
+\end{equation}
+世界模型的联合优化目标为
+\begin{equation}\label{eq:ch4_lwm}
+\mathcal L_{\mathrm{wm}}=\mathcal L_{\mathrm{pred}}+\beta\mathcal L_{\mathrm{dyn}},
+\end{equation}
+其中 $\beta$ 权衡性能预测精度与状态预测一致性。
+
+\chapter{第六章：链路参数与 CIS-R 训练配置}
+
+\section{3GPP Ka 频段直视链路的莱斯因子参数}
 \label{app:rician_k_factors}
 
 3GPP TR 38.811 按离散仰角列出了城市、郊区和农村场景下 Ka 频段直视（Line-of-Sight，LoS）链路的莱斯 $K$ 因子统计参数~\cite{3GPP-TR38811}。表~\ref{tab:app_rician_k_factors} 摘录该技术报告表 6.7.2-3b、表 6.7.2-5b 和表 6.7.2-7b 中的 $K$ 因子均值 $\mu_K$ 与标准差 $\sigma_K$，两项参数均以 dB 表示。
@@ -94,12 +144,12 @@ r_m^{\mathrm{safe}}
 
 第~\ref{chap:semantic}~章的链路模型取表~\ref{tab:app_rician_k_factors} 中的均值 $\mu_K$ 作为式~\eqref{eq:ch6_k_factor} 的 $\bar K_{\mathrm{dB}}(\alpha(t),\mathcal E)$，不再依据 $\sigma_K$ 对 $K$ 因子重复采样。有效仰角不低于 $40^\circ$ 时，区间 $[40^\circ,50^\circ]$、$(50^\circ,60^\circ]$、$(60^\circ,70^\circ]$、$(70^\circ,80^\circ]$ 和 $(80^\circ,90^\circ]$ 依次采用 $50^\circ$、$60^\circ$、$70^\circ$、$80^\circ$ 和 $90^\circ$ 列的均值。选定的 dB 域均值按式~\eqref{eq:ch6_k_factor} 转换为线性功率比，并用于生成归一化莱斯小尺度衰落系数。
 
-\subsection{CIS-R 网络结构与两阶段训练流程}
+\section{CIS-R 网络结构与两阶段训练流程}
 \label{app:ch6_network_training}
 
 第~\ref{chap:semantic}~章的 CIS-R 通信模型采用以下网络结构和分阶段训练配置。默认受控实验使用 ImageNet-100 数据集，输入图像尺寸为 $224\times224\times3$，分块尺寸为 $16\times16$，每幅图像包含 $N=196$ 个分块。单分块实值信道维数默认取 $\epsilon=32$，每轮请求 $K=16$ 个分块，最多执行 $R=3$ 轮增量重传，即完整传输过程包括 R0--R3。
 
-\subsubsection{收发端通信模型结构}
+\subsection{收发端通信模型结构}
 
 星上发送端包括分块映射层、基础语义编码器、轮次嵌入层、空间特征变换（Spatial Feature Transform，SFT）参数生成网络、尺度参数网络和增量语义编码器。各模块结构列于表~\ref{tab:app_ch6_tx_architecture}，总参数量为 $1{,}024{,}992$。
 
@@ -146,7 +196,7 @@ r_m^{\mathrm{safe}}
     \end{tabular}
 \end{table}
 
-\subsubsection{两阶段训练流程}
+\subsection{两阶段训练流程}
 
 CIS-R 的训练分为两个阶段。第一阶段以图像重构为目标训练基础无线传输链路。第二阶段载入第一阶段保存的基础收发模块，再利用地面任务模型的监督信号训练增量传输与接收合并模块。两阶段均采用 AdamW 优化器，批量大小为 $64$，学习率固定为 $1\times10^{-3}$，训练期间不使用学习率调度器。随机种子均设为 $42$，并启用自动混合精度。其他配置列于表~\ref{tab:app_ch6_training_hyperparameters}。
 
@@ -222,7 +272,7 @@ CIS-R 的训练分为两个阶段。第一阶段以图像重构为目标训练�
 \end{equation}
 第二阶段更新轮次嵌入层、SFT 参数生成网络、尺度参数网络、增量语义编码器和自适应融合门，共有 $876{,}992$ 个可训练参数。R0--R3 的任务输出按式~\eqref{eq:ch6_loss} 共同构成训练损失，轮次权重为 $[0.1,0.2,0.3,1.0]$，预测熵正则权重为 $0.2$。训练 $15$ 个周期后，星上增量发送模块与地面融合模块分别保存为 \texttt{final\_tx.pth} 和 \texttt{final\_rx.pth}。
 
-\subsubsection{模型参数量汇总}
+\subsection{模型参数量汇总}
 
 收发端模型规模和各阶段的可训练参数量列于表~\ref{tab:app_ch6_parameter_summary}。下游任务模型部署在地面端，只在第二阶段提供任务监督；在线传输不向星上发送任务模型参数、任务输出或任务标签。
 
@@ -243,56 +293,3 @@ CIS-R 的训练分为两个阶段。第一阶段以图像重构为目标训练�
         \bottomrule
     \end{tabular}
 \end{table}
-
-\section{第五章：DTPS 切片层观测--动作--奖励定义与训练目标}
-
-\subsection{切片层观测、动作与奖励的详细定义}
-\label{app:ch5_obs_action_reward}
-
-第~\ref{chap:resource}~章将慢时间尺度预算决策写成不完整观测下的切片级资源预留过程，其观测、动作与奖励定义如下。
-
-\textbf{观测.} 切片间调度器只能获得粗粒度的切片级服务描述符与统计量，而流级竞争与瞬时 RBG 分配等细粒度 MAC 状态不可见。该观测作为世界模型推断隐含切片状态的输入：
-\begin{equation}\label{eq:ch4_obs}
-o_{s,k}=\big[o_{s,k}^{c},\,o_{s,k}^{u},\,o_{s,k}^{r},\,o_{s,k}^{n}\big],
-\end{equation}
-其中 $o_{s,k}^{c}$ 刻画切片服务能力，$o_{s,k}^{u}$ 概括业务类型需求与 QoS 要求，$o_{s,k}^{r}$ 与 $o_{s,k}^{n}$ 分别刻画卫星负载与供本地关联调整的邻星状态。切片服务能力分量定义为
-\begin{equation}\label{eq:ch4_obs_c}
-o_{s,k}^{c}=\big\{\lambda_{s,c}(k),\,W_{s,c}(k-1),\,P_{s,c}(k-1),\,\rho_{s,c}(k-1)\big\},\quad\forall c\in\mathcal C,
-\end{equation}
-其中 $\lambda_{s,c}(k)$ 为切片类别 $c$ 的聚合业务到达率，$W_{s,c}(k-1)$ 与 $P_{s,c}(k-1)$ 为上一间隔的资源预算，$\rho_{s,c}(k-1)$ 为上一间隔按式~\eqref{eq:ch4_viol} 统计的切片级 QoS 违背率。业务需求分量定义为
-\begin{equation}\label{eq:ch4_obs_u}
-o_{s,k}^{u}=\big\{\lambda_{s,m}(k),\,r_m^{\min},\,d_m^{\max},\,\bar r_{s,m}(k),\,\bar d_{s,m}(k)\big\}_{m\in\mathcal M},
-\end{equation}
-其中 $\lambda_{s,m}(k)$ 为业务类型 $m$ 的聚合到达率，$r_m^{\min}$ 与 $d_m^{\max}$ 为其速率与时延需求，$\bar r_{s,m}(k)$ 与 $\bar d_{s,m}(k)$ 为已实现的平均吞吐与时延。卫星负载分量为 $o_{s,k}^{r}=\{\varrho_s(k),\,\phi_s^{\mathrm{BW}}(k),\,\phi_s^{\mathrm{P}}(k)\}$，其中 $\varrho_s(k)$ 为归一化业务强度，$\phi_s^{\mathrm{BW}}(k)$ 与 $\phi_s^{\mathrm{P}}(k)$ 为剩余资源比。邻星状态分量为 $o_{s,k}^{n}=\{\phi_j^{\mathrm{BW}}(k),\,\phi_j^{\mathrm{P}}(k),\,\bar S_j(k)\}_{j\in\mathcal N_s}$，其中 $\mathcal N_s$ 为卫星 $s$ 的邻星集合。
-
-\textbf{动作.} 间隔 $k$ 的动作为混合决策向量 $\mathbf a_s(k)=\{\mathbf W_s(k),\,\mathbf P_s(k),\,\mathbf m_s(k)\}$，其中 $\mathbf W_s(k)$ 与 $\mathbf P_s(k)$ 为切片预算，$\mathbf m_s(k)\in\mathcal M_s(k)$ 为本地关联调整。可行集 $\mathcal M_s(k)$ 由本地过载业务流、邻星资源状态与可见性约束构造，使切片策略无须重新优化全局关联矩阵即可调整业务分布。动作掩蔽~\cite{Huang-InvalidActionMasking-FLAIRS22}用于保证所选预算与关联调整满足物理资源上限与本地可见性约束。
-
-\textbf{奖励.} 将 $\mathbf{P2}$ 的约束形式写为罚项加权的奖励结构：
-\begin{equation}\label{eq:ch4_reward}
-R_s(k)=w_1\frac{1}{|\mathcal C|}\sum_{c\in\mathcal C}S_{s,c}^{\mathrm{slice}}(k)-w_2R_s^{\mathrm{viol}}(k)-w_3R_s^{\mathrm{cost}}(k),
-\end{equation}
-其中 $w_1$、$w_2$、$w_3$ 为标度系数。首项奖励平均切片效用，$R_s^{\mathrm{viol}}(k)$ 与 $R_s^{\mathrm{cost}}(k)$ 分别惩罚 QoS 违背与过度资源预留。其中 $R_s^{\mathrm{cost}}(k)$ 由归一化的预留切片预算而非实际消耗的时隙级资源计算，使奖励仅在所诱导的 MAC 可行域足以维持流级 QoS 满足时才鼓励策略压缩资源预留。
-
-\subsection{预测输出与训练损失函数}
-\label{app:ch5_training_loss}
-
-为支撑切片级资源预留，模型需要输出与 $\mathbf{P2}$ 直接相关的通信性能指标，而非仅重构观测状态。以 $(\boldsymbol h_k,\boldsymbol z_k)$ 为输入，模型分别预测当前观测、预留代价、QoS 违背率和切片级 QoS 满足度：
-\begin{equation}\label{eq:ch4_predheads}
-\begin{aligned}
-\hat o_{s,k}&=g_{\theta_o}(\boldsymbol h_k,\boldsymbol z_k), & \hat C_s(k)&=g_{\theta_C}(\boldsymbol h_k,\boldsymbol z_k),\\
-\hat\rho_s(k)&=g_{\theta_\rho}(\boldsymbol h_k,\boldsymbol z_k), & \hat S_{s,c}^{\mathrm{slice}}(k)&=g_{\theta_S}(\boldsymbol h_k,\boldsymbol z_k),\quad\forall c\in\mathcal C.
-\end{aligned}
-\end{equation}
-预测损失定义为
-\begin{equation}\label{eq:ch4_lpred}
-\mathcal L_{\mathrm{pred}}=\sum_k\Big[\ell_o(\hat o_{s,k},o_{s,k})+\ell_C(\hat C_s(k),C_s(k))+\ell_\rho(\hat\rho_s(k),\rho_s(k))+\ell_S(\hat S_s^{\mathrm{slice}}(k),S_s^{\mathrm{slice}}(k))\Big],
-\end{equation}
-其中 $\ell_o$、$\ell_C$、$\ell_\rho$、$\ell_S$ 分别对应观测重构、预留代价估计、QoS 违背预测与切片满足预测，聚合预测切片满足为 $\hat S_s^{\mathrm{slice}}(k)=\frac{1}{|\mathcal C|}\sum_{c\in\mathcal C}\hat S_{s,c}^{\mathrm{slice}}(k)$。为保证未来服务能力预测与真实 MAC 反馈校正后的状态一致，引入历史预测分布与反馈校正分布之间的 Kullback--Leibler（KL）散度约束：
-\begin{equation}\label{eq:ch4_ldyn}
-\mathcal L_{\mathrm{dyn}}=\sum_k D_{\mathrm{KL}}\!\left(q_\theta(\boldsymbol z_k\mid\boldsymbol h_k,o_{s,k})\,\big\|\,p_\theta(\boldsymbol z_k\mid\boldsymbol h_k)\right).
-\end{equation}
-世界模型的联合优化目标为
-\begin{equation}\label{eq:ch4_lwm}
-\mathcal L_{\mathrm{wm}}=\mathcal L_{\mathrm{pred}}+\beta\mathcal L_{\mathrm{dyn}},
-\end{equation}
-其中 $\beta$ 权衡性能预测精度与状态预测一致性。
