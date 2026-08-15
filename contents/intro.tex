@@ -6,9 +6,7 @@
 
 \subsection{低轨星座的发展与6G融合}
 
-低轨（Low Earth Orbit，LEO）卫星星座进入规模化组网阶段。Starlink、OneWeb、Kuiper 等星座在轨规模持续扩展，卫星通信除广播分发和补充覆盖外，开始承担空间接入与星间承载功能。以 Starlink 为例，文献估算显示，截至 2025 年，其在轨卫星数量已超过 7000 颗，在轨通信总容量约为 22~Tbit/s；预测到 2030 年其容量可达到 208~Tbit/s，约占全球在轨通信容量的 74\%\cite{wang-InternationalSatCom-satapp2025}。我国已将卫星互联网纳入”新型基础设施”建设范畴，”国网”、”千帆”等星座计划在推进中\cite{sun-SatDevelopment-satapp2023,lin-Satinternet-broadcast2023}。随星座规模扩大，资源管控需同时处理星地接入、星间承载和回程链路上的业务流。
-
-LEO 星座在 6G NTN 体系中承担非地面接入、星间转发、馈电回程和服务连续性支撑等空间承载功能。
+低轨（Low Earth Orbit，LEO）卫星星座进入规模化组网阶段。Starlink、OneWeb、Kuiper 等星座在轨规模持续扩展，卫星通信除广播分发和补充覆盖外，开始承担空间接入与星间承载功能。以 Starlink 为例，文献估算显示，截至 2025 年，其在轨卫星数量已超过 7000 颗，在轨通信总容量约为 22~Tbit/s；预测到 2030 年其容量可达到 208~Tbit/s，约占全球在轨通信容量的 74\%\cite{wang-InternationalSatCom-satapp2025}。我国已将卫星互联网纳入”新型基础设施”建设范畴，”国网”、”千帆”等星座计划在推进中\cite{sun-SatDevelopment-satapp2023,lin-Satinternet-broadcast2023}。随星座规模扩大，资源管控需同时处理星地接入、星间承载和回程链路上的业务流。LEO 星座在 6G NTN 体系中承担非地面接入、星间转发、馈电回程和服务连续性支撑等空间承载功能。
 
 规模化星座需卫星载荷、星间链路和星上处理能力支撑连续接入和多跳承载。传统透明转发载荷完成射频放大、频率变换和波束转发。数字透明转发与可重构载荷提高频率、带宽、波束和通道配置灵活性；再生载荷和星上计算平台可执行基带处理、协议处理、链路状态估计和部分无线资源管理功能\cite{fang-6GSatCompute-SpaceElec2023,zou-SatComSurvey-SpaceElec2023}。抗辐射可重构器件、异构星上计算平台以及在轨模型推理与微调实验，为本地状态估计、协议处理和调度辅助计算提供工程基础\cite{AMD-XQRFPGA-1124,unibap-IX5-1124,Ortiz-onboardProcessing-Aerospace23,Plumridge-FTSat-IPAS25,ruzicka-fastModelInference-IGARSS23}。具备上述能力的 LEO 卫星可作为网络节点参与接入、处理、转发和星间承载。图\ref{fig:SatSys-evolution}概括了低轨卫星网络由单跳透明转发链路向星地接入与星间承载网络的演进过程。
 
@@ -92,7 +90,7 @@ LEO 星座在 6G NTN 体系中承担非地面接入、星间转发、馈电回�
 
 分簇式管控通过划分管理域缩短状态汇聚和资源配置路径。簇头节点负责簇内状态汇聚、资源配置和功能编排，跨簇业务则由簇头之间协调。基带云化和卫星边缘计算可支持簇内通信、计算和缓存资源编排\cite{wang-cloudnativeSat-EDGE23,wang-cloudCellfree-comMag20,wang-SatComputing-IoTJ2-23}。分簇后不再需要频繁汇聚全网状态，但跨簇业务仍依赖簇头协同，簇头失效会影响簇内用户，用户跨簇切换也会增加管理开销。通信、导航与遥感卫星系统长期采用相互独立的管控方式，跨域资源协同能力有限\cite{liu-spaceAirGround-ComSurveys2018}；星座规模扩大后，这种分立方式难以支撑端到端业务保障\cite{kodhe-comNewEra-tutorials2021,di-5Goffloading-press2019}。集中式和分簇式架构均要求高频用户切换与 MAC 层资源调度等待状态上报和配置下发，因此不适合海量用户并发条件下的毫秒级调度。
 
-协作式分布式无线资源管理将短周期管控功能部署在星上节点或用户终端。分布式管控包括接入关联、切换控制、无线资源分配、星间转发和链路维护等功能；各节点依据本地 RRM 状态执行决策，通过有限范围的星间状态交换完成协调。地面控制中心继续负责星历管理、低频监控和参数配置，不参与毫秒级 RRM 配置。相应地，星上节点需完成链路测量、队列状态处理、协议执行和低复杂度模型计算。再生载荷、星间链路和星上计算平台为这些功能提供工程基础\cite{fang-6GSatCompute-SpaceElec2023,zou-SatComSurvey-SpaceElec2023,zhang-distributedSat-SCIS2025,Mahboob-AIEmpoweredNTN-Survey-COMST24}。分布式卫星信息网络（Distributed Satellite Information Networks，DSIN）和再生式 NTN 采用相近的功能划分。
+协作式分布式无线资源管理将短周期管控功能部署于星上节点或用户终端。分布式管控涵盖接入关联、切换控制、无线资源分配、星间转发和链路维护；各节点依据本地 RRM 状态决策，并通过有限范围的星间状态交换协调。地面控制中心仍负责星历管理、低频监控和参数配置，不参与毫秒级 RRM 配置。星上节点则执行链路测量、队列状态处理、协议执行和低复杂度模型计算。再生载荷、星间链路和星上计算平台为上述功能提供工程基础\cite{fang-6GSatCompute-SpaceElec2023,zou-SatComSurvey-SpaceElec2023,zhang-distributedSat-SCIS2025,Mahboob-AIEmpoweredNTN-Survey-COMST24}。分布式卫星信息网络（Distributed Satellite Information Networks，DSIN）和再生式 NTN 采用相近的功能划分。
 
 短周期决策在星上节点及有限邻域内执行，可减少星地往返控制时延。有限邻域状态交换避免高频全网状态汇聚；星座规模增加时，短周期接入与资源调度主要增加邻域交互，无需等待地面完成全网状态收集和集中配置。当地面控制链路或馈电控制路径短时不可用，而用户服务链路与星间链路仍可用时，星上节点可依据已有策略和本地状态继续执行接入控制、资源调度与分组转发。分布式管控同样存在开销约束：过于频繁的邻域状态更新会占用星间链路资源，拓扑或链路状态变化后，分布式路由仍需完成协议收敛。本地网络视图的可信度、节点间资源配置冲突以及模型计算开销会影响实际部署。从状态获取与资源配置过程看，集中式管控需星上节点上报网络状态，并由地面控制器统一生成和下发配置，因此对持续可用的星地控制链路依赖较高；分簇式管控将状态汇聚和资源配置限制在簇内，跨簇业务由簇头协调，对星地实时控制的依赖有所降低，但仍受簇头状态汇聚和簇间同步时效约束；协作式分布式管控在星上节点或用户终端侧直接执行接入、调度和转发，仅由地面侧提供低频监控与参数配置，因而更适合高频切换、MAC 层时隙调度和分布式路由。表\ref{tab:control-arch-compare}归纳了三类管控架构的主要差异。
 

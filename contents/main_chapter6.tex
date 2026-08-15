@@ -243,9 +243,7 @@ CIS-R 包含三个模块：决策敏感分块优先级评估、反馈条件化�
 \subsection{框架总览}
 \label{subsec:ch6_protocol}
 
-CIS-R 非对称收发结构见图~\ref{fig:ch6_system_model}。星上发送端配置分块映射 $f_{\mathrm{pat}}$、基础编码器 $f_{\mathrm{base}}$ 和轻量反馈条件化增量语义编码模块 $\mathcal F_{\mathrm{tx}}$；地面接收端配置语义解码器 $g_{\mathrm{dec}}$、门控语义软合并模块 $\mathcal F_{\mathrm{rx}}$、冻结的任务模型 $\mathcal T_\phi$ 和决策敏感分块选择单元。基础轮建立初始语义软缓存。此后每次缓存更新，地面端依据当前任务判决重新生成分块掩码，经反向控制链路发至卫星；星上发送端据此构造下一轮增量负载，地面端用同一掩码限定软合并位置。后续传输的分块集合随接收状态逐轮调整。
-
-具体的多轮收发顺序见算法~\ref{algo:ch6_cis}。
+CIS-R 非对称收发结构见图~\ref{fig:ch6_system_model}。星上发送端配置分块映射 $f_{\mathrm{pat}}$、基础编码器 $f_{\mathrm{base}}$ 和轻量反馈条件化增量语义编码模块 $\mathcal F_{\mathrm{tx}}$；地面接收端配置语义解码器 $g_{\mathrm{dec}}$、门控语义软合并模块 $\mathcal F_{\mathrm{rx}}$、冻结的任务模型 $\mathcal T_\phi$ 和决策敏感分块选择单元。基础轮建立初始语义软缓存。此后每次缓存更新，地面端依据当前任务判决重新生成分块掩码，经反向控制链路发至卫星；星上发送端据此构造下一轮增量负载，地面端用同一掩码限定软合并位置。后续传输的分块集合随接收状态逐轮调整。具体的多轮收发顺序见算法~\ref{algo:ch6_cis}。
 
 \begin{algorithm}[!htp]
 \caption{接收端驱动的 CIS-R 多轮收发流程}
