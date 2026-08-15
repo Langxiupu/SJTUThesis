@@ -65,11 +65,11 @@ r_m^{\mathrm{safe}}
 \subsection{3GPP Ka 频段直视链路的莱斯因子参数}
 \label{app:rician_k_factors}
 
-3GPP TR 38.811 按离散仰角列出了城市、郊区和农村场景下 Ka 频段直视（Line-of-Sight，LOS）链路的莱斯 $K$ 因子统计参数~\cite{3GPP-TR38811}。表~\ref{tab:app_rician_k_factors} 摘录该技术报告表 6.7.2-3b、表 6.7.2-5b 和表 6.7.2-7b 中的 $K$ 因子均值 $\mu_K$ 与标准差 $\sigma_K$，两项参数均以 dB 表示。
+3GPP TR 38.811 按离散仰角列出了城市、郊区和农村场景下 Ka 频段直视（Line-of-Sight，LoS）链路的莱斯 $K$ 因子统计参数~\cite{3GPP-TR38811}。表~\ref{tab:app_rician_k_factors} 摘录该技术报告表 6.7.2-3b、表 6.7.2-5b 和表 6.7.2-7b 中的 $K$ 因子均值 $\mu_K$ 与标准差 $\sigma_K$，两项参数均以 dB 表示。
 
 \begin{table}[!htp]
     \centering
-    \bicaption{3GPP Ka 频段 LOS 链路的莱斯 $K$ 因子参数}{Rician $K$-factor parameters for 3GPP Ka-band LOS links}
+    \bicaption{3GPP Ka 频段 LoS 链路的莱斯 $K$ 因子参数}{Rician $K$-factor parameters for 3GPP Ka-band LoS links}
     \label{tab:app_rician_k_factors}
     \scriptsize
     \setlength{\tabcolsep}{2.8pt}
@@ -101,7 +101,7 @@ r_m^{\mathrm{safe}}
 
 \subsubsection{收发端通信模型结构}
 
-星上发送端包括分块映射层、基础语义编码器、轮次嵌入层、空间特征调制（Spatial Feature Transform，SFT）参数生成网络、尺度参数网络和增量语义编码器。各模块结构列于表~\ref{tab:app_ch6_tx_architecture}，总参数量为 $1{,}024{,}992$。
+星上发送端包括分块映射层、基础语义编码器、轮次嵌入层、空间特征变换（Spatial Feature Transform，SFT）参数生成网络、尺度参数网络和增量语义编码器。各模块结构列于表~\ref{tab:app_ch6_tx_architecture}，总参数量为 $1{,}024{,}992$。
 
 \begin{table}[!htp]
     \centering

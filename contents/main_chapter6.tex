@@ -545,7 +545,7 @@ $0$~dB 下基础语义表征受到的信道噪声影响更严重，准确率由 
 
 时变链路实验另外引入 SwinJSCC（$C=32$）作为外部任务性能参照。它在同一组 $1000$ 幅交织图像和相同的有效链路区间上运行，每幅图像传输 $3136$ 个前向复信道符号且不使用反馈，前向负载与 CIS-R R0 相同，两类数据各自使用对应的冻结分类模型。作为对比，CIS-R R3 每幅图像传输 $3904$ 个前向复信道符号，另加 $588$ bit 反馈。
 
-轨道几何由 Skyfield 根据双行根数（Two-Line Element，TLE）生成~\cite{Rhodes-Skyfield-ASCL2019}。星地链路的平均 SINR 由斜距、自由空间路径损耗以及式~\eqref{eq:ch6_aggregate_noise} 中的噪声与干扰功率计算~\cite{ITU-R-P525}。对每个地面站，仿真选取上升段中仰角最低的候选卫星。每颗卫星在仰角高于 $40^\circ$ 期间保持关联，并截取其最长连续有效链路区间进行测试。仿真分别生成城市、郊区和农村三类 Ka 频段 LOS 信道；每轮通信按照瞬时仰角选取 3GPP 莱斯 $K$ 因子均值，并据此采样小尺度衰落系数~\cite{3GPP-TR38811}。离散仰角映射规则和参数见附录~\ref{app:rician_k_factors}，其余仿真参数列于表~\ref{tab:ch6_trace_config}。
+轨道几何由 Skyfield 根据双行根数（Two-Line Element，TLE）生成~\cite{Rhodes-Skyfield-ASCL2019}。星地链路的平均 SINR 由斜距、自由空间路径损耗以及式~\eqref{eq:ch6_aggregate_noise} 中的噪声与干扰功率计算~\cite{ITU-R-P525}。对每个地面站，仿真选取上升段中仰角最低的候选卫星。每颗卫星在仰角高于 $40^\circ$ 期间保持关联，并截取其最长连续有效链路区间进行测试。仿真分别生成城市、郊区和农村三类 Ka 频段 LoS 信道；每轮通信按照瞬时仰角选取 3GPP 莱斯 $K$ 因子均值，并据此采样小尺度衰落系数~\cite{3GPP-TR38811}。离散仰角映射规则和参数见附录~\ref{app:rician_k_factors}，其余仿真参数列于表~\ref{tab:ch6_trace_config}。
 
 \begin{table}[!htp]
     \centering

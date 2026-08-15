@@ -49,7 +49,7 @@
 \subsection{网络与拓扑模型}
 \label{subsec:ch2_network_model}
 
-在纯分布式管控中，卫星通过星间链路交换本地状态更新，并以自身为中心获取有限跳邻域状态~\cite{ran-DistributedRoutingGNN-TVT25}。为限制状态更新信令开销，中继卫星只在 $h$ 跳本地域内转发更新，可采用多点中继（Multi-Point Relaying，MPR）等轻量分发机制~\cite{Qayyum-MPR-HICSS02,Li-OLSR-ICACS23}。本章不讨论中继节点的选择与调度。观测卫星从直连星间链路和 MPR 辅助的多跳路径接收状态更新，形成 $h$ 跳监测拓扑视图，并基于该视图执行星上路由决策。
+在纯分布式管控中，卫星通过星间链路交换本地状态更新，并以自身为中心获取有限跳邻域状态~\cite{ran-DistributedRoutingGNN-TVT25}。为限制状态更新信令开销，中继卫星只在 $h$ 跳本地域内转发更新，可采用多点中继（Multipoint Relay，MPR）等轻量分发机制~\cite{Qayyum-MPR-HICSS02,Li-OLSR-ICACS23}。本章不讨论中继节点的选择与调度。观测卫星从直连星间链路和 MPR 辅助的多跳路径接收状态更新，形成 $h$ 跳监测拓扑视图，并基于该视图执行星上路由决策。
 
 \begin{figure}[!htp]
     \centering
