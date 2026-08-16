@@ -3,15 +3,9 @@
 
 \section{引言}
 
-面向场景分类等视觉业务，LEO 卫星需要把采集到的图像下传至地面，由地面站完成后续处理~\cite{xiao-SAGINSurvey-JSAC2024}。下行带宽与星上计算能力共同构成硬约束：卫星既无法持续传输大量原始图像，也无法承载参数规模过大的通信模型。任务导向语义通信放弃了逐像素恢复这一目标，只保留对下游推理有用的信息，并据此压缩前向链路载荷~\cite{Shao-TaskOrientedCommunication-JSAC2022,peng-RobustImageSemanticCommunication-JSAC2025,Park-TransmitWhatYouNeed-JSAC2025}。这一思路已被推广到多用户与多任务场景~\cite{xie-TaskOrientedMultiUserSemanticCommunication-JSAC2022,zhang-MultiTaskSemanticCommunication-TCOM2024}。
+在端到端业务的可靠传输环节，LEO 卫星需要在星上算力和下行带宽受限的条件下，将采集图像传至地面以支撑场景分类等任务~\cite{xiao-SAGINSurvey-JSAC2024}。任务导向语义通信通过提取并传输下游任务所需的信息，减少前向链路载荷~\cite{Shao-TaskOrientedCommunication-JSAC2022,peng-RobustImageSemanticCommunication-JSAC2025,Park-TransmitWhatYouNeed-JSAC2025}。然而，在时变星地信道下，轻量语义编码器的单轮传输往往不足以维持地面任务准确率。增加星上编码模型规模会抬高计算和存储开销，重复发送完整语义表征则会增加下行资源占用。现有语义重传研究已经考虑语义可接受性判定和重要特征选择~\cite{zhou-ABRControl-HARQ-SemanticCommunication-OJCOMS2022,Hu-SemHARQ-TCOM2026,zheng-SemanticBase-HARQ-TCOM2025}。当下游任务模型仅部署在地面时，星上发送端无法直接判断需要补充传输的语义分块。如何根据地面端每轮任务判决选择后续传输内容，并在接收端累积多轮语义增量，是本章需要解决的问题。
 
-现有视觉语义传输大多是单轮开环的，性能提升主要靠两条途径：用注意力或 Transformer 结构增强收发端表征能力~\cite{AttentionJSCC,SwinJSCC}，或者在接收端引入扩散生成模型恢复图像~\cite{DiffJSCC}。前者要求扩展星上语义编码器，直接抬高计算、存储与能耗开销；后者把恢复模型放在地面，星上负载确实减轻了，但迭代式恢复带来的处理时延和显存占用又与本文关注的低时延多轮交互相冲突。星地链路的收发功能本身就不对称：卫星负责图像采集与编码，下游任务模型位于地面。把任务无关的发送端与接收端任务处理相分离的语义传输架构，为这种功能划分提供了可行路径~\cite{zhang-TaskUnawareSemanticCommunication-JSAC2023}。遗留的问题是，单轮传输一旦结束，地面端就无法再依据受噪声影响的当前判决去指定后续增量载荷。
-
-现有语义 HARQ 的研究可以分为几类。一类是基于语义可接受性或传输策略的重传控制~\cite{zhou-ABRControl-HARQ-SemanticCommunication-OJCOMS2022,jiang-DeepSourceChannelCoding-TCOM2022}；一类根据任务重要性、特征失真或错误语义基做细粒度重传~\cite{Hu-SemHARQ-TCOM2026,zheng-SemanticBase-HARQ-TCOM2025,wang2024feature}。还有一类反馈机制并不直接挑选待重传的特征，而是依据语义价值、图像质量或接收质量估计去调整传输速率与细化信息~\cite{gao2024importance,zhang2024scan,li-Boyuan-JS3C-GLOBECOM2025}。在语义表征层面，已有工作分别研究了图像到信道符号的直接映射、基于分块压缩感知的联合信源信道编码，以及无需获知发送端模型的生成式压缩~\cite{bourtsoulatze2019deep,jarrahi2024jointsourcechannelcodingwireless,zheng2025transmitter}。这些方法在表征压缩、差异化保护和反馈自适应上都提供了基础，但都没有同时回答本文关注的两个问题：接收端如何在每轮传输结束后根据当前任务判决重新确定请求分块，以及返回的语义增量如何在同一掩码约束下更新跨轮保留的语义软缓存。细粒度选择性重传本身并不构成 CIS-R 与现有工作的主要区别。
-
-本章关注的正是每轮信道传输结束后的接收端闭环：地面端根据受噪声影响的当前任务判决和语义软缓存重新确定请求位置，再用同一请求掩码去更新对应缓存。这个过程有两条边界，一是未请求分块的历史状态必须保留，二是既不能用固定平均把有效增量稀释掉，也不能直接替换覆盖已有表征。
-
-为此，本章提出接收端驱动的协同增量语义重传（Coordinated Incremental Semantic Retransmission，CIS-R）机制，面向收发资源非对称的 LEO 图像传输。其闭环包含四个环节：地面任务判决、分块级反馈、星上选择性增量传输和地面门控语义软合并。地面接收端根据当前判决裕量对分块表征的局部敏感度，生成 Top-$K$ 反馈掩码；星上发送端结合掩码与轮次信息，只为接收端请求的分块生成并传输增量语义载荷。地面接收端在掩码指定的位置完成门控软合并，其余分块的历史状态原样保留。在线传输时，星上发送端不部署下游任务模型，也不访问任务输出和任务标签，任务推理、分块排序与反馈生成全部留在地面。ImageNet-100 仿真和时变星地链路实验分别评估了选择性增量传输、分块选择与门控软合并的作用，并给出收发端的实现开销。本章相关成果已撰写成会议论文 ``CIS-R: Receiver-Driven Incremental Semantic Retransmission for Bandwidth-Efficient LEO Image Delivery''，投稿于 IEEE International Conference on Computer Communications（INFOCOM）2027。
+针对这一问题，本章提出接收端驱动的协同增量语义重传（Coordinated Incremental Semantic Retransmission，CIS-R）机制。每轮传输结束后，地面接收端根据当前任务判决评估各分块对任务结果的影响，并将选定分块的位置反馈给卫星。星上发送端只为这些分块生成并传输增量语义载荷。地面接收端依据同一反馈掩码合并新到达的语义增量，同时保留其余分块的历史表征。任务推理和反馈生成均在地面完成，卫星无需部署或访问下游任务模型。ImageNet-100 仿真和时变星地链路实验表明，CIS-R 在不扩大星上模型规模的条件下，可通过有限反馈和增量传输提高任务准确率。本章相关成果已撰写成会议论文 ``CIS-R: Receiver-Driven Incremental Semantic Retransmission for Bandwidth-Efficient LEO Image Delivery''，投稿于 IEEE International Conference on Computer Communications（INFOCOM）2027。
 
 \section{系统模型与问题建模}
 \label{sec:ch6_sysmodel}
