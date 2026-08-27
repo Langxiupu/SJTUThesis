@@ -639,35 +639,52 @@ T_{\mathrm{E2E}}^{\mathrm{avg}}
 \end{equation}
 其中，$T_{\mathrm{comm}}$ 包括前向与反馈序列化时延、星地传播时延和三次反馈周转时间。
 
-表~\ref{tab:ch6_trace_case} 中，Top-1 准确率在 $1000$ 幅交织业务图像上统计；平均 SINR 行报告各有效链路区间内平均 SINR 的最小值、均值和最大值。
+三个地面站的有效链路特征与通信时延列于表~\ref{tab:ch6_trace_communication}。其中，平均 SINR 行依次报告各有效链路区间内平均 SINR 的最小值、均值和最大值，通信时延行给出均值和第 $95$ 百分位数。
 
 \begin{table}[!htp]
     \centering
-    \bicaption{三个 LEO 地面站的通信与任务性能}{Communication and task performance at three LEO ground stations}
-    \label{tab:ch6_trace_case}
+    \bicaption{三个 LEO 地面站的链路与时延性能}{Link and latency performance at three LEO ground stations}
+    \label{tab:ch6_trace_communication}
     \scriptsize
     \renewcommand{\arraystretch}{1.08}
-    \begin{tabular}{@{}lccc@{}}
+    \begin{tabular}{@{}p{0.36\linewidth}ccc@{}}
         \toprule
-        指标 & 北京 & 喀什 & 三亚 \\
+        性能指标 & 北京 & 喀什 & 三亚 \\
         \midrule
         有效链路时长（s） & $322.0$ & $649.3$ & $767.8$ \\
         平均 SINR 最小值/均值/最大值（dB） & $1.29/3.22/5.29$ & $1.29/2.98/4.47$ & $1.41/3.71/5.65$ \\
         通信时延均值/第 $95$ 百分位数（ms） & $28.00/31.08$ & $28.33/30.75$ & $27.11/29.93$ \\
         平均端到端时延（ms） & $74.70$ & $75.03$ & $73.82$ \\
-        \midrule
-        \multicolumn{4}{@{}l}{Top-1 分类准确率（\%）} \\
-        \quad SwinJSCC & $41.2$ & $40.8$ & $41.9$ \\
-        \quad CIS-R R0 & $50.6$ & $50.7$ & $56.5$ \\
-        \quad CIS-R R3 & $\mathbf{61.0}$ & $\mathbf{61.1}$ & $\mathbf{64.9}$ \\
-        \quad 随机分块 R3 & $55.6$ & $55.7$ & $60.4$ \\
         \bottomrule
     \end{tabular}
 \end{table}
 
-在同样的单次前向符号预算下，CIS-R R0 相较 SwinJSCC 在三个有效链路区间分别提高 $9.4$、$9.9$ 和 $14.6$ 个百分点。完成三轮选择性增量重传后，CIS-R R3 相较 SwinJSCC 提高 $19.8$--$23.0$ 个百分点，不过这一结果已包含表~\ref{tab:ch6_trace_config} 所列的附加前向负载和反馈开销。
+完整 CIS-R 链路在三个地面站的平均端到端时延为 $73.82$--$75.03$~ms，站点间最大差值为 $1.21$~ms。前向负载和反馈信息的序列化时延分别为 $0.00976$~ms 和 $0.588$~ms，通信时延的其余部分主要来自星地传播与三次反馈周转。表中端到端时延由未取整的任务处理时延和通信时延计算，因此与采用正文显示值直接计算的结果可能相差 $0.01$~ms。
 
-CIS-R 与随机分块变体的 R0--R3 通信预算完全一致，此时决策敏感分块选择使三个地面站的最终准确率分别提高 $5.4$、$5.4$ 和 $4.5$ 个百分点。完整 CIS-R 链路的平均端到端时延为 $73.82$--$75.03$~ms。表中端到端时延由未取整的任务处理时延和通信时延计算，因此可能与两个显示值之和相差 $0.01$~ms。前向负载和反馈信息的序列化时延分别为 $0.00976$~ms 和 $0.588$~ms，通信时延的其余部分主要来自星地传播与三次反馈周转。测试只随时间更新信道状态，通信模型参数保持不变。
+在上述链路设置下，三个地面站的任务准确率列于表~\ref{tab:ch6_trace_task_accuracy}。Top-1 准确率在 $1000$ 幅交织业务图像上统计；各方法使用相同的业务样本和有效链路区间。
+
+\begin{table}[!htp]
+    \centering
+    \bicaption{三个 LEO 地面站的任务准确率}{Task accuracy at three LEO ground stations}
+    \label{tab:ch6_trace_task_accuracy}
+    \small
+    \renewcommand{\arraystretch}{1.08}
+    \setlength{\tabcolsep}{9pt}
+    \begin{tabular}{@{}lccc@{}}
+        \toprule
+        方法 & 北京（\%） & 喀什（\%） & 三亚（\%） \\
+        \midrule
+        SwinJSCC & $41.2$ & $40.8$ & $41.9$ \\
+        CIS-R R0 & $50.6$ & $50.7$ & $56.5$ \\
+        CIS-R R3 & $\mathbf{61.0}$ & $\mathbf{61.1}$ & $\mathbf{64.9}$ \\
+        随机分块 R3 & $55.6$ & $55.7$ & $60.4$ \\
+        \bottomrule
+    \end{tabular}
+\end{table}
+
+在相同的单次前向符号预算下，CIS-R R0 相较 SwinJSCC 在北京、喀什和三亚分别提高 $9.4$、$9.9$ 和 $14.6$ 个百分点。完成三轮选择性增量重传后，CIS-R R3 相较 SwinJSCC 提高 $19.8$--$23.0$ 个百分点。该结果对应的 CIS-R R3 配置包含表~\ref{tab:ch6_trace_config} 所列的附加前向负载和反馈开销。
+
+CIS-R 与随机分块变体的 R0--R3 通信预算完全一致，此时决策敏感分块选择使三个地面站的最终准确率分别提高 $5.4$、$5.4$ 和 $4.5$ 个百分点。测试期间仅随时间更新信道状态，通信模型参数保持不变。
 
 \noindent(2)~\textbf{通信模型规模与 GPU 任务处理开销}
 
