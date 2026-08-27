@@ -220,7 +220,7 @@ LEO-sRAN 无线资源管理需要在满足异构用户业务需求的同时降�
 &\mathbf m_s(k)\in\mathcal M_s(k),&&
 \end{aligned}
 \end{equation}
-其中 $\boldsymbol\zeta_s(k)\triangleq{\boldsymbol\zeta_{s,c}(k)}{c\in\mathcal C}$ 为卫星级切片观测状态，$\mathbf W_s(k)={W{s,c}(k)}{c\in\mathcal C}$ 与 $\mathbf P_s(k)={P{s,c}(k)}{c\in\mathcal C}$ 为卫星 $s$ 的切片级预算，$\gamma{\mathrm d}\in(0,1]$ 为折扣因子，$\epsilon_s^{\max}$ 为最大可容忍 QoS 违背率。$\mathbf m_s(k)$ 表示卫星 $s$ 的本地关联调整，$\mathcal M_s(k)$ 为受邻星与关联约束限制的可行调整集。由于 $\mathbf{P2}$ 是单星本地子问题，它不重新优化全局关联矩阵 $\mathbf A$，而仅由 $\mathbf m_s(k)$ 调整本地相关用户或业务流的关联，在卫星 $s$ 及其可见邻星之间重分布业务，并相应更新 $a_{u,s}(k)$ 的对应项与卫星 $s$ 供后续 MAC 调度的服务流集合。问题 $\mathbf{P2}$ 构成单星预测式切片预算问题：其目标是最小化预测视野内期望资源预算，预测 QoS 违背约束则在切片层维持长期可行性。与 $\mathbf{P1}$ 不同，$\mathbf{P2}$ 不优化用户级 RBG 与功率分配，而是通过确定切片级资源预算界定 MAC 调度器可行域。需强调，$\mathbf{P2}$ 压缩的是未来 MAC 可行域所需资源包络，$\mathbf{P3}$ 才在各 MAC 时隙内决定实际 RBG 与功率消耗。
+其中 $\boldsymbol\zeta_s(k)\triangleq\{\boldsymbol\zeta_{s,c}(k)\}_{c\in\mathcal C}$ 为卫星级切片观测状态，$\mathbf W_s(k)=\{W_{s,c}(k)\}_{c\in\mathcal C}$ 与 $\mathbf P_s(k)=\{P_{s,c}(k)\}_{c\in\mathcal C}$ 为卫星 $s$ 的切片级预算，$\gamma_{\mathrm d}\in(0,1]$ 为折扣因子，$\epsilon_s^{\max}$ 为最大可容忍 QoS 违背率。$\mathbf m_s(k)$ 表示卫星 $s$ 的本地关联调整，$\mathcal M_s(k)$ 为受邻星与关联约束限制的可行调整集。由于 $\mathbf{P2}$ 是单星本地子问题，它不重新优化全局关联矩阵 $\mathbf A$，而仅由 $\mathbf m_s(k)$ 调整本地相关用户或业务流的关联，在卫星 $s$ 及其可见邻星之间重分布业务，并相应更新 $a_{u,s}(k)$ 的对应项与卫星 $s$ 供后续 MAC 调度的服务流集合。问题 $\mathbf{P2}$ 构成单星预测式切片预算问题：其目标是最小化预测视野内期望资源预算，预测 QoS 违背约束则在切片层维持长期可行性。与 $\mathbf{P1}$ 不同，$\mathbf{P2}$ 不优化用户级 RBG 与功率分配，而是通过确定切片级资源预算界定 MAC 调度器可行域。需强调，$\mathbf{P2}$ 压缩的是未来 MAC 可行域所需资源包络，$\mathbf{P3}$ 才在各 MAC 时隙内决定实际 RBG 与功率消耗。
 
 给定 $\mathbf{P2}$ 输出的预算 $\{W_{s,c}(k),P_{s,c}(k)\}$ 与更新后的关联，MAC 调度器在每类切片内对流集合 $\mathcal I_{s,c}(k)$ 执行时隙级业务流调度。对业务流 $i\in\mathcal I_{s,c}(k)$，以 $y_i(t)\in\{0,1\}$ 指示其是否在时隙 $t$ 被选中服务；带宽 $B_i(t)$ 在 $\mathbf{P3}$ 中放宽为连续变量，其与整数 RBG 指派的对应关系由第~\ref{subsec:ch4_mac}~节的调度器恢复。卫星 $s$ 上切片 $c$ 的时隙级 QoS 可行性感知 MAC 调度问题形式化为
 \begin{equation}\label{eq:ch4_P3}
@@ -257,7 +257,7 @@ DTPS 的核心是形成切片层与 MAC 层之间的闭环资源控制，而不�
 
 实现上，该模块借鉴世界模型的时序状态建模思想~\cite{Hafner-WorldModels-arXiv24}，但建模对象是 LEO-sRAN 的切片服务过程。其观测由切片级服务能力、业务类型需求、资源状态与邻星上下文构成；预测输出直接对应预留代价、QoS 违背率与切片级 QoS 满足度；预算策略输出通信意义明确的带宽预算、功率预算与本地关联调整，流级 QoS 可满足性仍由 MAC 层独立判定。由此，切片层学习的是预算条件下的 QoS 动态，而非仅预测未来业务需求。据此将慢时间尺度预算决策写成不完整观测下的切片级资源预留过程，动作为切片级带宽--功率预算与本地关联调整的混合决策向量，奖励将 $\mathbf{P2}$ 的 QoS 满足与资源消耗约束写为罚项加权结构。观测、动作与奖励各分量的完整定义见附录~\ref{app:ch5_obs_action_reward}。
 
-\textbf{切片服务状态跟踪与 MAC 反馈校正.} 该模块不学习通用环境动态，而在切片间隔尺度上跟踪资源预算、服务能力与 QoS 违背之间的演化关系。为此，引入两类内部状态变量：历史服务状态记忆 $\boldsymbol h_k$ 汇总过去切片预算、业务统计、邻星上下文和 MAC 执行反馈，用于保留长期服务状态；不确定服务状态变量 $\boldsymbol z_k$ 刻画切片层无法直接观测的业务突发、服务能力波动和流级竞争压力。二者共同构成切片层预算决策所需的内部服务状态 $(\boldsymbol h_k,\boldsymbol z_k)$。历史服务状态记忆由长短期记忆（Long Short-Term Memory，LSTM）网络 $f_\theta(\cdot)$ 更新~\cite{Gong-SatTrafficPrediction-ICCC24}：
+\textbf{切片服务状态跟踪与 MAC 反馈校正。} 该模块不学习通用环境动态，而在切片间隔尺度上跟踪资源预算、服务能力与 QoS 违背之间的演化关系。为此，引入两类内部状态变量：历史服务状态记忆 $\boldsymbol h_k$ 汇总过去切片预算、业务统计、邻星上下文和 MAC 执行反馈，用于保留长期服务状态；不确定服务状态变量 $\boldsymbol z_k$ 刻画切片层无法直接观测的业务突发、服务能力波动和流级竞争压力。二者共同构成切片层预算决策所需的内部服务状态 $(\boldsymbol h_k,\boldsymbol z_k)$。历史服务状态记忆由长短期记忆（Long Short-Term Memory，LSTM）网络 $f_\theta(\cdot)$ 更新~\cite{Gong-SatTrafficPrediction-ICCC24}：
 \begin{equation}\label{eq:ch4_memory}
 \boldsymbol h_k=f_\theta\!\left(\boldsymbol h_{k-1},\boldsymbol z_{k-1},\mathbf a_s(k-1)\right).
 \end{equation}
@@ -269,7 +269,7 @@ DTPS 的核心是形成切片层与 MAC 层之间的闭环资源控制，而不�
 
 在线执行时，每个切片间隔均利用最新 MAC 层服务统计执行上述反馈校正。当业务突发、服务速率下降或用户关联调整导致实际服务状态偏离历史预测时，反馈校正修正切片层对当前服务能力的估计，避免预算决策持续依赖过时状态。对于未来多个切片间隔的预测，由于尚无真实 MAC 反馈，模型使用历史预测分布递推未来服务状态，为切片层提供预算条件下的服务能力预测。
 
-\textbf{预测输出与训练目标.} 为支撑切片级资源预留，以 $(\boldsymbol h_k,\boldsymbol z_k)$ 为输入，模型分别预测当前观测、预留代价、QoS 违背率和切片级 QoS 满足度。训练时，预测损失 $\mathcal L_{\mathrm{pred}}$ 监督上述多目标预测精度，状态预测一致性损失 $\mathcal L_{\mathrm{dyn}}$ 通过 KL 散度约束历史预测分布逼近反馈校正分布，联合优化目标为 $\mathcal L_{\mathrm{wm}}=\mathcal L_{\mathrm{pred}}+\beta\mathcal L_{\mathrm{dyn}}$，其中 $\beta$ 权衡性能预测精度与状态预测一致性。各损失函数的完整定义见附录~\ref{app:ch5_training_loss}。图~\ref{fig:ch4_wm_arch}~给出世界模型的神经网络结构及各损失的反向传播路径。
+\textbf{预测输出与训练目标。} 为支撑切片级资源预留，以 $(\boldsymbol h_k,\boldsymbol z_k)$ 为输入，模型分别预测当前观测、预留代价、QoS 违背率和切片级 QoS 满足度。训练时，预测损失 $\mathcal L_{\mathrm{pred}}$ 监督上述多目标预测精度，状态预测一致性损失 $\mathcal L_{\mathrm{dyn}}$ 通过 KL 散度约束历史预测分布逼近反馈校正分布，联合优化目标为 $\mathcal L_{\mathrm{wm}}=\mathcal L_{\mathrm{pred}}+\beta\mathcal L_{\mathrm{dyn}}$，其中 $\beta$ 权衡性能预测精度与状态预测一致性。各损失函数的完整定义见附录~\ref{app:ch5_training_loss}。图~\ref{fig:ch4_wm_arch}~给出世界模型的神经网络结构及各损失的反向传播路径。
 
 \begin{figure}[!htp]
     \centering
@@ -278,7 +278,7 @@ DTPS 的核心是形成切片层与 MAC 层之间的闭环资源控制，而不�
     \label{fig:ch4_wm_arch}
 \end{figure}
 
-\textbf{预算条件前向评估与策略优化.} 训练后的世界模型作为切片层的服务能力预测器使用。在每个切片间隔起始，模型先根据最新 MAC 反馈校正当前切片服务状态；随后在候选带宽--功率预算和本地关联调整下，递推预测未来若干切片间隔内的预留代价、QoS 违背率和切片级 QoS 满足度。该预算条件前向评估为 $\mathbf{P2}$ 提供长期预算效果评估，避免在线阶段显式求解多步随机优化问题。给定一段候选切片动作序列，内部状态递推为
+\textbf{预算条件前向评估与策略优化。} 训练后的世界模型作为切片层的服务能力预测器使用。在每个切片间隔起始，模型先根据最新 MAC 反馈校正当前切片服务状态；随后在候选带宽--功率预算和本地关联调整下，递推预测未来若干切片间隔内的预留代价、QoS 违背率和切片级 QoS 满足度。该预算条件前向评估为 $\mathbf{P2}$ 提供长期预算效果评估，避免在线阶段显式求解多步随机优化问题。给定一段候选切片动作序列，内部状态递推为
 \begin{equation}\label{eq:ch4_imagine}
 \boldsymbol h_{k+\tau+1}=f_\theta\!\left(\boldsymbol h_{k+\tau},\boldsymbol z_{k+\tau},\mathbf a_s(k+\tau)\right),\qquad
 \boldsymbol z_{k+\tau+1}\sim p_\theta\!\left(\boldsymbol z_{k+\tau+1}\mid\boldsymbol h_{k+\tau+1}\right).
@@ -334,7 +334,7 @@ DTPS 的核心是形成切片层与 MAC 层之间的闭环资源控制，而不�
 
 生成式切片资源预留提升了切片层异构 QoS 保障的长期可行性。快时间尺度问题是在给定切片级带宽与功率预算下执行业务流 MAC 调度：调度器需确定当前时隙服务的业务流，并保证选中流以所消耗资源达到综合 QoS 效用门限。以李雅普诺夫方法为代表的队列型指标适合刻画长期拥塞压力，但不足以单独判断当前时隙 QoS 可行性；高队列权重并不意味着业务流在当前信道与切片预算下能够达到综合 QoS 效用门限。服务此类业务流可能耗费稀缺 RBG 或功率，却仍不能带来 QoS 满足。本节不再最大化队列加权吞吐或额外求解连续功率分配问题，而是将 MAC 层调度形式化为先进行 QoS 可行性筛选、再进行优先级加权资源选择的两步资源选择问题。
 
-\textbf{最小 RBG--功率需求估计.} 调度器在资源选择前，先将每条业务流的 QoS 需求转化为最小 RBG--功率需求。这一映射在 LEO-sRAN 中可解析处理，因为下行信道由大尺度传播损耗主导：给定卫星星历与终端位置，星地距离可在较短 MAC 时隙内预测，相应信道增益 $h_{i,s}(t)$ 可由大尺度路径损耗模型估计。记卫星 $s$ 在时隙 $t$ 为业务流 $i$ 分配 $n_i(t)$ 个 RBG，对应带宽为 $B_i(n_i)=n_iB_g$，则在 RBG 数 $n_i(t)$ 与发射功率 $p_i(t)$ 下，流 $i$ 的传输速率为
+\textbf{最小 RBG--功率需求估计。} 调度器在资源选择前，先将每条业务流的 QoS 需求转化为最小 RBG--功率需求。这一映射在 LEO-sRAN 中可解析处理，因为下行信道由大尺度传播损耗主导：给定卫星星历与终端位置，星地距离可在较短 MAC 时隙内预测，相应信道增益 $h_{i,s}(t)$ 可由大尺度路径损耗模型估计。记卫星 $s$ 在时隙 $t$ 为业务流 $i$ 分配 $n_i(t)$ 个 RBG，对应带宽为 $B_i(n_i)=n_iB_g$，则在 RBG 数 $n_i(t)$ 与发射功率 $p_i(t)$ 下，流 $i$ 的传输速率为
 \begin{equation}\label{eq:ch4_apprate}
 r_i(n_i,p_i;t)=n_iB_g\log_2\!\left(1+\frac{p_i(t)G_sG_uh_{i,s}(t)}{N_0n_iB_g}\right).
 \end{equation}
@@ -356,9 +356,9 @@ p_i^{\min}(n_i,t)=\frac{N_0n_iB_g}{G_sG_uh_{i,s}(t)}\left(2^{\frac{r_i^{\mathrm{
 \end{equation}
 约束为 $p_i^{\min}(n_i,t)\le P_{s,c}(k)$。若不存在满足 $p_i^{\min}(n_i,t)\le P_{s,c}(k)$ 的 $n_i$，则流 $i$ 在当前时隙不可行，并被排除出候选物品集；该条件滤除在当前切片预算与链路条件下无法单独满足 QoS 门限的业务流，被选流聚合后的 RBG 与功率约束由后续背包问题保证。
 
-\textbf{背包物品构造.} 完成最小资源需求估计后，每条可行业务流被建模为一个背包物品：物品价值由 QCI/5QI 导出的优先级值定义，物品权重对应所需 RBG 数与发射功率。记流 $i$ 的标准化 QCI/5QI 标识为 $q_i$。由于 QCI/5QI 标识规定的是标准化 QoS 类别而非序数化数值优先级，本文不直接将其用作物品价值，而是依据 $q_i$ 关联的标准化 QoS 特征（如优先级等级、分组时延预算与业务类别）为每条流赋予 QCI 导出优先级值 $\pi_i$，并令物品价值 $v_i=\pi_i$。该设计保留标准化业务等级区分，同优先级流的取舍由其所需 RBG--功率开销决定；紧迫度感知的物品赋值留作后续工作。
+\textbf{背包物品构造。} 完成最小资源需求估计后，每条可行业务流被建模为一个背包物品：物品价值由 QCI/5QI 导出的优先级值定义，物品权重对应所需 RBG 数与发射功率。记流 $i$ 的标准化 QCI/5QI 标识为 $q_i$。由于 QCI/5QI 标识规定的是标准化 QoS 类别而非序数化数值优先级，本文不直接将其用作物品价值，而是依据 $q_i$ 关联的标准化 QoS 特征（如优先级等级、分组时延预算与业务类别）为每条流赋予 QCI 导出优先级值 $\pi_i$，并令物品价值 $v_i=\pi_i$。该设计保留标准化业务等级区分，同优先级流的取舍由其所需 RBG--功率开销决定；紧迫度感知的物品赋值留作后续工作。
 
-\textbf{二维背包与动态规划求解.} 记切片 $c$ 在卫星 $s$ 时隙 $t$ 的可行流集合为 $\mathcal I_{s,c}^{\mathrm{fea}}(t)$。由于不可满足 QoS 门限的业务流已被排除，后续背包并非直接在全部候选流上追求吞吐或队列收益，而是在 QoS 可行流集合内选择优先级加权收益最大的子集。MAC 调度问题随即近似为二维 0--1 背包问题：
+\textbf{二维背包与动态规划求解。} 记切片 $c$ 在卫星 $s$ 时隙 $t$ 的可行流集合为 $\mathcal I_{s,c}^{\mathrm{fea}}(t)$。由于不可满足 QoS 门限的业务流已被排除，后续背包并非直接在全部候选流上追求吞吐或队列收益，而是在 QoS 可行流集合内选择优先级加权收益最大的子集。MAC 调度问题随即近似为二维 0--1 背包问题：
 \begin{equation}\label{eq:ch4_knapsack}
 \begin{aligned}
 \max_{\{y_i(t)\}}\ &\sum_{i\in\mathcal I_{s,c}^{\mathrm{fea}}(t)}\pi_iy_i(t)\\
@@ -373,7 +373,7 @@ F_i(n,p)=\max\left\{F_{i-1}(n,p),\,F_{i-1}\!\left(n-n_i^{\min},p-\bar p_i^{\min}
 \end{equation}
 当 $n\ge n_i^{\min}$ 且 $p\ge\bar p_i^{\min}$ 时成立，否则 $F_i(n,p)=F_{i-1}(n,p)$。回溯动态规划表即可确定当前时隙被选中的业务流集合。
 
-\textbf{资源执行.} 选定业务流后，直接执行如下资源分配规则。由于信道模型由大尺度路径损耗主导，给定业务流在当前时隙内所有 RBG 经历相同链路条件，调度器将每条被选流映射至切片内任意可用的 $n_i^{\min}(t)$ 个 RBG，并对所有 $y_i(t)=1$ 的被选流置 $B_i(t)=n_i^{\min}(t)B_g$、$p_{i,s}(t)=p_i^{\min}(t)$；对未选中流不分配带宽与功率。该执行规则使背包选择所用的资源开销估计与实际 MAC 层分配保持一致，并避免额外的凸功率优化阶段。算法~\ref{algo:ch4_knapsack} 总结 QCI 优先级背包 MAC 调度流程。
+\textbf{资源执行。} 选定业务流后，直接执行如下资源分配规则。由于信道模型由大尺度路径损耗主导，给定业务流在当前时隙内所有 RBG 经历相同链路条件，调度器将每条被选流映射至切片内任意可用的 $n_i^{\min}(t)$ 个 RBG，并对所有 $y_i(t)=1$ 的被选流置 $B_i(t)=n_i^{\min}(t)B_g$、$p_{i,s}(t)=p_i^{\min}(t)$；对未选中流不分配带宽与功率。该执行规则使背包选择所用的资源开销估计与实际 MAC 层分配保持一致，并避免额外的凸功率优化阶段。算法~\ref{algo:ch4_knapsack} 总结 QCI 优先级背包 MAC 调度流程。
 
 \begin{algorithm}[!htp]
 \caption{QCI 优先级背包 MAC 调度}
@@ -412,7 +412,7 @@ F_i(n,p)=\max\left\{F_{i-1}(n,p),\,F_{i-1}\!\left(n-n_i^{\min},p-\bar p_i^{\min}
 \subsection{框架工作流与复杂度分析}
 \label{subsec:ch4_workflow}
 
-\textbf{整体工作流.} DTPS 的运行流程如图~\ref{fig:ch4_dtps_workflow}~所示。在每个切片间隔起始，切片层更新记忆状态，由当前观测执行反馈状态校正，并确定切片级带宽与功率预算以及本地关联调整，这些决策限定随后 MAC 执行的可行域。在每个 MAC 时隙内，调度器依据当前大尺度信道状态评估候选业务流的 QoS 可行资源需求，经 QCI 优先级背包选取优先级加权的可行子集，并直接执行相应 RBG--功率分配。已实现服务统计随后反馈至切片层，触发反馈校正与后续预测式预算，由此形成慢/快两个时间尺度上的闭环。
+\textbf{整体工作流。} DTPS 的运行流程如图~\ref{fig:ch4_dtps_workflow}~所示。在每个切片间隔起始，切片层更新记忆状态，由当前观测执行反馈状态校正，并确定切片级带宽与功率预算以及本地关联调整，这些决策限定随后 MAC 执行的可行域。在每个 MAC 时隙内，调度器依据当前大尺度信道状态评估候选业务流的 QoS 可行资源需求，经 QCI 优先级背包选取优先级加权的可行子集，并直接执行相应 RBG--功率分配。已实现服务统计随后反馈至切片层，触发反馈校正与后续预测式预算，由此形成慢/快两个时间尺度上的闭环。
 
 \begin{figure}[!htp]
     \centering
@@ -421,7 +421,7 @@ F_i(n,p)=\max\left\{F_{i-1}(n,p),\,F_{i-1}\!\left(n-n_i^{\min},p-\bar p_i^{\min}
     \label{fig:ch4_dtps_workflow}
 \end{figure}
 
-\textbf{复杂度分析.} DTPS 的复杂度由慢时间尺度的生成式切片资源预留与快时间尺度的 MAC 调度两部分构成。在切片层，世界模型推断与 PPO 策略评估在每个切片间隔仅基于聚合的切片级与业务类型描述符执行一次，因而其复杂度与业务流数无关，可记为 $\mathcal O(C_{\mathrm{wm}}+C_\pi)$，其中 $C_{\mathrm{wm}}$ 与 $C_\pi$ 分别为服务状态预测模型与切片策略的固定推断开销。在 MAC 层，对卫星 $s$ 上的切片 $c$，记候选流数与可行流数分别为 $A_{s,c}=|\mathcal I_{s,c}(k)|$ 与 $A_{s,c}^{\mathrm{fea}}=|\mathcal I_{s,c}^{\mathrm{fea}}(t)|$。最小资源估计复杂度为 $\mathcal O(A_{s,c}N_{s,c}^{\mathrm{RBG}})$，二维动态规划背包复杂度为 $\mathcal O(A_{s,c}^{\mathrm{fea}}N_{s,c}^{\mathrm{RBG}}\bar P_{s,c})$，故每时隙 MAC 复杂度为
+\textbf{复杂度分析。} DTPS 的复杂度由慢时间尺度的生成式切片资源预留与快时间尺度的 MAC 调度两部分构成。在切片层，世界模型推断与 PPO 策略评估在每个切片间隔仅基于聚合的切片级与业务类型描述符执行一次，因而其复杂度与业务流数无关，可记为 $\mathcal O(C_{\mathrm{wm}}+C_\pi)$，其中 $C_{\mathrm{wm}}$ 与 $C_\pi$ 分别为服务状态预测模型与切片策略的固定推断开销。在 MAC 层，对卫星 $s$ 上的切片 $c$，记候选流数与可行流数分别为 $A_{s,c}=|\mathcal I_{s,c}(k)|$ 与 $A_{s,c}^{\mathrm{fea}}=|\mathcal I_{s,c}^{\mathrm{fea}}(t)|$。最小资源估计复杂度为 $\mathcal O(A_{s,c}N_{s,c}^{\mathrm{RBG}})$，二维动态规划背包复杂度为 $\mathcal O(A_{s,c}^{\mathrm{fea}}N_{s,c}^{\mathrm{RBG}}\bar P_{s,c})$，故每时隙 MAC 复杂度为
 \begin{equation}\label{eq:ch4_complexity}
 \mathcal O\!\left(\sum_{c\in\mathcal C}\big(A_{s,c}N_{s,c}^{\mathrm{RBG}}+A_{s,c}^{\mathrm{fea}}N_{s,c}^{\mathrm{RBG}}\bar P_{s,c}\big)\right).
 \end{equation}
@@ -452,7 +452,7 @@ F_i(n,p)=\max\left\{F_{i-1}(n,p),\,F_{i-1}\!\left(n-n_i^{\min},p-\bar p_i^{\min}
 $W_s$ & $20$~MHz & $P_s^{\max}$ & $40$~dBm \\
 $f_c$ & $4$~GHz & $N_0$ & $-174$~dBm/Hz \\
 $G_sG_u$ & $30$~dBi & RBG 数 & $27$ \\
-$\ell$ & $250$~Bytes & $(\eta_W,\eta_P)$ & $(2.0,0.5)$ \\
+$\ell$ & $250$~B & $(\eta_W,\eta_P)$ & $(2.0,0.5)$ \\
 \bottomrule
 \end{tabular}
 \end{table}
@@ -475,7 +475,7 @@ VR 卸载 & $10$~Mbps & $30$~ms & $68$ \\
 \end{tabular}
 \end{table}
 
-负载实验采用 GeoLite2~\cite{maxmind_geolite2_2021} 的 IP--位置数据库，在目标区域内识别出 46 个潜在用户并假定其在区域内均匀分布；初始时每个用户按第~\ref{subsec:ch4_network}~节的规则接入可见范围内距离最近的卫星，运行期间的关联调整方式见下文方法设置。为刻画异构业务需求，允许每个物理用户产生至多两条逻辑应用流，每条流属于表~\ref{tab:ch4_traffic} 中四类业务之一，采样频率分别为 $45\%$、$30\%$、$15\%$ 与 $10\%$，故 46 个物理用户至多产生 92 条候选流。业务在 MAC 时隙级按式~\eqref{eq:ch4_arrival} 生成；为改变业务负载，引入激活比 $\rho$ 与到达缩放因子 $\kappa$：$\rho$ 决定 92 条候选流中活跃流的占比，$\kappa$ 缩放各活跃流的到达强度，即活跃流 $i$ 的到达率为 $\lambda_i(t)=\kappa\lambda_{m_i}$、否则为 $0$。据此在轻、中、重与过载四档负载下评估网络性能，$(\rho,\kappa)$ 分别取 $(0.40,0.8)$、$(0.55,0.9)$、$(0.70,1.0)$ 与 $(0.90,1.1)$。
+负载实验采用 GeoLite2~\cite{maxmind_geolite2_2021} 的 IP--位置数据库，在目标区域内识别出 46 个潜在用户并假定其在区域内均匀分布；初始时每个用户按第~\ref{subsec:ch4_network}~节的规则接入可见范围内距离最近的卫星，运行期间的关联调整方式见下文方法设置。为刻画异构业务需求，允许每个物理用户产生至多两条逻辑应用流，每条流属于表~\ref{tab:ch4_traffic} 中四类业务之一，选取概率分别为 $45\%$、$30\%$、$15\%$ 与 $10\%$，故 46 个物理用户至多产生 92 条候选流。业务在 MAC 时隙级按式~\eqref{eq:ch4_arrival} 生成；为改变业务负载，引入激活比 $\rho$ 与到达缩放因子 $\kappa$：$\rho$ 决定 92 条候选流中活跃流的占比，$\kappa$ 缩放各活跃流的到达强度，即活跃流 $i$ 的到达率为 $\lambda_i(t)=\kappa\lambda_{m_i}$、否则为 $0$。据此在轻、中、重与过载四档负载下评估网络性能，$(\rho,\kappa)$ 分别取 $(0.40,0.8)$、$(0.55,0.9)$、$(0.70,1.0)$ 与 $(0.90,1.1)$。
 
 本文所称过载是相对于卫星可用带宽、发射功率、RBG 数量及活跃业务流 QoS 需求定义的持续资源竞争状态，而非单指用户数量增加。在过载配置 $(\rho,\kappa)=(0.90,1.1)$ 下，约 $90\%$ 的候选业务流同时处于活跃状态，每条活跃流的平均到达强度为其标称值的 $1.1$ 倍；卫星总带宽、最大发射功率与 RBG 数量仍保持表~\ref{tab:ch4_params}~所列取值，使多业务流在固定无线资源上限下持续竞争，并形成队列积压与 QoS 违背压力。
 
