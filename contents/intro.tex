@@ -19,7 +19,7 @@
 
 国际移动通信 2030（International Mobile Telecommunications-2030，IMT-2030）愿景已将上述网络能力纳入移动通信体系。该愿景要求 IMT 系统与非地面网络（Non-Terrestrial Network，NTN）、现有 IMT 系统及其他接入系统互通，关注泛在连接、服务连续性以及通信、计算与人工智能（Artificial Intelligence，AI）能力融合\cite{itu-IMT2030Framework-2023,wang-6GSATIntro-radioCom2024,wang-Integrated6GSat-newcom2023}。图\ref{fig:6G-vision}显示，AI 与通信融合是 IMT-2030 相比国际移动通信 2020（International Mobile Telecommunications-2020，IMT-2020）新增的能力方向。LEO 卫星网络在第六代移动通信系统（Sixth-Generation Mobile Communication System，6G）中承担广域覆盖、非地面接入、星间回传和业务连续性支撑。
 
-第三代合作伙伴计划（3rd Generation Partnership Project，3GPP）在 NTN 标准化中建立了相应的移动通信接入框架。Release 15/16 的研究和 Release 17 的规范化工作已将卫星接入纳入新空口（New Radio，NR）与物联网（Internet of Things，IoT）接入体系，覆盖 NTN 信道、接入过程、协议适配和系统架构\cite{3GPP-TR38811,3gpp-38821,3gpp-38101,3gpp-NTNOverview-2025}。Release 18 继续研究覆盖增强、移动性与服务连续性、卫星回传和再生载荷；Release 19 的部分研究与工作项目涉及存储转发、馈电链路切换和 NTN 管理。这些方向的标准化阶段和成熟度各异，NTN 的功能范围已由卫星接入延伸至端到端业务承载\cite{3gpp-NTNOverview-2025}。
+第三代合作伙伴计划（3rd Generation Partnership Project，3GPP）在 NTN 标准化中建立了相应的移动通信接入框架。Release 15/16 的研究和 Release 17 的规范化工作已将卫星接入纳入新空口（New Radio，NR）与物联网（Internet of Things，IoT）接入体系，覆盖 NTN 信道、接入过程、协议适配和系统架构\cite{3gpp-38811,3gpp-38821,3gpp-38101,3gpp-NTNOverview-2025}。Release 18 继续研究覆盖增强、移动性与服务连续性、卫星回传和再生载荷；Release 19 的部分研究与工作项目涉及存储转发、馈电链路切换和 NTN 管理。这些方向的标准化阶段和成熟度各异，NTN 的功能范围已由卫星接入延伸至端到端业务承载\cite{3gpp-NTNOverview-2025}。
 
 \begin{figure}[!htp]
   \centering
@@ -34,7 +34,7 @@
 
 \subsection{低轨卫星端到端网络管控的发展}
 
-地面终端或空间载荷产生的业务进入 LEO 星座后，按需经多跳星间链路（Inter-Satellite Link，ISL）转发，再通过馈电链路、地面网关和必要的地面回程网络到达核心网或数据网络\cite{3GPP-TR38811,3gpp-38821}。地面终端业务可直接接入卫星，也可由地面基站或中继节点汇聚后经星地服务链路进入星座。具备星间互联条件时，遥感卫星等空间载荷可经星间链路向通信星座注入业务。图\ref{fig:end2end-trans}给出端到端接入与多跳承载场景。
+地面终端或空间载荷产生的业务进入 LEO 星座后，按需经多跳星间链路（Inter-Satellite Link，ISL）转发，再通过馈电链路、地面网关和必要的地面回程网络到达核心网或数据网络\cite{3gpp-38811,3gpp-38821}。地面终端业务可直接接入卫星，也可由地面基站或中继节点汇聚后经星地服务链路进入星座。具备星间互联条件时，遥感卫星等空间载荷可经星间链路向通信星座注入业务。图\ref{fig:end2end-trans}给出端到端接入与多跳承载场景。
 
 \begin{figure}[!htp]
   \centering
@@ -46,7 +46,7 @@
 
 以地面终端业务为例，承载过程包括终端接入、接入链路上下行传输，以及由星间多跳、馈电链路和地面回程组成的后续传输。邻域状态交换与用户面业务传输并行，为星上接入、无线资源调度和星间转发提供控制信息。各环节分别影响业务流的接入服务连续性、传输速率、端到端时延和可靠性。
 
-在终端接入环节，初始接入和部分切换过程需完成随机接入与上行同步。LEO 卫星高速运动引起较大多普勒频移和快速变化的传播时延，终端通常需依据位置与卫星星历辅助信息进行上行定时和频率预补偿\cite{3GPP-TR38811,3gpp-38821}。海量终端间歇接入、区域业务突发以及卫星或波束覆盖切换，使并发接入请求竞争有限的随机接入机会；接入负载升高将增加碰撞与重传，降低切换成功率并加剧并发接入竞争\cite{shen-RandomAccess-JSAC22,jia-AdaptiveRA-TNSE22}。
+在终端接入环节，初始接入和部分切换过程需完成随机接入与上行同步。LEO 卫星高速运动引起较大多普勒频移和快速变化的传播时延，终端通常需依据位置与卫星星历辅助信息进行上行定时和频率预补偿\cite{3gpp-38811,3gpp-38821}。海量终端间歇接入、区域业务突发以及卫星或波束覆盖切换，使并发接入请求竞争有限的随机接入机会；接入负载升高将增加碰撞与重传，降低切换成功率并加剧并发接入竞争\cite{shen-RandomAccess-JSAC22,jia-AdaptiveRA-TNSE22}。
 
 在接入链路上下行传输环节，卫星运动使用户--卫星可见关系、波束覆盖、信道增益、可用链路容量和同频干扰随时间持续变化，地面用户分布和业务负载呈现明显的空间非均匀性与时域突发性\cite{yuan-beamControl-TVT24}。宽带业务、时延敏感业务和海量机器类业务并发时，有限的波束、频谱、时隙和发射功率资源难以持续匹配差异化的速率、时延与可靠性要求，易引起热点波束过载、业务队列积压、用户吞吐波动\cite{yuan-beamControl-TVT24,rong-beamhoppingpower-TWC24}。
 

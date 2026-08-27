@@ -36,7 +36,7 @@
 
 \section{PPO 训练与奖励设计}
 
-第一阶段结束后，固定 $\Theta_{\mathrm C}$，再训练传播模块与 PPO 路由头。每次转发决策以 $H_i^\star(k)$、目的节点描述子和候选邻居状态为策略输入，输出所选下一跳。若同一前景需求的多个流片在一个时隙内请求下一跳决策，则每次决策分别构成一条 PPO 转移，并按流片编号和时隙内决策顺序编号。
+第一阶段结束后，固定 $\Theta_{\mathrm C}$，再训练传播模块与 PPO 路由头。每次转发决策以 $H_i^\star(k)$、目的节点描述子和候选邻居状态为策略输入，输出所选下一跳。若同一前景业务需求的多个业务切片在一个时隙内请求下一跳决策，则每次决策分别构成一条 PPO 转移，并按业务切片编号和时隙内决策顺序编号。
 
 第 $m$ 条决策转移的奖励由链路负载感知的本地转发反馈、流级终止反馈和回合级性能反馈构成：
 \begin{equation}
@@ -64,7 +64,7 @@ r_m^{\mathrm{safe}}
 
 第~\ref{chap:resource}~章将慢时间尺度预算决策写成不完整观测下的切片级资源预留过程，其观测、动作与奖励定义如下。
 
-\textbf{观测.} 切片间调度器只能获得粗粒度的切片级服务描述符与统计量，而流级竞争与瞬时 RBG 分配等细粒度 MAC 状态不可见。该观测作为世界模型推断隐含切片状态的输入：
+\textbf{观测。} 切片间调度器只能获得粗粒度的切片级服务描述符与统计量，而流级竞争与瞬时 RBG 分配等细粒度 MAC 状态不可见。该观测作为世界模型推断隐含切片状态的输入：
 \begin{equation}\label{eq:ch4_obs}
 o_{s,k}=\big[o_{s,k}^{c},\,o_{s,k}^{u},\,o_{s,k}^{r},\,o_{s,k}^{n}\big],
 \end{equation}
@@ -78,9 +78,9 @@ o_{s,k}^{u}=\big\{\lambda_{s,m}(k),\,r_m^{\min},\,d_m^{\max},\,\bar r_{s,m}(k),\
 \end{equation}
 其中 $\lambda_{s,m}(k)$ 为业务类型 $m$ 的聚合到达率，$r_m^{\min}$ 与 $d_m^{\max}$ 为其速率与时延需求，$\bar r_{s,m}(k)$ 与 $\bar d_{s,m}(k)$ 为已实现的平均吞吐与时延。卫星负载分量为 $o_{s,k}^{r}=\{\varrho_s(k),\,\phi_s^{\mathrm{BW}}(k),\,\phi_s^{\mathrm{P}}(k)\}$，其中 $\varrho_s(k)$ 为归一化业务强度，$\phi_s^{\mathrm{BW}}(k)$ 与 $\phi_s^{\mathrm{P}}(k)$ 为剩余资源比。邻星状态分量为 $o_{s,k}^{n}=\{\phi_j^{\mathrm{BW}}(k),\,\phi_j^{\mathrm{P}}(k),\,\bar S_j(k)\}_{j\in\mathcal N_s}$，其中 $\mathcal N_s$ 为卫星 $s$ 的邻星集合。
 
-\textbf{动作.} 间隔 $k$ 的动作为混合决策向量 $\mathbf a_s(k)=\{\mathbf W_s(k),\,\mathbf P_s(k),\,\mathbf m_s(k)\}$，其中 $\mathbf W_s(k)$ 与 $\mathbf P_s(k)$ 为切片预算，$\mathbf m_s(k)\in\mathcal M_s(k)$ 为本地关联调整。可行集 $\mathcal M_s(k)$ 由本地过载业务流、邻星资源状态与可见性约束构造，使切片策略无须重新优化全局关联矩阵即可调整业务分布。动作掩蔽~\cite{Huang-InvalidActionMasking-FLAIRS22}用于保证所选预算与关联调整满足物理资源上限与本地可见性约束。
+\textbf{动作。} 间隔 $k$ 的动作为混合决策向量 $\mathbf a_s(k)=\{\mathbf W_s(k),\,\mathbf P_s(k),\,\mathbf m_s(k)\}$，其中 $\mathbf W_s(k)$ 与 $\mathbf P_s(k)$ 为切片预算，$\mathbf m_s(k)\in\mathcal M_s(k)$ 为本地关联调整。可行集 $\mathcal M_s(k)$ 由本地过载业务流、邻星资源状态与可见性约束构造，使切片策略无须重新优化全局关联矩阵即可调整业务分布。动作掩蔽~\cite{Huang-InvalidActionMasking-FLAIRS22}用于保证所选预算与关联调整满足物理资源上限与本地可见性约束。
 
-\textbf{奖励.} 将 $\mathbf{P2}$ 的约束形式写为罚项加权的奖励结构：
+\textbf{奖励。} 将 $\mathbf{P2}$ 的约束形式写为罚项加权的奖励结构：
 \begin{equation}\label{eq:ch4_reward}
 R_s(k)=w_1\frac{1}{|\mathcal C|}\sum_{c\in\mathcal C}S_{s,c}^{\mathrm{slice}}(k)-w_2R_s^{\mathrm{viol}}(k)-w_3R_s^{\mathrm{cost}}(k),
 \end{equation}
@@ -115,7 +115,7 @@ R_s(k)=w_1\frac{1}{|\mathcal C|}\sum_{c\in\mathcal C}S_{s,c}^{\mathrm{slice}}(k)
 \section{3GPP Ka 频段直视链路的莱斯因子参数}
 \label{app:rician_k_factors}
 
-3GPP TR 38.811 按离散仰角列出了城市、郊区和农村场景下 Ka 频段直视（Line-of-Sight，LoS）链路的莱斯 $K$ 因子统计参数~\cite{3GPP-TR38811}。表~\ref{tab:app_rician_k_factors} 摘录该技术报告表 6.7.2-3b、表 6.7.2-5b 和表 6.7.2-7b 中的 $K$ 因子均值 $\mu_K$ 与标准差 $\sigma_K$，两项参数均以 dB 表示。
+3GPP TR 38.811 按离散仰角列出了城市、郊区和农村场景下 Ka 频段直视（Line-of-Sight，LoS）链路的莱斯 $K$ 因子统计参数~\cite{3gpp-38811}。表~\ref{tab:app_rician_k_factors} 摘录该技术报告表 6.7.2-3b、表 6.7.2-5b 和表 6.7.2-7b 中的 $K$ 因子均值 $\mu_K$ 与标准差 $\sigma_K$，两项参数均以 dB 表示。
 
 \begin{table}[!htp]
     \centering
