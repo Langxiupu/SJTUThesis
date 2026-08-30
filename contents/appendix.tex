@@ -9,7 +9,7 @@
 
 第一阶段利用式~\eqref{eq:ch2_cagsr_loss} 的当前状态监督优化 $\Theta_{\mathrm C}$。仿真器在引入状态更新误差前记录当前物理状态 $x_u(k)$，该状态只用于监督状态校准。观测权重 $c_{i,u}(k)$ 和保真权重 $w_{i,u}(k)$ 是展开校准算子中的可微内部变量，与 CaGSR 的其余参数共同学习，不使用独立的监督标签。
 
-第二阶段固定 $\Theta_{\mathrm C}$，由 PPO 联合优化传播模块参数 $\Theta_{\mathrm R}$ 和路由策略参数 $\Theta_\pi$。CA-LDP 的核心结构与优化参数以及图修复校准基线的配置列于表~\ref{tab:app_ch3_caldp_hyperparams}。在线路由期间，本地监测半径 $h$、校准步数 $L_c$、传播步数 $T$ 和校准步长 $\eta$ 保持不变。上界 $\alpha_{\max}$ 与 $\beta_{\max}$ 约束可学习的传播强度和锚定强度，但不改变校准与传播的执行步数。
+第二阶段固定 $\Theta_{\mathrm C}$，由 PPO 联合优化传播模块参数 $\Theta_{\mathrm R}$ 和路由策略参数 $\Theta_\pi$。CA-LDP 与图修复基线的配置列于表~\ref{tab:app_ch3_caldp_hyperparams}。在线路由期间，本地监测半径 $h$、校准步数 $L_c$、传播步数 $T$ 和校准步长 $\eta$ 保持不变，$\alpha_{\max}$ 与 $\beta_{\max}$ 分别约束传播强度和锚定强度。
 
 \begin{table}[!htp]
     \centering
@@ -84,12 +84,12 @@ o_{s,k}^{u}=\big\{\lambda_{s,m}(k),\,r_m^{\min},\,d_m^{\max},\,\bar r_{s,m}(k),\
 \begin{equation}\label{eq:ch4_reward}
 R_s(k)=w_1\frac{1}{|\mathcal C|}\sum_{c\in\mathcal C}S_{s,c}^{\mathrm{slice}}(k)-w_2R_s^{\mathrm{viol}}(k)-w_3R_s^{\mathrm{cost}}(k),
 \end{equation}
-其中 $w_1$、$w_2$、$w_3$ 为标度系数。首项奖励平均切片效用，$R_s^{\mathrm{viol}}(k)$ 与 $R_s^{\mathrm{cost}}(k)$ 分别惩罚 QoS 违背与过度资源预留。其中 $R_s^{\mathrm{cost}}(k)$ 由归一化的预留切片预算而非实际消耗的时隙级资源计算，使奖励仅在所诱导的 MAC 可行域足以维持流级 QoS 满足时才鼓励策略压缩资源预留。
+其中 $w_1$、$w_2$、$w_3$ 为标度系数。首项奖励平均切片效用，$R_s^{\mathrm{viol}}(k)$ 与 $R_s^{\mathrm{cost}}(k)$ 分别惩罚 QoS 违背与过度资源预留。$R_s^{\mathrm{cost}}(k)$ 根据归一化资源预算计算，使策略在维持流级 QoS 的同时压缩资源预留。
 
 \section{预测输出与训练损失函数}
 \label{app:ch5_training_loss}
 
-为支撑切片级资源预留，模型需要输出与 $\mathbf{P2}$ 直接相关的通信性能指标，而非仅重构观测状态。以 $(\boldsymbol h_k,\boldsymbol z_k)$ 为输入，模型分别预测当前观测、预留代价、QoS 违背率和切片级 QoS 满足度：
+以 $(\boldsymbol h_k,\boldsymbol z_k)$ 为输入，模型预测当前观测、预留代价、QoS 违背率和切片级 QoS 满足度，以支撑 $\mathbf{P2}$ 的切片资源预留：
 \begin{equation}\label{eq:ch4_predheads}
 \begin{aligned}
 \hat o_{s,k}&=g_{\theta_o}(\boldsymbol h_k,\boldsymbol z_k), & \hat C_s(k)&=g_{\theta_C}(\boldsymbol h_k,\boldsymbol z_k),\\
