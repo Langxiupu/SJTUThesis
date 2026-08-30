@@ -5,7 +5,7 @@
 
 在端到端业务进入空间网络的用户接入与切换环节，星上分布式管控需在业务服务窗口内维持终端有效网络附着、控制面可达性和可调度接入关联。LEO 星座多重覆盖与高频可见卫星变化使相邻终端在同一时隙面临相近的候选卫星、随机接入资源和子信道集合。若各终端仅追求自身瞬时链路增益或短期接入速率，切换请求将向少数卫星和子信道集中，引发随机接入碰撞、卫星间负载倾斜以及用户间长期吞吐差异扩大。现有移动性管理方法或依赖集中式全局视图但控制闭环较长，或仅依据自身效用独立决策而缺乏邻域协作，难以在接入效率、接入服务连续性和长期公平之间形成有效权衡。
 
-针对高动态多重覆盖下的接入竞争与长期服务分化问题，本章提出公平性引导的多智能体近端策略优化（Fairness-Guided Multi-Agent Proximal Policy Optimization，FG-MAPPO）方法，将系统级长期公平目标转化为邻域公平性收益。FG-MAPPO 采用广义 Gini 指标刻画多用户长期吞吐分布，并通过低开销邻域信令估计切换行为对局部公平性的影响。真实星座参数仿真中，FG-MAPPO 取得与集中式参考接近的切换成功率，公平性指标高于集中式基线，并改善强化学习基线的负载均衡性能。本章相关成果已撰写成期刊论文``Incentivizing Cooperation for Handover Strategies in LEO Constellations via Fairness-guided MARL''，录用发表于 ACM Transactions on Internet Technology (TOIT)。
+针对高动态多重覆盖下的接入竞争与长期服务分化问题，本章提出公平性引导的多智能体近端策略优化（Fairness-Guided Multi-Agent Proximal Policy Optimization，FG-MAPPO）方法，将系统级长期公平目标转化为邻域公平性收益。FG-MAPPO 采用广义 Gini 指标刻画多用户长期吞吐分布，并通过低开销邻域信令估计切换行为对局部公平性的影响。真实星座参数仿真中，FG-MAPPO 取得与集中式参考接近的切换成功率，公平性指标高于集中式基线，并改善强化学习基线的负载均衡性能。本章相关成果已撰写成期刊论文``Incentivizing Cooperation for Handover Strategies in LEO Constellations via Fairness-guided MARL''，发表于 2025 ACM Transactions on Internet Technology (TOIT)。
 
 \section{系统模型与问题建模}
 \label{sec:ch3_sysmodel}
