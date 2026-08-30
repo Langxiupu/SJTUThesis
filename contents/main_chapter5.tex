@@ -152,6 +152,9 @@ d_i^\text{queue}(t)=\frac{\lambda_{m_i}}{\mu_i(t)\left(\mu_i(t)-\lambda_{m_i}\ri
 \end{equation}
 该排队时延用于近似评估 QoS 效用。第~\ref{subsec:ch4_mac}~节据此计算候选服务速率下的时延，并确定业务流满足 QoS 所需的最小速率。
 
+\subsection{长期资源消耗与 QoS 保障问题}
+\label{subsec:ch4_problem}
+
 LEO-sRAN 无线资源管理需要在满足异构用户业务需求的同时降低资源消耗。在原始多星系统中，这要求联合优化终端--卫星关联、流级带宽分配与发射功率分配。由于业务到达、信道服务能力与业务流间竞争随机演化，QoS 保障必须在长期视野下评估。多星系统的长期平均加权资源消耗定义为
 \begin{equation}\label{eq:ch4_avgcost}
 \bar C=\limsup_{T\to\infty}\frac{1}{T}\sum_{t=1}^{T}\mathbb E\!\left[\eta_W\sum_{s\in\mathcal S}\frac{\sum_{i\in\mathcal I_s(k)}B_i(t)}{W_s}+\eta_P\sum_{s\in\mathcal S}\frac{\sum_{i\in\mathcal I_s(k)}p_{i,s}(t)}{P_s^{\max}}\right],
@@ -513,7 +516,7 @@ DTPS 框架与若干代表性基线对比。TDRL-RSUA~\cite{liu-reconfigurableRA
     \label{fig:ch4_exp_burst}
 \end{figure}
 
-基线算法对 $p_b$ 更敏感。DQN-MAC 的 QoS 满足率由 $82.3\%$ 降至 $72.1\%$，TDRL-RSUA 由 $88.7\%$ 降至 $82.8\%$，LACO 在 $72.0\%$--$76.4\%$ 间波动，RL-JRSS 维持在 $90.2\%$--$91.5\%$。LACO 的平均时延由 $261.1$~ms 升至 $315.3$~ms，DQN-MAC 由 $32.6$~ms 升至 $38.5$~ms；DTPS、RL-JRSS 与 TDRL-RSUA 的平均时延均低于 $11$~ms，其中 DTPS 的 QoS 满足率最高。
+基线算法对 $p_b$ 更敏感。DQN-MAC 的 QoS 满足率由 $82.3\%$ 降至 $72.1\%$，TDRL-RSUA 由 $88.7\%$ 降至 $82.8\%$，LACO 在 $72.0\%$--$76.4\%$ 间波动，RL-JRSS 维持在 $90.2\%$--$91.5\%$。其中，DQN-MAC 缺少切片级资源预留，TDRL-RSUA 和 LACO 主要依据当前或已发生的性能反馈调整预算，难以及时评估突发到达引起的后续流级竞争；RL-JRSS 虽联合执行切片配置与用户调度，但未利用 MAC 反馈校正服务状态的前向预测。LACO 的平均时延由 $261.1$~ms 升至 $315.3$~ms，DQN-MAC 由 $32.6$~ms 升至 $38.5$~ms；DTPS、RL-JRSS 与 TDRL-RSUA 的平均时延均低于 $11$~ms，其中 DTPS 的 QoS 满足率最高。上述结果表明，反馈校正的预算预测有助于在业务突发增强时维持后续 MAC 时隙内的 QoS 可行流集合。
 
 \subsection{生成式切片资源预留机制的消融分析}
 \label{subsec:ch4_exp_ablation}
@@ -546,7 +549,7 @@ DTPS 框架与若干代表性基线对比。TDRL-RSUA~\cite{liu-reconfigurableRA
 \subsection{固定切片预算下的 MAC 调度}
 \label{subsec:ch4_exp_mac}
 
-为比较 MAC 层调度策略，本实验将所有切片间隔的预算固定为 $W_{s,c}(k)=W_s/|\mathcal C|$、$P_{s,c}(k)=P_s^{\max}/|\mathcal C|$。实验评估 QCI-Knapsack、Lyapunov-Knapsack 与 Lyapunov-MAC，业务负载设为中载和重载，突发概率取 $p_b=0.015$，结果为 10 次独立运行的均值。
+为比较 MAC 层调度策略，本实验将所有切片间隔的预算固定为 $W_{s,c}(k)=W_s/|\mathcal C|$、$P_{s,c}(k)=P_s^{\max}/|\mathcal C|$。实验评估 QCI-Knapsack、Lyapunov-Knapsack 与 Lyapunov-MAC，业务负载设为中载和重载，突发概率取 $p_b=0.015$，结果为 10 次独立运行的均值。过载场景下，均等切片预算对三类调度器均不足，流级不可行性会主导 QoS 满足率，难以区分 MAC 调度机制本身的作用，因而该场景不纳入固定预算对比；过载性能已在完整 DTPS 框架下评估。
 
  图~\ref{fig:ch4_exp_mac} 显示，QCI-Knapsack 在中载与重载下分别取得 $96.9\%$ 和 $90.5\%$ 的 QoS 满足率，均高于两个基线调度器。相较 Lyapunov-Knapsack，QCI-Knapsack 在中载和重载下分别提高 $8.1\%$ 和 $11.9\%$，说明在固定切片预算内，QCI 优先级加权主要决定可行业务流之间的资源取舍。Lyapunov-Knapsack 与 Lyapunov-MAC 的差异更直接反映 QoS 可行性物品构造的作用：中载下 QoS 满足率由 $80.6\%$ 提高到 $88.8\%$，重载下由 $55.5\%$ 提高到 $78.6\%$，对应提升分别为 $8.2\%$ 和 $23.1\%$。随着业务竞争加剧，先估计最小 RBG--功率需求并剔除不可行业务流，比单纯依据 Lyapunov 队列权重进行选择更能避免有限资源被不可满足流占用。
 
