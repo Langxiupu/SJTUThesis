@@ -682,16 +682,16 @@ CaGSR & $\mathbf{0.202\pm0.006}$ & $\mathbf{0.270\pm0.044}$ & $\mathbf{0.261\pm0
 
 表~\ref{tab:ch2_calib} 中，原始观测的误差主要集中在缺失表项。图修复将缺失表项 NRMSE 降至 $0.316$，但其二值可用性对所有已接收更新采用相同的拟合权重，不能依据 AoI 调整陈旧观测的作用。在 $\lambda_{\mathrm{NA}}=3\times10^{-4}$ 时，图修复的陈旧表项 NRMSE 仍为 $0.248$。CaGSR 根据 AoI、状态更新可靠度和观测--先验偏差处理不同输入，其三类表项误差均为最低。与最优基线“仅时序”相比，CaGSR 的陈旧、缺失和整体 NRMSE 分别降低 $9.2\%$、$10.4\%$ 和 $10.7\%$；与图修复相比，整体 NRMSE 降低 $15.1\%$。
 
-\begin{figure}[!htp]
+\begin{figure}[!htb]
 \centering
-\includegraphics[width=\linewidth]{figures/chapter2/fig0805返修/exp3_calib_combined_1x2.png}
+\includegraphics[width=0.82\linewidth]{figures/chapter2/fig0805返修/exp3_calib_combined_1x2.png}
 \bicaption{BER与背景负载变化下的状态校准NRMSE}{State calibration NRMSE under BER and background-load variations}
 \label{fig:ch2_exp3_calib}
 \end{figure}
 
 图~\ref{fig:ch2_exp3_calib} 比较了不同状态更新误差条件下的校准结果。随着 BER 恶化，CaGSR 的平均误差始终最低；在重负载条件下，其跨种子波动也较小。相比之下，图修复基线在重负载下的误差棒明显增大。其节点权重固定不变，不能随 AoI 和状态更新可靠度调整，因此陈旧状态更容易影响相邻节点的状态估计。
 
-\begin{figure}[!htp]
+\begin{figure}[!htb]
 \centering
 \includegraphics[width=0.86\linewidth]{figures/chapter2/fig0805返修/r1c4_weight_response.pdf}
 \bicaption{观测权重与保真权重随AoI、观测--先验偏差和状态更新可用性的变化}{Learned observation and fidelity weights versus AoI, observation--prior mismatch, and state-update availability}
