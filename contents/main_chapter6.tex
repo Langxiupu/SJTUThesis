@@ -5,7 +5,7 @@
 
 LEO 卫星需在星上算力和下行带宽受限时，将采集图像传至地面以支撑场景分类等任务~\cite{xiao-SAGINSurvey-JSAC2024}。任务导向语义通信通过提取任务相关信息减少前向链路载荷~\cite{Shao-TaskOrientedCommunication-JSAC2022,peng-RobustImageSemanticCommunication-JSAC2025,Park-TransmitWhatYouNeed-JSAC2025}，但轻量语义编码器的单轮传输难以适应时变星地信道。扩大星上模型会增加计算和存储开销，重复发送完整语义表征则会占用下行资源。当任务模型仅部署在地面时，星上发送端还无法直接判断需补充传输的语义分块。
 
-本章提出接收端驱动的协同增量语义重传（Coordinated Incremental Semantic Retransmission，CIS-R）机制。地面接收端根据当前任务判决评估分块优先级并反馈选定位置，星上发送端仅为这些分块生成语义增量，接收端再合并增量并保留其余历史表征。任务推理和反馈生成均在地面完成。ImageNet-100 仿真和时变星地链路实验表明，CIS-R 通过有限反馈和增量传输提高任务准确率，且不增加星上模型规模。本章网络控制与协议相关的研究成果已发表于 International Conference on Optoelectronic and Microelectronic Technology and Application，论文题目为``Research on Intelligent Network Control Mechanism and Protocol Verification of Spatial Information Network''，核心成果已撰写成会议论文 ``CIS-R: Receiver-Driven Incremental Semantic Retransmission for Bandwidth-Efficient LEO Image Delivery''，投稿于 IEEE International Conference on Computer Communications（INFOCOM）2027。本章研究成果已应用于中国科学院微小卫星创新研究院承担的终端单机研制，具体被用于高雨衰下的通信单机收发流程设计。
+本章提出接收端驱动的协同增量语义重传（Coordinated Incremental Semantic Retransmission，CIS-R）机制。地面接收端根据当前任务判决评估分块优先级并反馈选定位置，星上发送端仅为这些分块生成语义增量，接收端再合并增量并保留其余历史表征。任务推理和反馈生成均在地面完成。ImageNet-100 仿真和时变星地链路实验表明，CIS-R 通过有限反馈和增量传输提高任务准确率，且不增加星上模型规模。本章网络控制与协议相关的研究成果已发表于 International Conference on Optoelectronic and Microelectronic Technology and Application，论文题目为``Research on Intelligent Network Control Mechanism and Protocol Verification of Spatial Information Network''，核心成果已撰写成会议论文 ``CIS-R: Receiver-Driven Incremental Semantic Retransmission for Bandwidth-Efficient LEO Image Delivery''，投稿于 IEEE International Conference on Computer Communications（INFOCOM）2027。本章研究成果已应用于中国科学院微小卫星创新研究院承担的终端单机研制，具体被用于高雨衰下的通信单机重传流程设计。
 
 \section{系统模型与问题建模}
 \label{sec:ch6_sysmodel}
