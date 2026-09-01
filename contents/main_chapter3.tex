@@ -5,7 +5,7 @@
 
 在端到端 QoS 保障的网络状态感知环节，星上节点需在可靠全局状态缺失条件下，依托本地观测与有限跳邻域状态为分布式路由、拥塞规避和资源调度提供可信状态输入。星间链路带内状态更新机制下，拥塞排队、链路误码和拓扑切换会使邻域状态呈现陈旧、缺失或可信度不一致等不准确表现。若将不准确状态直接输入多跳图神经网络聚合，残余估计误差会随邻域特征传播扩散，误导路径选择并诱发业务流向拥塞区域聚集。现有状态恢复与多跳图聚合方法缺少贯穿不准确状态校准与多跳状态传播的置信度接口，难以利用校准阶段得到的状态可信度约束后续邻域聚合过程。
 
-针对上述问题，本章提出置信度自适应局部分布式处理（Confidence-Adaptive Local Distributed Processing，CA-LDP）框架，使状态校准所得置信度继续约束多跳传播。CA-LDP 根据状态更新新鲜度、分组完整性和本地链路状态校准不准确观测，得到本地网络状态估计及其保真权重；随后利用该权重限制低可信状态传播，并保留高可信节点的校准结果。Starlink 壳层星座实验表明，CA-LDP 在轻载和中载条件下提高有效传输速率，在全部测试工作点下降低端到端时延，并改善状态校准精度。本章邻域拓扑图建立的相关成果已发表于 Space Information Networks，论文题目为``A Novel Topology Design Method for Multi-layered Optical Satellite Networks''\cite{lxp-topologydesign}。完整技术已撰写成期刊论文``Confidence-Adaptive Local Perception for Distributed LEO Satellite Routing under Degraded Telemetry''，投稿于 2026 Elsevier Future Generation Computer Systems (FGCS)。
+针对上述问题，本章提出置信度自适应局部分布式处理（Confidence-Adaptive Local Distributed Processing，CA-LDP）框架，使状态校准所得置信度继续约束多跳传播。CA-LDP 根据状态更新新鲜度、分组完整性和本地链路状态校准不准确观测，得到本地网络状态估计及其保真权重；随后利用该权重限制低可信状态传播，并保留高可信节点的校准结果。Starlink 壳层星座实验表明，CA-LDP 在轻载和中载条件下提高有效传输速率，在全部测试工作点下降低端到端时延，并改善状态校准精度。本章邻域拓扑图建立的相关成果已发表于 2020 Space Information Networks，论文题目为``A Novel Topology Design Method for Multi-layered Optical Satellite Networks''\cite{lxp-topologydesign}。完整技术已撰写成期刊论文``Confidence-Adaptive Local Perception for Distributed LEO Satellite Routing under Degraded Telemetry''，投稿于 2026 Elsevier Future Generation Computer Systems (FGCS)。
 
 
 \section{系统模型}
