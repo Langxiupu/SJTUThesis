@@ -5,7 +5,7 @@
 
 终端接入关系建立后，星上节点需在业务突发、信道波动和用户竞争下，以有限带宽、功率和时频资源保障用户级 QoS。切片层依据粗粒度业务统计配置资源预算，难以观察时隙级流竞争；MAC 层能够感知实时队列和信道，却受既定预算约束。现有方法难以评估业务切片对未来 QoS 的支撑能力，也难以区分当前资源条件下能够满足 QoS 的业务流。
 
-针对上述问题，本章提出面向 LEO-sRAN 的双时间尺度预测调度（Dual-Timescale Predictive Scheduling，DTPS）框架，以带宽和功率预算连接切片层与 MAC 层。切片层利用 MAC 反馈校正业务--信道演化预测，评估业务切片对长期 QoS 的支撑能力；MAC 层估计业务流满足 QoS 所需的最小 RBG--功率开销，并调度 QoS 可行流。Starlink 规模星座仿真显示，DTPS 在过载业务下显著提高用户级 QoS 满足率并降低平均时延。本章与切片远程监控与管理的相关成果已发表于 Space Information Networks，论文题目为``Design of Southbound Interfaces in Heterogeneous Software-Defined Satellite Networks''，并已撰写成期刊论文``World-Model-Driven Cross-Layer Resource Allocation for Long-Term QoS Provisioning in LEO Satellite RANs''，投稿于 2026 Elsevier Computer Networks。
+针对上述问题，本章提出面向 LEO-sRAN 的双时间尺度预测调度（Dual-Timescale Predictive Scheduling，DTPS）框架，以带宽和功率预算连接切片层与 MAC 层。切片层利用 MAC 反馈校正业务--信道演化预测，评估业务切片对长期 QoS 的支撑能力；MAC 层估计业务流满足 QoS 所需的最小 RBG--功率开销，并调度 QoS 可行流。Starlink 规模星座仿真显示，DTPS 在过载业务下显著提高用户级 QoS 满足率并降低平均时延。本章与切片远程监控与管理的相关成果已发表于 Space Information Networks，论文题目为``Design of Southbound Interfaces in Heterogeneous Software-Defined Satellite Networks''\cite{lxp-southbound}，并已撰写成期刊论文``World-Model-Driven Cross-Layer Resource Allocation for Long-Term QoS Provisioning in LEO Satellite RANs''，投稿于 2026 Elsevier Computer Networks。
 
 \section{系统模型与问题建模}
 \label{sec:ch4_sysmodel}

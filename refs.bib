@@ -2847,3 +2847,63 @@ keywords = {Decentralized planning, Multi-agent reinforcement learning}
  volume = {6},
  year = {1979}
 }
+
+@article{lxp-incentivizing,
+author = {Lang, Xiupu and Sun, Lin and Huang, Peiqi and Liu, Jinming and Zhu, Boming and Gao, Xiaojian and Gui, Lin and Chen, Haopeng},
+title = {Incentivizing Cooperation for Handover Strategies in LEO Constellations via Fairness-guided MARL},
+year = {2026},
+issue_date = {February 2026},
+publisher = {Association for Computing Machinery},
+address = {New York, NY, USA},
+volume = {26},
+number = {1},
+issn = {1533-5399},
+abstract = {Handover (HO) is one of the pivotal technologies for mobility management in highly dynamic mega LEO Earth Orbit satellite constellations (MLSCs). Due to the lack of channel reservation under random access (RA) and the prohibitive overhead incurred by centralized HO scheduling, intense competition among massive connections (e.g., IoRT nodes) results in significant degradation of service continuity. To solve the above challenges, we propose a distributed fairness-guided handover strategy (DHO-F) to dynamically select the best HO target and sub-channel. Specifically, the DHO-F optimization problem is formulated based on max-min egalitarian fairness and further modeled as a multi-objective Markov decision process (MOMDP), where fairness is expressed by the social welfare function (SWF). To address MOMDP, the analytical form of the policy gradient to maximize fairness is derived. Subsequently, Multi-agent Proximal Policy Optimization (MAPPO) with distributed cooperation is exploited to achieve long-term maximization. The fairness-guided MAPPO (FG-MAPPO) features a hybrid network architecture that simultaneously takes into account maximizing individual link rates and fairness among UEs. It reconciles these two conflicting objectives through the collaboration between a throughput-oriented (TO) network and a fairness-oriented (FO) network. Additionally, a distributed training framework is implemented to improve the sample efficiency and data diversity for on-policy FG-MAPPO. FG-MAPPO is fully compatible with 3GPP’s conditional handover (CHO) framework, demonstrating that it can be implemented in real-world. Extensive evaluations demonstrate that DHO-F demonstrates superior performance even compared to centralized algorithms, achieving an average improvement of 3.48\% in SWF metric. Moreover, DHO-F establishes new SOTA performance in balancing fairness and rate maximization across medium-to-high load scenarios compared to IDQN, ISAC, and MAPPO.},
+journal = {ACM Trans. Internet Technol.},
+month = jan,
+articleno = {12},
+numpages = {30},
+keywords = {Mega satellite constellations, mobility management (MM), conditional handover (CHO), multi-agent reinforcement learning (MARL)}
+}
+
+@InProceedings{lxp-southbound,
+author="Lang, Xiupu
+and Gui, Lin",
+editor="Yu, Quan",
+title="Design of Southbound Interfaces in Heterogeneous Software-Defined Satellite Networks",
+booktitle="Space Information Network",
+year="2021",
+publisher="Springer Singapore",
+address="Singapore",
+pages="179--189",
+}
+
+@InProceedings{lxp-topologydesign,
+author="Lang, Xiupu
+and Zhang, Qi
+and Gui, Lin
+and Hao, Xuekun
+and Chen, Haopeng",
+editor="Yu, Quan",
+title="A Novel Topology Design Method for Multi-layered Optical Satellite Networks",
+booktitle="Space Information Networks",
+year="2020",
+publisher="Springer Singapore",
+address="Singapore",
+pages="87--98",
+}
+
+@inproceedings{lxp-networkControl,
+author = {Hao Li and Xiupu Lang and Lin Gui},
+title = {{Research on intelligent network control mechanism and protocol verification of spatial information network}},
+volume = {11617},
+booktitle = {International Conference on Optoelectronic and Microelectronic Technology and Application},
+editor = {Jennifer Liu},
+organization = {International Society for Optics and Photonics},
+publisher = {SPIE},
+pages = {116172Y},
+keywords = {Satellite network management and control, software defined network, hardware emulation platform, task planning, load offloading},
+year = {2020},
+doi = {10.1117/12.2585403},
+URL = {https://doi.org/10.1117/12.2585403}
+}
